@@ -2,6 +2,7 @@ import { PublicLayout } from '../layouts/PublicLayout.jsx';
 import { RouteError, RouteLoading, NotFound } from '../pages/RouteStates.jsx';
 import { modules } from './modules.js';
 import { accountRoutes } from '../features/auth/routes.jsx';
+import { administrationRoutes } from '../features/admin/routes.jsx';
 
 async function loadModulePage() {
   return { Component: (await import('../pages/ModulePending.jsx')).default };
@@ -31,6 +32,7 @@ export const publicRoutes = [
             },
           ]),
           ...accountRoutes,
+          ...administrationRoutes,
           ...(import.meta.env.FDFS_DEV_SERVER
             ? [
                 {

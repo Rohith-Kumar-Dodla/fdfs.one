@@ -4,6 +4,11 @@ import { loadAuthConfig } from './config/auth.js';
 import { loadConfig, requireNamedDatabase } from './config/env.js';
 import { createLogger } from './config/logger.js';
 import { initializeAuthIndexes } from './modules/auth/models.js';
+import { initializePhase22Indexes } from './modules/admin/routes.js';
+import {
+  createCloudinaryProvider,
+  loadMediaConfig,
+} from './modules/media/provider.js';
 import {
   connectDatabase,
   disconnectDatabase,
@@ -25,6 +30,9 @@ async function start() {
     isDatabaseConnected: available,
     authConfig,
     authOptions: { available },
+    phase22Options: {
+      mediaProvider: createCloudinaryProvider(loadMediaConfig()),
+    },
   });
   const server = createServer(app);
 
@@ -79,7 +87,10 @@ async function start() {
     databaseStartup = connectDatabase(config.MONGODB_URI, logger).then(
       async () => {
         if (stopping) return;
-        await initializeAuthIndexes();
+        await Promise.all([
+          initializeAuthIndexes(),
+          initializePhase22Indexes(),
+        ]);
         indexesReady = true;
       },
     );

@@ -42,3 +42,19 @@ The development-only `/_dev/api` route exercises health and readiness. Authentic
 Guests can open `/login`, `/register`, `/verification-pending`, `/verify-email`, `/forgot-password` and `/reset-password`. Email links carry their one-time token in the fragment, which the form removes from the visible address after reading. Account-only pages are `/account` and `/account/settings` for profile changes, preferences, password changes and session revocation.
 
 Use the account guard for protected pages and supply verification or role requirements when the corresponding features are added. Backend authorization remains authoritative. The existing public header shows guest links or an account menu based on the restored session.
+
+## Responsive design
+
+Design every page and component from the smallest viewport first. Use fluid layouts and existing Tailwind breakpoints, with representative ranges covering small mobile (320–374px), medium mobile (375–424px), large mobile (425–639px), small tablet (640–767px), tablet (768–1023px), laptop (1024–1279px), desktop (1280–1535px) and large desktop (1536px and above).
+
+Ensure portrait and landscape layouts prevent unintended horizontal overflow. Scale typography, spacing and media with available width. Use touch-friendly controls, visible keyboard focus, responsive forms and scrollable modal dialogs. Give every essential action a keyboard and touch path. Include loading, empty and error states. Use record cards for administration lists below the laptop breakpoint and semantic tables where width permits.
+
+Account Settings wraps unbroken session device names and uses shrinkable form and session columns. The session list and confirmation dialog fit narrow viewports during sign-out and revocation.
+
+## Administration and media
+
+Verified administrators can open `/admin`, `/admin/users`, `/admin/submissions`, `/admin/media` and `/admin/audit`. The shared shell includes a desktop sidebar and a mobile modal navigation drawer. The users and submissions routes include detail pages with confirmation dialogs for consequential changes. Verified account holders manage their own submissions at `/submissions`.
+
+Account settings and the media library use the same file picker and responsive image component. Uploads use raw image bytes and bearer authentication. Previews use server-generated variants and image dimensions. The administration media library can preview a YouTube URL without saving a video record.
+
+The reusable YouTube player builds privacy-enhanced iframe URLs from validated video identifiers. It uses IFrame Player API events for loading, playback state and failures, with a canonical YouTube link as a fallback. It preserves provider controls, supports fullscreen, starts paused and maintains the provider's 200px minimum player height. Host the app with a referrer policy that permits the embedding origin. The page CSP restricts frames to `https://www.youtube-nocookie.com`. Keep that host in any additional CSP frame allowlist and include `https://www.youtube.com` in any script allowlist for the player API and widget. [YouTube IFrame Player reference](https://developers.google.com/youtube/iframe_api_reference)

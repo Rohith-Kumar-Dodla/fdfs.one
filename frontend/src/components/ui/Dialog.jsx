@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { IconButton } from './Button.jsx';
 
-export function Dialog({ open, onClose, title, children }) {
+export function Dialog({ open, onClose, title, children, className = '' }) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -23,7 +23,7 @@ export function Dialog({ open, onClose, title, children }) {
         event.preventDefault();
         onClose();
       }}
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-panel border border-line bg-surface text-foreground backdrop:bg-nav/80"
+      className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-panel border border-line bg-surface text-foreground backdrop:bg-nav/80 ${className}`}
     >
       <div className="p-5 sm:p-6">
         <header className="mb-4 flex items-center justify-between gap-4">

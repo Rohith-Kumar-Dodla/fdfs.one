@@ -24,6 +24,7 @@ import {
 } from './Form.jsx';
 import { forms } from './schemas.js';
 import { useAuthStore } from './state.js';
+import { ProfileImageSettings } from '../media/Images.jsx';
 
 const bioField = { name: 'bio', label: 'Biography', type: 'textarea' };
 
@@ -117,7 +118,7 @@ function Sessions({ generation }) {
     <Card
       as="section"
       aria-labelledby="sessions-heading"
-      className="grid gap-4"
+      className="grid min-w-0 grid-cols-1 gap-4"
     >
       <h2 id="sessions-heading" className="text-xl font-semibold">
         Active sessions
@@ -139,7 +140,7 @@ function Sessions({ generation }) {
               className="flex flex-wrap items-center justify-between gap-3 py-3"
             >
               <div className="min-w-0 flex-1 basis-52">
-                <p className="break-words text-sm font-semibold">
+                <p className="text-sm font-semibold wrap-anywhere">
                   {session.userAgent || 'Unknown device'}
                 </p>
                 <p className="text-sm text-muted">
@@ -204,8 +205,18 @@ export function AccountSettingsPage() {
   const navigate = useNavigate();
 
   return (
-    <Container className="grid max-w-copy! gap-6 py-12">
+    <Container className="grid max-w-copy! grid-cols-1 gap-6 py-12">
       <SectionHeading as="h1">Account settings</SectionHeading>
+      <Card
+        as="section"
+        aria-labelledby="profile-image-heading"
+        className="grid min-w-0 gap-4"
+      >
+        <h2 id="profile-image-heading" className="text-xl font-semibold">
+          Profile image
+        </h2>
+        <ProfileImageSettings key={user.id} account={user} />
+      </Card>
       <Card
         as="section"
         aria-labelledby="preferences-heading"

@@ -5,6 +5,32 @@ import { Button, buttonClasses } from '../../components/ui/Button.jsx';
 import { accounts } from './api.js';
 import { useAuthStore } from './state.js';
 import { useUiStore } from '../../stores/ui.js';
+import { useAccount } from './guards.jsx';
+
+function AccountFeatureLinks({ onNavigate }) {
+  const { data: account } = useAccount();
+  if (!account?.emailVerified) return null;
+  return (
+    <>
+      <Link
+        to="/submissions"
+        className={buttonClasses('ghost')}
+        onClick={onNavigate}
+      >
+        My submissions
+      </Link>
+      {account.roles.includes('admin') && (
+        <Link
+          to="/admin"
+          className={buttonClasses('ghost')}
+          onClick={onNavigate}
+        >
+          Administration
+        </Link>
+      )}
+    </>
+  );
+}
 
 export function AccountNavigation({ onNavigate, mobile = false }) {
   const status = useAuthStore((state) => state.status);
@@ -82,6 +108,7 @@ export function AccountNavigation({ onNavigate, mobile = false }) {
         >
           Settings
         </Link>
+        <AccountFeatureLinks onNavigate={close} />
         <Button variant="ghost" onClick={logout} loading={working}>
           Sign out
         </Button>

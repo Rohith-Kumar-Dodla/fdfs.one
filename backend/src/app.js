@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import { handleError, notFound } from './middlewares/errors.js';
 import { isCookieAuthPath } from './modules/auth/cookies.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
+import { mountPhase22 } from './modules/admin/routes.js';
 import { requestContext } from './middlewares/request-context.js';
 import { AppError } from './utils/app-error.js';
 import { sendError, sendSuccess } from './utils/responses.js';
@@ -15,6 +16,7 @@ export function createApp({
   isDatabaseConnected,
   authConfig,
   authOptions,
+  phase22Options,
 }) {
   const app = express();
   app.set('env', config.NODE_ENV);
@@ -77,6 +79,10 @@ export function createApp({
   if (authConfig) {
     const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);
     api.use('/auth', auth);
+    mountPhase22(api, authConfig, logger, {
+      available: authOptions?.available,
+      ...phase22Options,
+    });
     api.use('/users', users);
   }
 

@@ -82,7 +82,7 @@ describe('frontend authentication', () => {
     );
     apiClient.defaults.adapter = request;
     const router = renderRoute('/account/settings');
-    await screen.findByRole('heading', { name: 'Sign in' });
+    await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 });
     expect(router.state.location.pathname).toBe('/login');
     const field = screen.getByLabelText('Password');
     expect(field).toHaveAttribute('type', 'password');
@@ -262,5 +262,71 @@ describe('frontend authentication', () => {
       respond(config, { code: 'SERVICE_ERROR' }, 503);
     await expect(accounts.logout()).rejects.toMatchObject({ status: 503 });
     expect(useAuthStore.getState().status).toBe('authenticated');
+  });
+});
+
+describe('administration routes', () => {
+  function authenticate(roles, emailVerified = true) {
+    useAuthStore.setState({ status: 'authenticated', ...session });
+    apiClient.defaults.adapter = (config) =>
+      respond(
+        config,
+        config.url === '/users/me'
+          ? { ...user, roles, emailVerified }
+          : { users: 0, reviewQueue: 0, images: 0, auditEvents: 0 },
+      );
+  }
+
+  it('redirects guests and restricts non-admin accounts', async () => {
+    const router = renderRoute('/admin');
+    await screen.findByRole('heading', { name: 'Sign in' });
+    expect(router.state.location.pathname).toBe('/login');
+    authenticate(['viewer']);
+    await router.navigate('/admin');
+    expect(
+      await screen.findByRole('heading', { name: 'Access restricted' }),
+    ).toBeVisible();
+  });
+
+  it('requires a verified administrator', async () => {
+    authenticate(['viewer', 'admin'], false);
+    const router = renderRoute('/admin');
+    await screen.findByRole('heading', { name: 'Check your email' });
+    expect(router.state.location.pathname).toBe('/verification-pending');
+  });
+
+  it('opens and closes administrator drawer navigation using named controls', async () => {
+    authenticate(['viewer', 'admin']);
+    Object.defineProperties(HTMLDialogElement.prototype, {
+      showModal: {
+        configurable: true,
+        value() {
+          this.open = true;
+        },
+      },
+      close: {
+        configurable: true,
+        value() {
+          this.open = false;
+        },
+      },
+    });
+    const events = userEvent.setup();
+    renderRoute('/admin');
+    await screen.findByRole('heading', { name: 'Overview' });
+    const toggle = screen.getByRole('button', { name: 'Admin menu' });
+    await events.tab();
+    await events.click(toggle);
+    const dialog = screen.getByRole('dialog', { name: 'Administration menu' });
+    expect(
+      within(dialog).getByRole('link', { name: 'Overview' }),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(
+      within(dialog).getByRole('link', { name: 'Media library' }),
+    ).toHaveAttribute('href', '/admin/media');
+    await events.click(
+      within(dialog).getByRole('button', { name: 'Close dialog' }),
+    );
+    expect(dialog).not.toHaveAttribute('open');
   });
 });

@@ -7,10 +7,12 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "test": "vitest run",
-    "auth:bootstrap-admin": "node src/modules/auth/bootstrap-admin.js"
+    "auth:bootstrap-admin": "node src/modules/auth/bootstrap-admin.js",
+    "media:cleanup": "node src/modules/media/cleanup.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.0",
@@ -19,6 +21,7 @@
     "mongoose": "^9.0.0",
     "nodemailer": "^10.6.1",
     "pino": "^10.3.0",
+    "sharp": "^0.35.5",
     "zod": "^4.3.0"
   },
   "devDependencies": {

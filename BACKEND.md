@@ -6,7 +6,7 @@ The Express modular monolith exposes REST endpoints under `/api/v1`. `src/app.js
 
 ## Environment
 
-Create root `.env` from `.env.example` if needed. Process values take precedence over the root file. Supply the Atlas URI with the intended database in its path, for example `/<database>?...`, and preserve the URI's existing connection options. Allow the app host in Atlas network access and give the database user permissions to create the auth indexes and read and write application records. Startup requires a named database and `JWT_ACCESS_SECRET`. Readiness includes auth index creation. Keep actual environment files outside Git.
+Create root `.env` from `.env.example` if needed. Process values take precedence over the root file. Supply the Atlas URI with `/fdfs` in its path and preserve its connection options. Allow the app host in Atlas network access and give the database user permissions to create application indexes and read and write application records. Startup requires a named database and `JWT_ACCESS_SECRET`. Readiness includes authentication, submission, media and audit index creation. Use a replica set for transactional operations. Keep actual environment files outside Git.
 
 Set `APP_WEB_URL` to the exact frontend origin and include it in `CORS_ORIGINS`. Production requires HTTPS. Generate a signing key locally. This PowerShell command sets a development key for the current shell without displaying it. Use a persistent, securely managed random key for a shared environment.
 
@@ -15,6 +15,8 @@ $env:JWT_ACCESS_SECRET = node -p "require('node:crypto').randomBytes(48).toStrin
 ```
 
 SMTP uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `EMAIL_FROM`. Configure both credentials if authentication is required. Transport uses implicit TLS when `SMTP_SECURE=true` and requires STARTTLS otherwise. With SMTP entirely unconfigured the API starts, accounts stay unverified until email verification succeeds, and email requests return a generic acceptance response. Partial SMTP configuration fails startup. Email sends run asynchronously without logging addresses, credentials or links.
+
+Cloudinary uses server-only `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET`. The API starts without Cloudinary. Image writes return `MEDIA_UNAVAILABLE` when configuration is incomplete.
 
 ## API conventions
 
@@ -76,3 +78,36 @@ Proposed collections and indexes follow. Unique keys are marked explicitly.
 | Administrative audit logs                | Append actor, action, subject, request ID and timestamp. Index actor/time and subject/time. Exclude secrets and restrict write and read access.                                                                                                                          |
 
 Check references and allowed target types in services. Use transactions where writes across collections must succeed together. Archive public content and keep attribution and moderation history when references must survive removal. Revoke user sessions on deletion, anonymize retained contributions according to policy, and clean up private user records. Unlink or clean up dependent records before permanent deletion. Use UTC timestamps, typed public IDs in payloads and consistent pagination so both clients can follow the same links and rules.
+
+## Administration and moderation
+
+All `/api/v1/admin` routes require a bearer session and a currently active, verified administrator. The dashboard counts actual users, pending submissions, active image records and audit events.
+
+| Routes under `/api/v1/admin`                                      | Contract                                                                                                          |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                   | Database-backed counters.                                                                                         |
+| `GET /users`, `GET /users/:id`                                    | Paginated listing and safe detail. Filters accept `q`, `role`, `verified` and `status`.                           |
+| `PATCH /users/:id/role`                                           | Set `enabled` for a creator or organizer role. Grants require an active, verified target.                         |
+| `PATCH /users/:id/status`, `POST /users/:id/revoke-sessions`      | Suspend, reactivate or invalidate sessions. Status changes invalidate prior sessions through the account version. |
+| `GET /submissions`, `GET /submissions/:id`                        | Paginated review queue and submission details. Filter by `category` or `status`.                                  |
+| `POST /submissions/:id/moderate`, `POST /submissions/:id/publish` | Apply an allowed review action or delegate approved content to a registered feature publisher.                    |
+| `GET/POST /media`, `PUT/DELETE /media/:id`                        | Paginate, upload, replace and delete images.                                                                      |
+| `GET /audit`                                                      | Paginated audit history with optional `action` filter.                                                            |
+
+The bootstrap CLI remains the explicit administrator grant path. Dashboard mutations protect administrators, the caller's account and deleted accounts. Role changes, account status, session invalidation and their audit records commit together.
+
+Verified active owners can list and create at `GET/POST /api/v1/submissions`, read and edit via `GET/PATCH /api/v1/submissions/:id`, and send drafts for review via `POST /api/v1/submissions/:id/submit`. Creators can submit independent films and podcasts, organizers can submit live events, viewers can propose talent profiles or corrections, and administrators can submit any supported category including Originals. Owners edit drafts and rejected records. The owner path advances draft or rejected to submitted. Administrators advance submitted to under review, then approve or reject with a reason. Administrators can archive approved, rejected and published workflow records. Archiving the workflow record leaves any feature-specific publication state to the owning module.
+
+For publication, a category-specific handler must validate approved content and write the feature record inside the shared transaction. The workflow then records publication in the submission history and administrator audit. No feature publishers are enabled in this phase.
+
+## Shared media
+
+Image writes accept raw still JPEG, PNG or WebP up to 5 MiB. The server checks signatures, decodes the source with a pixel limit, rejects mismatched and animated inputs, strips metadata and re-encodes to WebP within a 2400px box. A per-IP upload quota applies after authentication and authorization. Cloudinary receives signed server uploads from those normalized bytes. [Cloudinary Node upload reference](https://cloudinary.com/documentation/node_image_and_video_upload)
+
+`MediaAsset` tracks the public application ID, Cloudinary public and asset IDs, owner, purpose, dimensions, byte size, secure delivery URL, references and lifecycle status. Responses provide size-limited variants as well as the original normalized image. Verified active users can read and replace their own avatar via `GET/PUT /api/v1/users/me/image`. Library replacements create a new asset ID. Live references block deletion or replacement. Future content modules should use the reference helpers in the same transaction as their feature records. Run `npm run media:cleanup -w @fdfs/backend` to retry pending deletes and clean staged uploads older than one hour, in batches of 100 pending deletions.
+
+The video source contract stores provider, provider video ID, canonical source URL, playback type, availability, and optional duration and thumbnail dimensions. YouTube supports on-demand, scheduled live, active live and replays through one adapter. Availability starts unknown unless established by the feature. The contract accepts validated YouTube watch, short-link, embed and live URLs.
+
+## Audit retention
+
+Audit entries store the actor, action, target, safe change summary, request ID, timestamp and success outcome for committed administrative mutations. The API exposes paginated reads to administrators. Application-level updates and deletes are unavailable. Keep indexes for time, target, actor and action. Set a production retention policy based on operational and privacy requirements before enabling automatic expiry.
