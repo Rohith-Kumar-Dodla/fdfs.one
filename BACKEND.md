@@ -6,7 +6,15 @@ The Express modular monolith exposes REST endpoints under `/api/v1`. `src/app.js
 
 ## Environment
 
-Copy the root `.env.example` to root `.env`. The backend finds that file relative to its source on every startup. Process environment variables take precedence, so root and workspace commands use the same configuration. Supply a MongoDB Atlas URI and allow the app host in Atlas network access. Use exact comma-separated HTTP(S) origins, including any non-default port. The example includes local port, logging and rate-limit defaults. Keep actual env files and credentials outside version control.
+Create root `.env` from `.env.example` if needed. Process values take precedence over the root file. Supply the Atlas URI with the intended database in its path, for example `/<database>?...`, and preserve the URI's existing connection options. Allow the app host in Atlas network access and give the database user permissions to create the auth indexes and read and write application records. Startup requires a named database and `JWT_ACCESS_SECRET`. Readiness includes auth index creation. Keep actual environment files outside Git.
+
+Set `APP_WEB_URL` to the exact frontend origin and include it in `CORS_ORIGINS`. Production requires HTTPS. Generate a signing key locally. This PowerShell command sets a development key for the current shell without displaying it. Use a persistent, securely managed random key for a shared environment.
+
+```powershell
+$env:JWT_ACCESS_SECRET = node -p "require('node:crypto').randomBytes(48).toString('hex')"
+```
+
+SMTP uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `EMAIL_FROM`. Configure both credentials if authentication is required. Transport uses implicit TLS when `SMTP_SECURE=true` and requires STARTTLS otherwise. With SMTP entirely unconfigured the API starts, accounts stay unverified until email verification succeeds, and email requests return a generic acceptance response. Partial SMTP configuration fails startup. Email sends run asynchronously without logging addresses, credentials or links.
 
 ## API conventions
 
@@ -14,13 +22,35 @@ Copy the root `.env.example` to root `.env`. The backend finds that file relativ
 - Success uses `{ success: true, message, data, pagination? }`. Errors use `{ success: false, message, error: { code, details? } }`. Validation returns 400 with field paths and validation codes. Clients should branch on HTTP status and machine-readable error codes.
 - For future list endpoints, use `page` (default 1) and `limit` (default 20, maximum 100). Where requested by the endpoint, use pagination metadata with `page`, `limit`, `total` and `totalPages`. Define an endpoint-specific page/window cap before calculating offsets.
 - Plan endpoint-specific allowlists for filters and sort fields. Use `sort=field` for ascending and `sort=-field` for descending, with a unique tie-breaker. Validate query values before mapping them to database operators.
-- Keep status codes and payloads consistent across web and mobile. A later auth phase can use secure browser cookies with CSRF protection as applicable and an authorization header for mobile. Reserve 401 for missing or invalid authentication and 403 for insufficient permission.
+- Keep status codes and payloads consistent across clients. Use 401 for missing or invalid authentication and 403 for restricted accounts or insufficient permissions.
 
 ## Security and operations
 
 Helmet applies security headers. CORS permits configured browser origins and accepts requests without an Origin for native and server clients. The API limits JSON bodies to 100 KiB and applies a per-IP, in-memory quota to versioned routes excluding probes. Before deploying behind a proxy or across replicas, review trusted proxy hops and shared rate-limit storage.
 
 The server echoes a valid UUID supplied as `X-Request-Id` or generates one. Pino logs request IDs, method, status, completion and duration. Logs omit headers, bodies, URLs and raw database errors, with redaction for common sensitive fields. Internal errors receive generic responses. Build indexes through a controlled deployment step when feature schemas are introduced.
+
+## Authentication and authorization
+
+The private account model stores normalized email under a unique index, a bcrypt hash, viewer/creator/organizer/admin roles, verification and lifecycle status, profile metadata and preferences. Registration assigns viewer. Creator and organizer roles require administrator approval. Account updates accept full name, biography and email-update preference. Talent Profiles remain a separate model. A suspended or deleted account cannot participate. Unverified accounts can sign in, manage their own account and sessions, and request email verification. Future submissions, reviews and community routes must require verified email and the applicable current role or owner.
+
+| Routes under `/api/v1`                                                                                     | Contract                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register`, `/auth/resend-verification`, `/auth/forgot-password`                                | Generic 202 responses. Signup accepts `fullName`, `email` and `password`. Email requests accept `email`.                                                                                    |
+| `POST /auth/login`, `/auth/refresh`, `/auth/logout`                                                        | Trusted browser origin and `X-FDFS-CSRF: 1`. Login accepts email and password. Login and refresh return `accessToken` and `sessionId`; the refresh credential stays in the HttpOnly cookie. |
+| `POST /auth/verify-email`, `/auth/reset-password`                                                          | Accept `token` and `password`. Verification checks the existing password to prevent accepting a signup created by someone else. Reset sets the replacement password.                        |
+| `GET /auth/me`, `GET/PATCH /users/me`                                                                      | Bearer-authenticated private account read and allowlisted updates.                                                                                                                          |
+| `POST /auth/change-password`, `/auth/logout-all`, `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId` | Bearer-authenticated password or session management. Password change takes `currentPassword` and `password`.                                                                                |
+
+Access JWTs use HS256, a configured issuer and audience, and a 900-second default lifetime. Every protected request checks current account status, roles and session state. Refresh credentials contain a random secret. MongoDB stores its digest and atomically rotates the current digest into the used history. One concurrent request succeeds; overlap receives 409 without a cookie update. Known reuse after five seconds revokes the session. Sessions expire after 30 days by default, or sooner when revoked. TTL removes expired records. Password resets, password changes and logout-all invalidate earlier sessions through the account version. Passwords require at least 12 characters and at most 72 UTF-8 bytes for bcrypt. Auth rate limits are per IP and process, with a stored per-account resend cooldown.
+
+The refresh cookie is host-only, HttpOnly, SameSite=Lax and scoped to `/api/v1/auth`, with Secure in production. Deploy the web app and API on the same site. Verification and recovery use one-time hashed tokens with 24-hour and 30-minute lifetimes. Links use the configured frontend origin and put tokens in the URL fragment.
+
+Bootstrap the first administrator locally with an existing active, verified account. The confirmation must repeat the target email. The database enforces a one-time bootstrap and invalidates the promoted account's former sessions.
+
+```bash
+npm run auth:bootstrap-admin -w @fdfs/backend -- --email <email> --confirm <email>
+```
 
 ## Logical MongoDB architecture
 

@@ -54,3 +54,11 @@ export function loadConfig() {
   }
   return result.data;
 }
+
+export function requireNamedDatabase(uri) {
+  if (!/^mongodb(?:\+srv)?:\/\/[^/?#]+\/[^/?#]+(?:\?|$)/.test(uri)) {
+    throw new Error(
+      'Specify the intended database in the MONGODB_URI path before enabling accounts.',
+    );
+  }
+}

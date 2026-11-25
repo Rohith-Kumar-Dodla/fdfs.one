@@ -3,11 +3,19 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { handleError, notFound } from './middlewares/errors.js';
+import { isCookieAuthPath } from './modules/auth/cookies.js';
+import { createAuthRoutes } from './modules/auth/routes.js';
 import { requestContext } from './middlewares/request-context.js';
 import { AppError } from './utils/app-error.js';
 import { sendError, sendSuccess } from './utils/responses.js';
 
-export function createApp({ config, logger, isDatabaseConnected }) {
+export function createApp({
+  config,
+  logger,
+  isDatabaseConnected,
+  authConfig,
+  authOptions,
+}) {
   const app = express();
   app.set('env', config.NODE_ENV);
   app.disable('x-powered-by');
@@ -15,17 +23,20 @@ export function createApp({ config, logger, isDatabaseConnected }) {
   app.use(requestContext(logger));
   app.use(helmet());
   app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin) return callback(null, false);
-        if (config.CORS_ORIGINS.includes(origin)) return callback(null, true);
-        return callback(
-          new AppError(403, 'ORIGIN_NOT_ALLOWED', 'Origin not allowed'),
-        );
-      },
-      exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy'],
-      maxAge: 600,
-    }),
+    cors((req, done) =>
+      done(null, {
+        origin(origin, callback) {
+          if (!origin) return callback(null, false);
+          if (config.CORS_ORIGINS.includes(origin)) return callback(null, true);
+          return callback(
+            new AppError(403, 'ORIGIN_NOT_ALLOWED', 'Origin not allowed'),
+          );
+        },
+        exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy'],
+        credentials: Boolean(authConfig && isCookieAuthPath(req.path)),
+        maxAge: 600,
+      }),
+    ),
   );
 
   const api = express.Router();
@@ -62,6 +73,12 @@ export function createApp({ config, logger, isDatabaseConnected }) {
     }),
   );
   api.use(express.json({ limit: '100kb' }));
+
+  if (authConfig) {
+    const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);
+    api.use('/auth', auth);
+    api.use('/users', users);
+  }
 
   app.use('/api/v1', api);
   app.use(notFound);

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --strictPort",
-    "build": "vite build",
+    "build": "node --input-type=module -e \"process.env.NODE_ENV = 'production'; await (await import('vite')).build()\"",
     "test": "vitest run"
   },
   "dependencies": {

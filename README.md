@@ -13,7 +13,7 @@ FDFS is an entertainment, streaming and cinema community platform. Web developme
 
 ## Setup
 
-Use Node.js 24 LTS and npm. From the repository root, run `npm ci` and copy `.env.example` to `.env`. To run the full stack, set `MONGODB_URI` to a reachable MongoDB Atlas connection URI and allow your host in the Atlas network access list. Set `VITE_API_BASE_URL` if the API uses a different host or port. See [backend setup](BACKEND.md#environment) and [frontend setup](FRONTEND.md#api-and-state).
+Use Node.js 24 LTS and npm. From the repository root, run `npm ci` and create `.env` from `.env.example` if needed. Set the intended database in the Atlas URI path, allow your host in Atlas network access, and configure `JWT_ACCESS_SECRET`. Configure SMTP for verification and password recovery. See [backend setup](BACKEND.md#environment) and [frontend setup](FRONTEND.md#api-and-state).
 
 - `npm run dev` starts the frontend at http://localhost:5173 and the API at http://localhost:5000 by default.
 - `npm run dev:frontend` starts the frontend independently.
@@ -26,7 +26,9 @@ Use JavaScript ES modules, an npm workspace with one root lockfile, and a modula
 
 ## Roadmap
 
-Phase 1.1 implementation is complete and live Atlas verification is pending. Phase 1.2 implementation is complete. Overall Phase 1 remains pending until the live database and connected readiness checks pass. See [testing](TESTING.md) for results. Subsequent phases are planned.
+Phase 1 checks reached Atlas, returned health and readiness 200, and shut down cleanly. The configured URI selected MongoDB's default `test` database. Overall Phase 1 remains pending confirmation of the intended database.
+
+Phase 2.1 implements account and session management. Live SMTP delivery and deployment against the intended application database are pending. The GitHub remote is `origin/main`, with Phase 1 checkpoint `e43f0d4`. See [testing](TESTING.md) for verification results.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

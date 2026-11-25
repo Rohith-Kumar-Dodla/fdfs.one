@@ -8,10 +8,20 @@ The suite covers liveness, disconnected readiness, the ready response contract w
 
 On Node.js 24.22.3, a clean install from the root lockfile, lint, formatting checks, all 12 backend tests and the frontend production build passed. A runtime smoke check confirmed that Vite serves the shell and transformed React entry. The backend served liveness 200 and readiness 503 with a deliberately unreachable local database address, then shut down cleanly after its connection attempt failed. A separate startup check confirmed that a missing URI produces a clear configuration error.
 
-Live Atlas verification is pending because a valid `MONGODB_URI` was unavailable. With the URI and permitted network access, verify startup, `GET /api/v1/ready` returning 200 with the live connection, and clean shutdown.
+The Phase 1 checkpoint connected to live Atlas, passed a read-only ping, served health and readiness 200, and disconnected on graceful shutdown. The URI selected MongoDB's default `test` database. Confirmation of the intended named database remains pending. Git ignores the actual `.env`.
 
 ## Phase 1.2 results
 
 Lint, formatting and the frontend production build passed on Node.js 24.22.3. All 27 frontend tests and 12 backend tests passed.
 
-Chrome verified the public layout at widths of 320, 390, 768 and 1440 pixels. Checks included no horizontal overflow on the smaller viewports, mobile menu and dialog keyboard focus, in-page scrolling and a direct movie detail URL. The browser used Axios through the development diagnostic route to reach Express at an overridden `VITE_API_BASE_URL` with the default frontend CORS origin. It received liveness 200 and readiness 503 while MongoDB was unreachable. After the connection attempt failed, Express closed a pending HTTP connection at the drain deadline and completed shutdown. The browser retry then reported the backend offline. The connected response is covered by a frontend test fixture pending live Atlas verification.
+Chrome verified the public layout at widths of 320, 390, 768 and 1440 pixels, including mobile keyboard focus and in-page scrolling. Axios reached Express and reported readiness 503 with MongoDB unreachable, then reported the backend offline after shutdown. The Phase 1 carry-forward live readiness check returned 200.
+
+## Phase 2.1 verification
+
+Run the full test suite with `TEST_MONGODB_URI` pointing to a disposable, unauthenticated loopback MongoDB instance, such as `mongodb://127.0.0.1:27017`. Integration tests generate a separate database name and drop it at teardown. Without that variable, the database integration suite is skipped. The tests use Nodemailer's isolated JSON transport.
+
+Coverage includes registration races, bcrypt hash storage, verification and reset expiry and replay, password changes, JWT validation, concurrent refresh rotation, revocation, multiple devices, live role enforcement, privilege escalation protection, CSRF, rate limits, protected frontend routes and session restoration.
+
+On Node.js 24.22.3, lint, formatting, the production build and 35 frontend plus 28 backend tests passed. Chrome used the running Express entry point and isolated MongoDB for registration, login, profile updates, cookie rotation on reload, device listing, password-change revocation, mobile sign-out and clean shutdown. An additional Chrome run verified email links and password recovery through Express with Nodemailer's JSON test transport.
+
+The production dependency audit reported zero known vulnerabilities. The production bundle excluded diagnostics and configured backend secrets. Live SMTP delivery and authentication against the intended Atlas database remain pending.

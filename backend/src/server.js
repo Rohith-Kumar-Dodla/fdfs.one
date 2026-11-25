@@ -1,7 +1,9 @@
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
-import { loadConfig } from './config/env.js';
+import { loadAuthConfig } from './config/auth.js';
+import { loadConfig, requireNamedDatabase } from './config/env.js';
 import { createLogger } from './config/logger.js';
+import { initializeAuthIndexes } from './modules/auth/models.js';
 import {
   connectDatabase,
   disconnectDatabase,
@@ -10,13 +12,19 @@ import {
 
 async function start() {
   const config = loadConfig();
+  requireNamedDatabase(config.MONGODB_URI);
+  const authConfig = loadAuthConfig(config);
   const logger = createLogger(config.LOG_LEVEL);
   let stopping = false;
+  let indexesReady = false;
   let databaseStartup;
+  const available = () => !stopping && indexesReady && isDatabaseConnected();
   const app = createApp({
     config,
     logger,
-    isDatabaseConnected: () => !stopping && isDatabaseConnected(),
+    isDatabaseConnected: available,
+    authConfig,
+    authOptions: { available },
   });
   const server = createServer(app);
 
@@ -68,11 +76,17 @@ async function start() {
   server.listen(config.PORT, () => {
     if (stopping) return;
     logger.info({ port: config.PORT }, 'HTTP server listening');
-    databaseStartup = connectDatabase(config.MONGODB_URI, logger);
+    databaseStartup = connectDatabase(config.MONGODB_URI, logger).then(
+      async () => {
+        if (stopping) return;
+        await initializeAuthIndexes();
+        indexesReady = true;
+      },
+    );
     databaseStartup.catch(() => {
       if (stopping) return;
       logger.error(
-        'MongoDB startup failed. Check the connection settings and Atlas network access.',
+        'Database startup failed. Check MongoDB connectivity and index permissions.',
       );
       void shutdown('database_startup_error', 1);
     });

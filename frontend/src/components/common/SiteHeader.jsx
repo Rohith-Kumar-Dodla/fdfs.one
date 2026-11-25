@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Link, matchPath, useLocation } from 'react-router';
+import { AccountNavigation } from '../../features/auth/AccountNavigation.jsx';
 import { modules } from '../../routes/modules.js';
 import { useUiStore } from '../../stores/ui.js';
 import { IconButton } from '../ui/Button.jsx';
@@ -46,7 +47,7 @@ export function SiteHeader() {
 
   useEffect(() => {
     if (!open) return;
-    const desktop = window.matchMedia('(min-width: 48rem)');
+    const desktop = window.matchMedia('(min-width: 64rem)');
     const closeAtDesktop = (event) => {
       if (event.matches) setOpen(false);
     };
@@ -72,12 +73,15 @@ export function SiteHeader() {
         >
           FDFS<span className="text-accent">.ONE</span>
         </Link>
-        <nav aria-label="Primary" className="hidden md:block">
+        <nav aria-label="Primary" className="hidden lg:block">
           <NavigationLinks pathname={pathname} />
         </nav>
+        <div className="hidden lg:block">
+          <AccountNavigation />
+        </div>
         <IconButton
           ref={toggle}
-          className="md:hidden"
+          className="lg:hidden"
           label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
           aria-controls={mobileNavigationId}
@@ -93,7 +97,7 @@ export function SiteHeader() {
       <div
         id={mobileNavigationId}
         hidden={!open}
-        className="border-t border-line md:hidden"
+        className="border-t border-line lg:hidden"
       >
         <Container as="nav" aria-label="Mobile primary">
           <NavigationLinks
@@ -101,6 +105,9 @@ export function SiteHeader() {
             onNavigate={() => setOpen(false)}
             mobile
           />
+          <div className="border-t border-line py-3">
+            <AccountNavigation mobile onNavigate={() => setOpen(false)} />
+          </div>
         </Container>
       </div>
     </header>
