@@ -1,0 +1,70 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { handleError, notFound } from './middlewares/errors.js';
+import { requestContext } from './middlewares/request-context.js';
+import { AppError } from './utils/app-error.js';
+import { sendError, sendSuccess } from './utils/responses.js';
+
+export function createApp({ config, logger, isDatabaseConnected }) {
+  const app = express();
+  app.set('env', config.NODE_ENV);
+  app.disable('x-powered-by');
+
+  app.use(requestContext(logger));
+  app.use(helmet());
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin) return callback(null, false);
+        if (config.CORS_ORIGINS.includes(origin)) return callback(null, true);
+        return callback(
+          new AppError(403, 'ORIGIN_NOT_ALLOWED', 'Origin not allowed'),
+        );
+      },
+      exposedHeaders: ['X-Request-Id', 'RateLimit', 'RateLimit-Policy'],
+      maxAge: 600,
+    }),
+  );
+
+  const api = express.Router();
+  api.get('/health', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    return sendSuccess(res, { status: 'ok' });
+  });
+  api.get('/ready', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!isDatabaseConnected()) {
+      return sendError(res, {
+        status: 503,
+        code: 'DEPENDENCY_UNAVAILABLE',
+        message: 'Application is not ready',
+        details: { database: 'unavailable' },
+      });
+    }
+    return sendSuccess(res, { status: 'ready', database: 'connected' });
+  });
+
+  api.use(
+    rateLimit({
+      windowMs: config.RATE_LIMIT_WINDOW_MS,
+      limit: config.RATE_LIMIT_MAX,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      handler(req, res) {
+        return sendError(res, {
+          status: 429,
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'Too many requests',
+        });
+      },
+    }),
+  );
+  api.use(express.json({ limit: '100kb' }));
+
+  app.use('/api/v1', api);
+  app.use(notFound);
+  app.use(handleError);
+  return app;
+}

@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', Inter, system-ui, sans-serif;
+  --color-base: #111827;
+  --color-nav: #121212;
+  --color-surface: #1f2937;
+  --color-accent: #facc15;
+  --color-accent-hover: #eab308;
+  --color-ink: #17130a;
+  --color-foreground: #ffffff;
+  --color-muted: #9ca3af;
+  --color-line: #374151;
+  --color-control: #6b7280;
+  --color-danger: #ef4444;
+  --color-danger-text: #fca5a5;
+  --color-success: #86efac;
+  --color-warning: #fde68a;
+  --color-disabled: #aeb6c3;
+  --color-focus: #fde68a;
+  --radius-control: 0.625rem;
+  --radius-panel: 1rem;
+  --container-site: 76rem;
+  --container-copy: 40rem;
+  --default-transition-duration: 160ms;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    background: var(--color-base);
+    color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 4px;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .form-control {
+    @apply w-full min-h-11 rounded-control border border-control bg-base px-3.5 py-2.5 text-sm text-foreground transition placeholder:text-muted disabled:cursor-not-allowed disabled:bg-surface disabled:text-disabled;
+  }
+
+  .form-control[aria-invalid='true'] {
+    @apply border-danger;
+  }
+
+  .hero-image {
+    background-color: var(--color-nav);
+  }
+
+  .hero-image::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background: linear-gradient(
+      135deg,
+      transparent 45%,
+      color-mix(in srgb, var(--color-nav) 32%, transparent)
+    );
+    pointer-events: none;
+  }
+}
