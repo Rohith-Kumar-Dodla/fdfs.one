@@ -2,13 +2,21 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
+import { apiClient } from '../src/api/client.js';
 import { publicRoutes } from '../src/routes/public-routes.jsx';
 
 function renderRoute(path) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <RouterProvider
-      router={createMemoryRouter(publicRoutes, { initialEntries: [path] })}
-    />,
+    <QueryClientProvider client={client}>
+      <RouterProvider
+        router={createMemoryRouter(publicRoutes, { initialEntries: [path] })}
+      />
+    </QueryClientProvider>,
   );
 }
 
@@ -60,8 +68,6 @@ describe('public routes', () => {
     ['/live/event', 'Live'],
     ['/reviews', 'Reviews'],
     ['/movies/movie', 'Reviews'],
-    ['/talent', 'Talent'],
-    ['/talent/profile', 'Talent'],
   ])('resolves %s and highlights its module', async (path, title) => {
     renderRoute(path);
     expect(
@@ -77,6 +83,66 @@ describe('public routes', () => {
       ),
     ).toHaveAttribute('aria-current', 'page');
   });
+
+  it.each([
+    ['/talent', 'Talent', 'No talent profiles published yet'],
+    ['/talent/profile', 'Talent profile unavailable', null],
+  ])(
+    'resolves %s and highlights the Talent module',
+    async (path, title, empty) => {
+      const original = apiClient.defaults.adapter;
+      apiClient.defaults.adapter = async (config) => {
+        if (config.url === '/talent/profile')
+          throw new AxiosError(
+            'Fixture not found',
+            'ERR_BAD_REQUEST',
+            config,
+            undefined,
+            {
+              status: 404,
+              headers: {},
+              data: {
+                success: false,
+                message: 'Fixture not found',
+                error: { code: 'TALENT_NOT_FOUND' },
+              },
+            },
+          );
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            success: true,
+            message: 'OK',
+            data: [],
+            pagination: { totalPages: 0 },
+          },
+        };
+      };
+      try {
+        renderRoute(path);
+        expect(
+          await screen.findByRole(
+            'heading',
+            { name: title, level: 1 },
+            { timeout: 5000 },
+          ),
+        ).toBeVisible();
+        if (empty)
+          expect(
+            await screen.findByRole('heading', { name: empty }),
+          ).toBeVisible();
+        expect(
+          within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+            'link',
+            { name: 'Talent' },
+          ),
+        ).toHaveAttribute('aria-current', 'page');
+      } finally {
+        apiClient.defaults.adapter = original;
+      }
+    },
+  );
 
   it('toggles mobile navigation, restores focus on Escape and focuses main after navigation', async () => {
     const user = userEvent.setup();

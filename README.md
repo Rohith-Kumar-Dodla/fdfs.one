@@ -32,7 +32,9 @@ Support small mobile (320–374px), medium mobile (375–424px), large mobile (4
 
 Phase 1 is PASS. Atlas selected `fdfs`, health and readiness returned HTTP 200, and graceful shutdown disconnected MongoDB.
 
-Phase 2.1 passed isolated Atlas authentication and live Gmail inbox delivery using a temporary SMTP hostname override. Saving the verified Gmail hostname in the local environment is pending. Phase 2.2 implements the administrator dashboard, submissions, audit logging, Cloudinary images and YouTube embedding. Phase 2.2 and overall Phase 2 verification are PENDING. See [testing](TESTING.md) for the latest verification and open requirements.
+Phase 2.1 is PASS. Gmail authenticated using the saved hostname, and earlier delivery tests confirmed both messages in the authorized inbox. Phase 2.2 runtime verification includes live Cloudinary upload and deletion and playback of the authorized YouTube embed. The Phase 2 GitHub checkpoint is pending authorization for the default branch.
+
+Phase 3.1 passed automated checks and browser verification against the Express API and an isolated MongoDB replica set. It adds the published Talent directory and profile pages, an administrator Talent Profiles section, and talent proposals and corrections through the shared moderation workflow. Real profile onboarding requires authorized profile information and media. See [testing](TESTING.md) for verification results.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

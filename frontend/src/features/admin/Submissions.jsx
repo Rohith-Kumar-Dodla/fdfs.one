@@ -1,7 +1,14 @@
 ﻿import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useOutletContext, useParams } from 'react-router';
+import {
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
+import { TalentSubmission } from '../talent/Proposal.jsx';
+import { ProfileContent, TalentImage } from '../talent/Public.jsx';
 import {
   Badge,
   Card,
@@ -70,16 +77,22 @@ function SubmissionForm({ record }) {
     film: 'creator',
     podcast: 'creator',
     live: 'organizer',
-    talent: 'viewer',
   };
   const available = categories.filter(
     ([category]) =>
-      account.roles.includes('admin') ||
-      account.roles.includes(roles[category]),
+      category !== 'talent' &&
+      (account.roles.includes('admin') ||
+        account.roles.includes(roles[category])),
   );
   const change = useChange([ownerUrl], ({ data }) => {
     if (!record) navigate(ownerUrl + '/' + data.id);
   });
+  if (!record && available.length === 0)
+    return (
+      <p className="text-sm text-muted">
+        A creator or organizer role is required for other submission categories.
+      </p>
+    );
 
   return (
     <form
@@ -149,19 +162,37 @@ function SubmissionForm({ record }) {
 }
 
 export function NewSubmissionPage() {
+  const [search] = useSearchParams();
+  const talent = search.get('category') === 'talent';
   return (
     <OwnerShell>
       <DetailLink to={ownerUrl}>Back to submissions</DetailLink>
-      <SectionHeading as="h1">New submission</SectionHeading>
-      <Card>
-        <SubmissionForm />
-      </Card>
+      {talent ? (
+        <TalentSubmission
+          targetId={search.get('target')}
+          slug={search.get('slug')}
+        />
+      ) : (
+        <>
+          <SectionHeading as="h1">New submission</SectionHeading>
+          <DetailLink to={ownerUrl + '/new?category=talent'}>
+            Suggest a talent profile
+          </DetailLink>
+          <Card>
+            <SubmissionForm />
+          </Card>
+        </>
+      )}
     </OwnerShell>
   );
 }
 
 export function SubmissionList({ admin = false }) {
-  const records = useRecords(admin ? adminUrl : ownerUrl);
+  const [search] = useSearchParams();
+  const records = useRecords(
+    admin ? adminUrl : ownerUrl,
+    search.get('category') === 'talent' ? { category: 'talent' } : {},
+  );
   const content = (
     <>
       <SectionHeading as="h1">
@@ -205,6 +236,8 @@ function SubmissionActions({ record, admin, url }) {
     ownerUrl,
     '/admin/overview',
     '/admin/audit',
+    '/admin/talent',
+    'talent',
   ]);
   function confirm(label, suffix, data) {
     change.reset();
@@ -226,7 +259,11 @@ function SubmissionActions({ record, admin, url }) {
       {!admin && editable && (
         <Card className="grid gap-4">
           <h2 className="text-lg font-semibold">Edit submission</h2>
-          <SubmissionForm key={record.id} record={record} />
+          {record.category === 'talent' ? (
+            <TalentSubmission key={record.id} record={record} />
+          ) : (
+            <SubmissionForm key={record.id} record={record} />
+          )}
           <div>
             <Button
               variant="outline"
@@ -279,7 +316,23 @@ function SubmissionActions({ record, admin, url }) {
               </div>
             </form>
           )}
-          {record.status === 'approved' && (
+          {record.status === 'approved' && record.proposal && (
+            <div>
+              <Button
+                onClick={() =>
+                  confirm(
+                    record.proposal.targetId
+                      ? 'Publish correction'
+                      : 'Publish talent profile',
+                    'publish',
+                  )
+                }
+              >
+                Publish approved proposal
+              </Button>
+            </div>
+          )}
+          {record.status === 'approved' && !record.proposal && (
             <p className="text-sm text-muted">
               Publishing requires an enabled workflow for this category.
             </p>
@@ -332,6 +385,38 @@ export function SubmissionDetail({ admin = false }) {
                 <p>Rejection reason · {record.rejectionReason}</p>
               )}
             </Card>
+            {record.proposal && (
+              <Card className="grid min-w-0 gap-4 wrap-anywhere">
+                <h2 className="text-lg font-semibold">
+                  {record.proposal.targetId
+                    ? 'Proposed correction'
+                    : 'Proposed profile'}
+                </h2>
+                {admin && record.proposal.targetId && (
+                  <DetailLink to={'/admin/talent/' + record.proposal.targetId}>
+                    Review current profile
+                  </DetailLink>
+                )}
+                <TalentImage cover image={record.proposalImages?.coverImage} />
+                <TalentImage image={record.proposalImages?.profileImage} />
+                <h3 className="font-semibold">
+                  {record.proposal.profile.displayName}
+                </h3>
+                <p>{record.proposal.profile.introduction}</p>
+                <ProfileContent profile={record.proposal.profile} />
+              </Card>
+            )}
+            {record.publishedResource && (
+              <DetailLink
+                to={
+                  admin
+                    ? '/admin/talent/' + record.publishedResource.id
+                    : '/talent/' + record.publishedResource.slug
+                }
+              >
+                Open published profile
+              </DetailLink>
+            )}
             <SubmissionActions record={record} admin={admin} url={url} />
             <Card className="grid gap-3 wrap-anywhere">
               <h2 className="text-lg font-semibold">Moderation history</h2>

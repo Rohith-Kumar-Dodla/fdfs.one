@@ -14,7 +14,10 @@ export const accountKeys = {
 };
 
 function setIdentity(session) {
-  queryClient.clear();
+  queryClient.removeQueries({
+    predicate: (query) => query.meta?.public !== true,
+  });
+  queryClient.getMutationCache().clear();
   useAuthStore.setState(({ generation }) => ({
     accessToken: session?.accessToken ?? null,
     sessionId: session?.sessionId ?? null,

@@ -7,6 +7,9 @@ const adminSubmissionPage = (name) => async () => {
   const Page = (await import('./Submissions.jsx'))[name];
   return { Component: () => <Page admin /> };
 };
+const adminTalentPage = (name) => async () => ({
+  Component: (await import('../talent/Admin.jsx'))[name],
+});
 
 export const administrationRoutes = [
   {
@@ -37,6 +40,9 @@ export const administrationRoutes = [
             }),
           },
           { path: 'submissions', lazy: adminSubmissionPage('SubmissionList') },
+          { path: 'talent', lazy: adminTalentPage('AdminTalentList') },
+          { path: 'talent/new', lazy: adminTalentPage('AdminNewTalent') },
+          { path: 'talent/:id', lazy: adminTalentPage('AdminTalentDetail') },
           {
             path: 'submissions/:id',
             lazy: adminSubmissionPage('SubmissionDetail'),

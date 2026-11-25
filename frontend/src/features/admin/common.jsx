@@ -39,8 +39,8 @@ export function Select({ label, options, value, onChange }) {
   );
 }
 
-export function useRecords(url) {
-  const [params, setParams] = useState({ page: 1 });
+export function useRecords(url, initial = {}) {
+  const [params, setParams] = useState({ page: 1, ...initial });
   const query = useQuery({
     queryKey: [url, params],
     queryFn: ({ signal }) => get(url, signal, params),

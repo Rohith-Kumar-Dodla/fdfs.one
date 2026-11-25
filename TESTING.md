@@ -28,7 +28,7 @@ The production dependency audit reported zero known vulnerabilities. The product
 
 An isolated Atlas database passed registration, email verification, login, refresh cookie rotation, password recovery and session invalidation. The probe dropped its isolated database afterward. The main `fdfs` database was used for readiness and index checks.
 
-Gmail authenticated over STARTTLS and accepted both transaction emails with the configured sender. Both subjects were confirmed in the authorized recipient's inbox. The generated links used the configured frontend origin and the expected verification and recovery routes. The probe used `SMTP_HOST=smtp.gmail.com` as a process override. Save that hostname in the local environment for normal startup to use the verified configuration.
+Gmail authenticated over STARTTLS and accepted both transaction emails with the configured sender. Both subjects were confirmed in the authorized recipient's inbox. The generated links used the configured frontend origin and the expected verification and recovery routes. The Phase 3.1 carry-forward probe authenticated using the saved `SMTP_HOST=smtp.gmail.com` setting. No delivery retry was required. Phase 2.1 is PASS.
 
 ## Phase 2.2 verification
 
@@ -44,4 +44,14 @@ Check each page and component from 320px upward using fluid Tailwind layouts. Co
 
 Headless Chrome exercised a production build with isolated API responses at all nine widths and at 568×320 and 844×320 in landscape. The run covered public routes, authentication forms, account settings and sessions, owner submissions, administrator pages, mobile record cards, desktop tables, dialogs and image controls. It checked the keyboard skip link, Escape and drawer focus return, and enabled touch emulation on narrow viewports. The final pass found zero horizontal overflow, including the repaired account session layout with a long unbroken device name. Physical-device coverage is pending.
 
-Chrome rendered the authorized YouTube embed at 238×200px on the 320px viewport and at 890×501px on the 1280px viewport. The player initialized, but its video clock stayed at zero after interaction. Automated fixtures cover player loading, readiness and provider error handling. Live playback verification is pending.
+Chrome rendered the authorized YouTube embed at 238×200px on the 320px viewport and at 890×501px on the 1280px viewport. Phase 3.1 inspected the provider's ready iframe and found an accessible Play video control with a different selector than the earlier test expected. A trusted browser click on that control started playback and advanced the clock. The existing CSP and browser playback policies stayed in effect. Automated fixtures cover player loading, readiness and provider error handling.
+
+## Phase 3.1 verification
+
+All 97 automated tests passed on Node.js 24.22.1, with 46 frontend and 51 backend tests. The added coverage includes personality and URL validation, stable slug conflicts, published-only search and pagination, private-field protection, administrator access, proposal ownership and review, stale corrections, association, archival, media references, directory loading, session restoration during public reads and form validation. The transaction tests use disposable loopback replica-set databases. Lint, formatting and the production build passed. The production dependency audit reported zero vulnerabilities.
+
+A Cloudinary probe uploaded a temporary image, attached it as a portrait and cover in an isolated database, fetched the published image over HTTPS, verified that attachment blocked deletion, then detached and deleted it. The probe used a disposable local replica set. Production personality data was left untouched.
+
+Chrome emulation ran the production frontend against Express and an isolated MongoDB replica set at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568×320 and 844×320 in landscape. The directory, profile detail, owner correction, administrator listing and editor, and moderation view fit without horizontal overflow. The run checked the keyboard skip link, Escape and focus return in the archive dialog, touch-oriented layouts, search URL updates, and creating an administrator draft through the UI and reading it back from MongoDB. Physical-device coverage is pending.
+
+GitHub `main` was checked at `f015093`. The Phase 2.2 runtime checks are complete. Checkpoint `3c0ef59` is local pending authorization for a fast-forward push to the default branch.

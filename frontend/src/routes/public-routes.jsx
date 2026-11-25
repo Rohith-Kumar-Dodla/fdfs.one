@@ -8,6 +8,10 @@ async function loadModulePage() {
   return { Component: (await import('../pages/ModulePending.jsx')).default };
 }
 
+const talentPage = (name) => async () => ({
+  Component: (await import('../features/talent/Public.jsx'))[name],
+});
+
 export const publicRoutes = [
   {
     element: <PublicLayout />,
@@ -24,11 +28,21 @@ export const publicRoutes = [
             }),
           },
           ...modules.flatMap((module) => [
-            { path: module.path, handle: { module }, lazy: loadModulePage },
+            {
+              path: module.path,
+              handle: { module },
+              lazy:
+                module.path === '/talent'
+                  ? talentPage('TalentDirectory')
+                  : loadModulePage,
+            },
             {
               path: module.detailPath ?? `${module.path}/:slug`,
               handle: { module },
-              lazy: loadModulePage,
+              lazy:
+                module.path === '/talent'
+                  ? talentPage('TalentProfile')
+                  : loadModulePage,
             },
           ]),
           ...accountRoutes,

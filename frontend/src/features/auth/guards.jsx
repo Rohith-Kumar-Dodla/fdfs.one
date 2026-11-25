@@ -24,7 +24,11 @@ export function AccountGuard({ verified = false, roles }) {
 
   if (status === 'guest')
     return (
-      <Navigate to="/login" replace state={{ from: destination.pathname }} />
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: destination.pathname + destination.search }}
+      />
     );
   if (status === 'unavailable')
     return (

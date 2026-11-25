@@ -98,21 +98,26 @@ export function MediaPage() {
               <li key={image.id}>
                 <Card className="grid gap-3">
                   <ImagePreview image={image} alt="Uploaded image preview" />
-                  <div className="text-sm text-muted">
+                  <div className="text-sm text-muted wrap-anywhere">
                     <p>
                       {image.width} × {image.height} ·{' '}
                       {Math.ceil(image.bytes / 1024)} KiB
                     </p>
                     <p>
-                      {image.purpose === 'profile'
-                        ? 'Profile image'
-                        : 'Library image'}{' '}
+                      {
+                        {
+                          profile: 'Account profile image',
+                          talent: 'Talent proposal image',
+                          library: 'Library image',
+                        }[image.purpose]
+                      }{' '}
                       · {date(image.createdAt)}
                     </p>
                     <p>
                       {image.references} active{' '}
                       {image.references === 1 ? 'reference' : 'references'}
                     </p>
+                    <p>Media ID {image.id}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button

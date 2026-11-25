@@ -129,6 +129,7 @@ export function UserDetailPage() {
                   user.emailVerified ? 'Verified' : 'Unverified',
                 ],
                 ['Created', date(user.createdAt)],
+                ['Account ID', user.id],
                 ['Updated', date(user.updatedAt)],
               ].map(([label, value]) => (
                 <div key={label}>

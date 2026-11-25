@@ -75,6 +75,26 @@ afterEach(() => {
 });
 
 describe('frontend authentication', () => {
+  it('keeps in-flight public data and clears private data when the session changes', async () => {
+    let complete;
+    const key = ['talent', 'public fixture'];
+    const read = queryClient.fetchQuery({
+      queryKey: key,
+      meta: { public: true },
+      queryFn: () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    });
+    queryClient.setQueryData(['private fixture'], 'private account data');
+    apiClient.defaults.adapter = (config) => respond(config, session);
+    await accounts.login({ email, password });
+    expect(queryClient.getQueryData(['private fixture'])).toBeUndefined();
+    complete('published profile data');
+    await expect(read).resolves.toBe('published profile data');
+    expect(queryClient.getQueryData(key)).toBe('published profile data');
+  });
+
   it('redirects guests from a private path and signs in with accessible form controls', async () => {
     const events = userEvent.setup();
     const request = vi.fn((config) =>

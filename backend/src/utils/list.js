@@ -21,13 +21,16 @@ export async function sendList(
   { page, limit },
   view,
   select,
+  sort = { createdAt: -1, _id: -1 },
+  configure = (query) => query,
 ) {
   const query = model
     .find(filter)
-    .sort({ createdAt: -1, _id: -1 })
+    .sort(sort)
     .skip((page - 1) * limit)
     .limit(limit);
   if (select) query.select(select);
+  configure(query);
   const [records, total] = await Promise.all([
     query.lean(),
     model.countDocuments(filter),

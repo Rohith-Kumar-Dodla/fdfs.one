@@ -27,7 +27,7 @@ Tailwind v4 and `styles/index.css` define the color, type, spacing and motion fo
 
 Use native semantic controls with visible focus, a named icon button for icon-only actions and `FormField` for labels, hints and validation errors. `useValidatedForm(schema)` connects React Hook Form to Zod. Dialogs use the browser's modal behavior. Use the shared container, section heading, feedback states and pagination before creating local equivalents.
 
-The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Module routes lazy-load a shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
+The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Talent loads the public directory and profile views. The other modules lazy-load a shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
 
 ## API and state
 
@@ -35,7 +35,7 @@ Vite loads environment files from the monorepo root. Use `VITE_API_BASE_URL` for
 
 `api/client.js` sets an eight-second Axios timeout, validates the success envelope and normalizes backend and network errors. API functions accept an AbortSignal. Use scoped query keys such as `['status', 'health']` and include parameters when they affect the result. Queries default to 30 seconds of freshness and retry a transient network or server failure once. Mutations are explicit and should invalidate their affected query keys after success. Zustand owns shared menu and toast state.
 
-The development-only `/_dev/api` route exercises health and readiness. Authentication uses the same Axios client and a shared wrapper for authenticated requests. Use `withCredentials` and the CSRF header for login, refresh and logout. Zustand holds the session ID, access token and initialization status in memory. TanStack Query owns account and session data. A single in-flight refresh shares results across concurrent requests, and Web Locks serialize cookie operations across tabs when supported. A protected request retries at most once in the same session. Authentication changes clear query caches.
+The development-only `/_dev/api` route exercises health and readiness. Authentication uses the same Axios client and a shared wrapper for authenticated requests. Use `withCredentials` and the CSRF header for login, refresh and logout. Zustand holds the session ID, access token and initialization status in memory. TanStack Query owns account and session data. A single in-flight refresh shares results across concurrent requests, and Web Locks serialize cookie operations across tabs when supported. A protected request retries at most once in the same session. Authentication changes clear private queries and mutation state. Explicitly public Talent reads can continue while a session is restored.
 
 ## Account routes
 
@@ -58,3 +58,11 @@ Verified administrators can open `/admin`, `/admin/users`, `/admin/submissions`,
 Account settings and the media library use the same file picker and responsive image component. Uploads use raw image bytes and bearer authentication. Previews use server-generated variants and image dimensions. The administration media library can preview a YouTube URL without saving a video record.
 
 The reusable YouTube player builds privacy-enhanced iframe URLs from validated video identifiers. It uses IFrame Player API events for loading, playback state and failures, with a canonical YouTube link as a fallback. It preserves provider controls, supports fullscreen, starts paused and maintains the provider's 200px minimum player height. Host the app with a referrer policy that permits the embedding origin. The page CSP restricts frames to `https://www.youtube-nocookie.com`. Keep that host in any additional CSP frame allowlist and include `https://www.youtube.com` in any script allowlist for the player API and widget. [YouTube IFrame Player reference](https://developers.google.com/youtube/iframe_api_reference)
+
+## Talent Profiles
+
+`/talent` uses Axios and TanStack Query for paginated directory data. The URL holds debounced name search, profession, sort and page. The grid adapts from one to four columns, and the controls and profile header stack on narrow screens. Image components select API-provided size variants and display a neutral icon when a portrait is unavailable.
+
+`/talent/:slug` renders the authorized fields the API returns. It sets a profile title, description and canonical URL in the browser. The linked filmography and podcast sections have empty states until those modules publish relationships.
+
+Verified account holders can open a structured talent proposal from the directory or start a correction from an individual profile. Administrators manage profiles under `/admin/talent`, review proposals through the existing submissions section, and use confirmation dialogs for publication, archiving and account association. The editor reuses media library uploads, supports replacing portrait and cover images, and accepts IDs of existing library images.

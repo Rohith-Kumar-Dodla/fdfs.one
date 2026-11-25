@@ -24,7 +24,7 @@ const schema = new mongoose.Schema(
     purpose: {
       type: String,
       required: true,
-      enum: ['library', 'profile'],
+      enum: ['library', 'profile', 'talent'],
       immutable: true,
     },
     status: {
@@ -62,7 +62,7 @@ const inUse = () =>
   );
 const noReferences = { 'references.0': { $exists: false } };
 
-function imageView({
+export function imageView({
   publicId,
   purpose,
   url,
@@ -192,8 +192,8 @@ export function createMediaService(provider, logger) {
   }
 
   return {
-    async uploadLibrary(user, bytes, type) {
-      const asset = await stage(user.publicId, 'library', bytes, type);
+    async uploadLibrary(user, bytes, type, purpose = 'library') {
+      const asset = await stage(user.publicId, purpose, bytes, type);
       const active = await MediaAsset.findOneAndUpdate(
         { _id: asset._id, status: 'staged' },
         { $set: { status: 'active' } },

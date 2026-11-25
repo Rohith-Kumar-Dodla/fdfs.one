@@ -6,6 +6,7 @@ import { handleError, notFound } from './middlewares/errors.js';
 import { isCookieAuthPath } from './modules/auth/cookies.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
 import { mountPhase22 } from './modules/admin/routes.js';
+import { publicTalentRoutes } from './modules/talent/routes.js';
 import { requestContext } from './middlewares/request-context.js';
 import { AppError } from './utils/app-error.js';
 import { sendError, sendSuccess } from './utils/responses.js';
@@ -75,6 +76,7 @@ export function createApp({
     }),
   );
   api.use(express.json({ limit: '100kb' }));
+  api.use('/talent', publicTalentRoutes(isDatabaseConnected));
 
   if (authConfig) {
     const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);

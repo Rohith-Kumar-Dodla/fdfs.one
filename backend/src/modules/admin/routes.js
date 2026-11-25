@@ -18,6 +18,8 @@ import {
   mediaListInput,
 } from '../media/assets.js';
 import { readImage, uploadRateLimit } from '../media/images.js';
+import { mountAdminTalent } from '../talent/routes.js';
+import { getProposalImages, publishTalent } from '../talent/service.js';
 import {
   createSubmission,
   editSubmissionInput,
@@ -48,6 +50,12 @@ const query = (res) => res.locals.validated.query;
 const body = (res) => res.locals.validated.body;
 const id = (res) => res.locals.validated.params.id;
 const user = (req) => req.auth.user;
+async function details(record) {
+  return {
+    ...submissionView(record, true),
+    ...(record.proposal && { proposalImages: await getProposalImages(record) }),
+  };
+}
 const context = (req, res) => ({
   actorId: user(req).publicId,
   requestId: res.get('X-Request-Id'),
@@ -93,6 +101,7 @@ export function mountPhase22(
   }
 
   admin.use(requireRoles('admin'));
+  mountAdminTalent(admin);
   admin.get('/overview', async (req, res) => {
     const [users, reviewQueue, images, auditEvents] = await Promise.all([
       User.countDocuments(),
@@ -132,6 +141,18 @@ export function mountPhase22(
   submissions.get('/', validate(submissionListInput), (req, res) =>
     listSubmissions(res, query(res), user(req).publicId),
   );
+  submissions.post('/talent-images', ...upload, async (req, res) =>
+    sendSuccess(
+      res,
+      await media.uploadLibrary(
+        user(req),
+        req.body,
+        req.get('Content-Type'),
+        'talent',
+      ),
+      { status: 201 },
+    ),
+  );
   submissions.post('/', validate(newSubmissionInput), async (req, res) =>
     sendSuccess(res, await createSubmission(user(req), body(res)), {
       status: 201,
@@ -140,7 +161,7 @@ export function mountPhase22(
   submissions.get('/:id', validate(submissionInput), async (req, res) =>
     sendSuccess(
       res,
-      submissionView(await getSubmission(id(res), user(req).publicId), true),
+      await details(await getSubmission(id(res), user(req).publicId)),
     ),
   );
   submissions.patch('/:id', validate(editSubmissionInput), async (req, res) =>
@@ -153,7 +174,7 @@ export function mountPhase22(
     listSubmissions(res, query(res)),
   );
   admin.get('/submissions/:id', validate(submissionInput), async (req, res) =>
-    sendSuccess(res, submissionView(await getSubmission(id(res)), true)),
+    sendSuccess(res, await details(await getSubmission(id(res)))),
   );
   admin.post(
     '/submissions/:id/moderate',
@@ -170,7 +191,10 @@ export function mountPhase22(
     async (req, res) =>
       sendSuccess(
         res,
-        await publishSubmission(id(res), context(req, res), publishers),
+        await publishSubmission(id(res), context(req, res), {
+          talent: publishTalent,
+          ...publishers,
+        }),
       ),
   );
 

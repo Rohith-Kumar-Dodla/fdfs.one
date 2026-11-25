@@ -6,7 +6,7 @@ The Express modular monolith exposes REST endpoints under `/api/v1`. `src/app.js
 
 ## Environment
 
-Create root `.env` from `.env.example` if needed. Process values take precedence over the root file. Supply the Atlas URI with `/fdfs` in its path and preserve its connection options. Allow the app host in Atlas network access and give the database user permissions to create application indexes and read and write application records. Startup requires a named database and `JWT_ACCESS_SECRET`. Readiness includes authentication, submission, media and audit index creation. Use a replica set for transactional operations. Keep actual environment files outside Git.
+Create root `.env` from `.env.example` if needed. Process values take precedence over the root file. Supply the Atlas URI with `/fdfs` in its path and preserve its connection options. Allow the app host in Atlas network access and give the database user permissions to create application indexes and read and write application records. Startup requires a named database and `JWT_ACCESS_SECRET`. Readiness includes authentication, submission, media, audit and Talent index creation. Use a replica set for transactional operations. Keep actual environment files outside Git.
 
 Set `APP_WEB_URL` to the exact frontend origin and include it in `CORS_ORIGINS`. Production requires HTTPS. Generate a signing key locally. This PowerShell command sets a development key for the current shell without displaying it. Use a persistent, securely managed random key for a shared environment.
 
@@ -98,7 +98,7 @@ The bootstrap CLI remains the explicit administrator grant path. Dashboard mutat
 
 Verified active owners can list and create at `GET/POST /api/v1/submissions`, read and edit via `GET/PATCH /api/v1/submissions/:id`, and send drafts for review via `POST /api/v1/submissions/:id/submit`. Creators can submit independent films and podcasts, organizers can submit live events, viewers can propose talent profiles or corrections, and administrators can submit any supported category including Originals. Owners edit drafts and rejected records. The owner path advances draft or rejected to submitted. Administrators advance submitted to under review, then approve or reject with a reason. Administrators can archive approved, rejected and published workflow records. Archiving the workflow record leaves any feature-specific publication state to the owning module.
 
-For publication, a category-specific handler must validate approved content and write the feature record inside the shared transaction. The workflow then records publication in the submission history and administrator audit. No feature publishers are enabled in this phase.
+For publication, a category-specific handler validates approved content and writes the feature record inside the shared transaction. The workflow then records publication in the submission history and administrator audit. Phase 3.1 enables the Talent publisher.
 
 ## Shared media
 
@@ -111,3 +111,24 @@ The video source contract stores provider, provider video ID, canonical source U
 ## Audit retention
 
 Audit entries store the actor, action, target, safe change summary, request ID, timestamp and success outcome for committed administrative mutations. The API exposes paginated reads to administrators. Application-level updates and deletes are unavailable. Keep indexes for time, target, actor and action. Set a production retention policy based on operational and privacy requirements before enabling automatic expiry.
+
+## Talent Profiles
+
+`Personality` is the shared public identity for cast, crew, filmmakers and guests. It has an immutable public UUID and unique slug, public profile fields, a controlled multi-role taxonomy and draft, published and archived states. Achievements reference the personality ObjectId and can include optional supporting URLs. Submitted achievements and links are profile claims. Match queries use normalized name prefixes, including alternative names and later words. Indexes cover public slug, associated account, published listing, professions and name search. Matching names can identify distinct records.
+
+| Routes under `/api/v1`              | Contract                                                                                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /talent`                       | Published directory using `q`, `profession`, `sort`, `page` and `limit`. Sort supports `name`, `-name` and `newest`.                      |
+| `GET /talent/:slug`                 | Published public fields, achievements and sized image variants. Returns 404 for unpublished, archived and missing profiles.               |
+| `GET/POST /admin/talent`            | Search all profiles, optionally filter by `status`, and create drafts with a generated or explicitly chosen slug.                         |
+| `GET/PATCH /admin/talent/:id`       | Read private management fields and edit profile content with the last-read `revision`.                                                    |
+| `POST /admin/talent/:id/status`     | With a matching revision, publish a draft, unpublish to draft, or archive a profile. Archival retains the record and media relationships. |
+| `PUT /admin/talent/:id/association` | Approve an active verified user UUID with a matching revision, or send `null` to remove the association.                                  |
+
+Administrator mutations require the current verified administrator role and are audited. An approved account association is private, grants zero permissions and is unique per account. Public responses omit account associations, revisions and internal ownership. Profile and achievement writes commit with media references and the audit entry.
+
+Owners use the existing submissions API with `category: "talent"` and `proposal: { targetId?, profile }`. A target must be a published profile. Only the submitter can edit draft or rejected proposals. An exact open creation proposal per owner or a second open correction by the same owner to the same target returns a conflict. Corrections record a target revision and require review against that same revision at publication. Approve or reject through the shared moderation route, then publish through the same submission publishing endpoint. Publication applies validated profile content and atomically records the resulting public resource and both audit entries. Older text-only submissions need structured details to publish.
+
+Verified submitters can upload owned media via `POST /submissions/talent-images` using the same raw bytes, validation and rate limit as the media library. Proposal asset IDs must belong to the submitter. Administrator editors can attach library or talent assets. Proposals and profiles hold explicit references. Publishing transfers references to the personality, and archiving a proposal releases proposal references. An image with an active reference is protected from deletion and replacement.
+
+For Phase 3.2, film credit records will reference film and personality ObjectIds with a credit role and optional credited-as value. Keep a unique film/personality/role/credited-as key and a reverse personality index. Filmography will query credits joined to published films. For Phase 4.1, episode participants will reference episode and personality ObjectIds, with a participation role, unique episode/personality/role and reverse personality index. Appearances will join participants to published episodes. Personality records hold the stable profile identity, while related titles and publication visibility come from the owning content modules.

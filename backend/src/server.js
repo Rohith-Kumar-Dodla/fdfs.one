@@ -5,6 +5,7 @@ import { loadConfig, requireNamedDatabase } from './config/env.js';
 import { createLogger } from './config/logger.js';
 import { initializeAuthIndexes } from './modules/auth/models.js';
 import { initializePhase22Indexes } from './modules/admin/routes.js';
+import { initializeTalentIndexes } from './modules/talent/models.js';
 import {
   createCloudinaryProvider,
   loadMediaConfig,
@@ -90,6 +91,7 @@ async function start() {
         await Promise.all([
           initializeAuthIndexes(),
           initializePhase22Indexes(),
+          initializeTalentIndexes(),
         ]);
         indexesReady = true;
       },

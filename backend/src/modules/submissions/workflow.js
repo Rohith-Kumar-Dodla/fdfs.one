@@ -4,6 +4,12 @@ import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import { idParams, listInput, sendList } from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
+import { talentProposal } from '../talent/schemas.js';
+import {
+  prepareTalentProposal,
+  proposalConflict,
+  setProposalReferences,
+} from '../talent/service.js';
 
 const permissions = {
   film: ['creator'],
@@ -58,6 +64,9 @@ const schema = new mongoose.Schema(
     status: { type: String, enum: states, default: 'draft' },
     reviewedAt: Date,
     rejectionReason: String,
+    proposal: mongoose.Schema.Types.Mixed,
+    proposalKey: { type: String, unique: true, sparse: true },
+    publishedResource: { id: String, slug: String },
     history: { type: [historySchema], default: [] },
   },
   { timestamps: true, bufferCommands: false },
@@ -73,11 +82,16 @@ export const submissionListInput = listInput({
   category: z.enum(categories).optional(),
 });
 export const newSubmissionInput = z.object({
-  body: z.strictObject({ category: z.enum(categories), title, summary }),
+  body: z.strictObject({
+    category: z.enum(categories),
+    title,
+    summary,
+    proposal: talentProposal.optional(),
+  }),
 });
 export const editSubmissionInput = z.object({
   params: idParams,
-  body: z.strictObject({ title, summary }),
+  body: z.strictObject({ title, summary, proposal: talentProposal.optional() }),
 });
 export const submissionInput = z.object({ params: idParams });
 export const moderationInput = z.object({
@@ -104,6 +118,8 @@ export function submissionView(record, detail = false) {
     createdAt,
     updatedAt,
     history,
+    proposal,
+    publishedResource,
   } = record;
   return {
     id: publicId,
@@ -114,7 +130,13 @@ export function submissionView(record, detail = false) {
     reviewedAt,
     createdAt,
     updatedAt,
-    ...(detail && { summary, rejectionReason, history }),
+    ...(detail && {
+      summary,
+      rejectionReason,
+      history,
+      proposal,
+      ...(publishedResource?.id && { publishedResource }),
+    }),
   };
 }
 
@@ -150,7 +172,7 @@ export function listSubmissions(res, query, owner) {
     filter,
     query,
     (record) => submissionView(record),
-    '-summary -history -rejectionReason',
+    '-summary -history -rejectionReason -proposal -proposalKey',
   );
 }
 
@@ -165,16 +187,71 @@ export async function getSubmission(id, owner) {
 
 export async function createSubmission(user, input) {
   assertParticipation(user, input.category);
+  if (input.proposal) {
+    assertTalentProposal(input.category);
+    return mongoose.connection
+      .transaction(async (session) => {
+        const prepared = await prepareTalentProposal(
+          user.publicId,
+          input.proposal,
+          session,
+        );
+        const record = new Submission({
+          ...input,
+          owner: user.publicId,
+          proposal: undefined,
+        });
+        await setProposalReferences(record, prepared.proposal, session);
+        record.set(prepared);
+        await record.save({ session });
+        return submissionView(record, true);
+      })
+      .catch(proposalConflict);
+  }
   return submissionView(
     await Submission.create({ ...input, owner: user.publicId }),
     true,
   );
 }
 
+function assertTalentProposal(category) {
+  if (category !== 'talent')
+    throw new AppError(
+      400,
+      'INVALID_PROPOSAL_CATEGORY',
+      'Structured talent details require the talent category.',
+    );
+}
+
 export async function updateOwnSubmission(user, id, input) {
   const record = await getSubmission(id, user.publicId);
   assertParticipation(user, record.category);
   if (!['draft', 'rejected'].includes(record.status)) throw invalidTransition();
+  if (input?.proposal) {
+    assertTalentProposal(record.category);
+    return mongoose.connection
+      .transaction(async (session) => {
+        const current = await Submission.findOne({
+          _id: record._id,
+          status: record.status,
+          __v: record.__v,
+        }).session(session);
+        if (!current) throw invalidTransition();
+        const { proposal, ...details } = input;
+        const prepared = await prepareTalentProposal(
+          user.publicId,
+          proposal,
+          session,
+          current.proposal,
+        );
+        await setProposalReferences(current, prepared.proposal, session);
+        current.set({ ...details, ...prepared });
+        current.increment();
+        await current.save({ session });
+        return submissionView(current, true);
+      })
+      .catch(proposalConflict);
+  }
   const update = input
     ? { $set: input }
     : {
@@ -208,11 +285,14 @@ export function moderateSubmission(id, input, context) {
     const changes = { status: transition.to };
     if (input.action !== 'archive') changes.reviewedAt = now;
     if (input.reason) changes.rejectionReason = input.reason;
+    if (input.action === 'archive' && record.proposal)
+      await setProposalReferences(record, null, session);
     const updated = await Submission.findOneAndUpdate(
       { _id: record._id, status: record.status },
       {
         $set: changes,
         $inc: { __v: 1 },
+        ...(input.action === 'archive' && { $unset: { proposalKey: 1 } }),
         $push: {
           history: {
             actorId: context.actorId,
@@ -257,7 +337,14 @@ export async function publishSubmission(id, context, publishers = {}) {
       status: 'approved',
     }).session(session);
     if (!record) throw invalidTransition();
-    await publisher({ submission: record, actorId: context.actorId, session });
+    const resource = await publisher({
+      submission: record,
+      actorId: context.actorId,
+      requestId: context.requestId,
+      session,
+    });
+    if (resource) record.publishedResource = resource;
+    record.proposalKey = undefined;
     record.status = 'published';
     record.history.push({
       actorId: context.actorId,

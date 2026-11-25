@@ -18,9 +18,12 @@ const linkClass =
 export function LoginPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const target = ['/account', '/account/settings'].includes(state?.from)
-    ? state.from
-    : '/account';
+  const target =
+    ['/account', '/account/settings'].includes(state?.from) ||
+    (typeof state?.from === 'string' &&
+      /^\/submissions\/new(?:\?|$)/.test(state.from))
+      ? state.from
+      : '/account';
 
   return (
     <AuthPage

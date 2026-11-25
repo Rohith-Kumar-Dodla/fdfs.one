@@ -13,6 +13,13 @@ export const actions = [
   'submission.publish',
   'media.replace',
   'media.delete',
+  'talent.create',
+  'talent.edit',
+  'talent.publish',
+  'talent.unpublish',
+  'talent.archive',
+  'talent.associate',
+  'talent.correction',
 ];
 
 const schema = new mongoose.Schema(
@@ -21,7 +28,7 @@ const schema = new mongoose.Schema(
     action: { type: String, required: true, enum: actions, immutable: true },
     targetType: {
       type: String,
-      enum: ['user', 'submission', 'media'],
+      enum: ['user', 'submission', 'media', 'personality'],
       required: true,
       immutable: true,
     },
@@ -43,6 +50,9 @@ const schema = new mongoose.Schema(
           'sessions',
           'submission-status',
           'asset',
+          'publication-status',
+          'profile',
+          'account-association',
         ],
       },
       from: String,
