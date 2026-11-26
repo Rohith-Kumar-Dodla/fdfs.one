@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { genres, languages } from '../../../../shared/films.js';
 import { professions } from '../../../../shared/talent.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
@@ -140,7 +140,7 @@ export const adminCreate = z.object({
 const revision = z.number().int().nonnegative();
 export const adminEdit = z.object({
   params: idParams,
-  body: details({ revision }),
+  body: details({ revision, keepPublished: z.literal(true).optional() }),
 });
 export const adminStatus = z.object({
   params: idParams,

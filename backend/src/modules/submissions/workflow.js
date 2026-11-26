@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
-import { idParams, listInput, sendList } from '../../utils/list.js';
+import {
+  idParams,
+  listInput,
+  searchPattern,
+  sendList,
+} from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
 import { eventProposal } from '../live/schemas.js';
 import {
@@ -32,7 +37,7 @@ const permissions = {
   live: ['organizer'],
   talent: ['viewer'],
 };
-const categories = Object.keys(permissions);
+export const categories = Object.keys(permissions);
 const states = [
   'draft',
   'submitted',
@@ -46,6 +51,7 @@ const transitions = {
   review: { from: ['submitted'], to: 'under_review' },
   approve: { from: ['under_review'], to: 'approved' },
   reject: { from: ['under_review'], to: 'rejected' },
+  request_changes: { from: ['under_review'], to: 'rejected' },
   archive: { from: ['approved', 'rejected', 'published'], to: 'archived' },
 };
 const historySchema = new mongoose.Schema(
@@ -94,6 +100,7 @@ export const Submission = mongoose.model('Submission', schema);
 const title = z.string().trim().min(3).max(160);
 const summary = z.string().trim().min(10).max(4000);
 export const submissionListInput = listInput({
+  q: z.string().trim().min(1).max(80).optional(),
   status: z.enum(states).optional(),
   category: z.enum(categories).optional(),
 });
@@ -122,7 +129,7 @@ export const moderationInput = z.object({
   params: idParams,
   body: z.discriminatedUnion('action', [
     z.strictObject({
-      action: z.literal('reject'),
+      action: z.enum(['reject', 'request_changes']),
       reason: z.string().trim().min(3).max(500),
     }),
     z.strictObject({ action: z.enum(['review', 'approve', 'archive']) }),
@@ -189,11 +196,13 @@ const invalidTransition = () =>
     'This action is unavailable for the current submission status.',
   );
 
-export function listSubmissions(res, query, owner) {
+export function listSubmissions(res, query, owner, allowed) {
   const filter = {};
   if (owner) filter.owner = owner;
   if (query.status) filter.status = query.status;
   if (query.category) filter.category = query.category;
+  else if (allowed) filter.category = { $in: allowed };
+  if (query.q) filter.title = searchPattern(query.q);
   return sendList(
     res,
     Submission,
@@ -396,6 +405,7 @@ export function moderateSubmission(id, input, context) {
         field: 'submission-status',
         from: record.status,
         to: transition.to,
+        reason: input.reason,
       },
     );
     return submissionView(updated, true);

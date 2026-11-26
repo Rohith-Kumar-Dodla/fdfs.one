@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
+import { contentModules, staffRoles } from '../../../../shared/admin.js';
 
 const { Schema } = mongoose;
-export const roles = ['viewer', 'creator', 'organizer', 'admin'];
+export const roles = ['viewer', 'creator', 'organizer', ...staffRoles];
 
 const challenge = new Schema(
   {
@@ -31,6 +32,9 @@ const userSchema = new Schema(
     },
     passwordHash: { type: String, required: true, select: false },
     roles: { type: [{ type: String, enum: roles }], default: ['viewer'] },
+    cmsModules: { type: [{ type: String, enum: contentModules }], default: [] },
+    superSeed: { type: Boolean, select: false },
+    policyVersion: { type: Number, select: false },
     emailVerifiedAt: { type: Date, default: null },
     status: {
       type: String,
@@ -58,6 +62,13 @@ userSchema.index(
   { bootstrapAdmin: 1 },
   { unique: true, partialFilterExpression: { bootstrapAdmin: true } },
 );
+
+userSchema.index(
+  { superSeed: 1 },
+  { unique: true, partialFilterExpression: { superSeed: true } },
+);
+userSchema.index({ roles: 1, status: 1 });
+userSchema.index({ emailVerifiedAt: 1 });
 
 const usedToken = new Schema(
   {

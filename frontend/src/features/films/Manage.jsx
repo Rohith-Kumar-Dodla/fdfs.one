@@ -1,4 +1,6 @@
-﻿import { useState } from 'react';
+import { can } from '../../../../shared/admin.js';
+import { useAccount } from '../auth/guards.jsx';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
 import {
@@ -35,7 +37,15 @@ import { VideoSection } from './Public.jsx';
 
 const adminPath = '/admin/films';
 const ownerPath = '/submissions/films';
-const keys = [adminPath, ownerPath, 'films', 'talent', '/admin/audit'];
+const keys = [
+  adminPath,
+  ownerPath,
+  'films',
+  'talent',
+  '/admin/audit',
+  '/admin/overview',
+  'site-homepage',
+];
 const statuses = ['draft', 'published', 'archived'];
 const columns = (destination) => [
   {
@@ -360,8 +370,12 @@ export function NewCreatorFilm() {
   );
 }
 
-export function AdminFilms() {
-  const records = useRecords(adminPath);
+export function AdminFilms({ classification }) {
+  const { data: account } = useAccount();
+  const records = useRecords(
+    adminPath,
+    classification ? { classification } : {},
+  );
   const select = (label, name, options) => (
     <Select
       label={label}
@@ -372,12 +386,24 @@ export function AdminFilms() {
   );
   return (
     <>
-      <SectionHeading as="h1">Films</SectionHeading>
+      <SectionHeading as="h1">
+        {filmLabels[classification] ?? 'Films'}
+      </SectionHeading>
       <div className="flex flex-wrap gap-x-5">
-        <DetailLink to={adminPath + '/new'}>Create an FDFS Original</DetailLink>
-        <DetailLink to="/admin/submissions?category=film">
-          Review independent film submissions
-        </DetailLink>
+        {classification !== 'original' &&
+          can(account, 'content', 'independent') && (
+            <DetailLink to="/admin/cinema/new">Add Film</DetailLink>
+          )}
+        {classification !== 'independent' &&
+          can(account, 'content', 'original') && (
+            <DetailLink to="/admin/originals/new">Add Original</DetailLink>
+          )}
+        {classification !== 'original' &&
+          can(account, 'content', 'independent') && (
+            <DetailLink to="/admin/submissions?category=film">
+              Review independent film submissions
+            </DetailLink>
+          )}
       </div>
       <form
         className="flex flex-wrap items-end gap-2"
@@ -396,7 +422,14 @@ export function AdminFilms() {
         <Button type="submit">Search</Button>
       </form>
       <div className="grid gap-3 sm:grid-cols-2">
-        {select('Classification', 'classification', Object.entries(filmLabels))}
+        {!classification &&
+          select(
+            'Classification',
+            'classification',
+            Object.entries(filmLabels).filter(([value]) =>
+              can(account, 'content', value),
+            ),
+          )}
         {select(
           'Publication status',
           'status',
@@ -404,10 +437,16 @@ export function AdminFilms() {
         )}
         {select('Genre', 'genre', Object.entries(genres))}
         {select('Language', 'language', Object.entries(languages))}
+        {select('Sort order', 'sort', [
+          ['newest', 'Newest release'],
+          ['title', 'Title A to Z'],
+          ['-title', 'Title Z to A'],
+          ['year', 'Release year'],
+        ])}
       </div>
       <Records
         records={records}
-        columns={columns((film) => film.id)}
+        columns={columns((film) => adminPath + '/' + film.id)}
         label="Managed films"
         empty="No films found"
       />
@@ -415,15 +454,20 @@ export function AdminFilms() {
   );
 }
 
-export function NewOriginal() {
+export function NewOriginal({ classification = 'original' }) {
+  const independent = classification === 'independent';
   const navigate = useNavigate();
   const change = useChange(keys, ({ data }) =>
     navigate(adminPath + '/' + data.id),
   );
   return (
     <>
-      <DetailLink to={adminPath}>Back to films</DetailLink>
-      <SectionHeading as="h1">Create FDFS Original</SectionHeading>
+      <DetailLink to={independent ? '/admin/cinema' : '/admin/originals'}>
+        Back to {filmLabels[classification]}
+      </DetailLink>
+      <SectionHeading as="h1">
+        {independent ? 'Add Film' : 'Create FDFS Original'}
+      </SectionHeading>
       <DetailLink to="/admin/media">Open media library</DetailLink>
       <FilmForm
         admin
@@ -431,9 +475,9 @@ export function NewOriginal() {
         change={change}
         save={(film) =>
           change.mutate({
-            url: adminPath,
+            url: independent ? '/admin/cinema' : adminPath,
             method: 'post',
-            data: { ...film, classification: 'original' },
+            data: { ...film, classification },
           })
         }
       />
@@ -545,7 +589,8 @@ export function AdminFilmDetail() {
             ) : (
               <FilmStatus film={film} />
             )}
-            {film.status === 'draft' ? (
+            {film.status === 'draft' ||
+            (film.status === 'published' && !film.creatorId) ? (
               <>
                 <ReviewVideos key={film.revision} film={film} />
                 <DetailLink to="/admin/media">Open media library</DetailLink>
@@ -558,7 +603,13 @@ export function AdminFilmDetail() {
                     change.mutate({
                       url,
                       method: 'patch',
-                      data: { ...data, revision: film.revision },
+                      data: {
+                        ...data,
+                        revision: film.revision,
+                        ...(film.status === 'published' && {
+                          keepPublished: true,
+                        }),
+                      },
                     })
                   }
                 />
@@ -566,7 +617,7 @@ export function AdminFilmDetail() {
             ) : (
               film.status === 'published' && (
                 <p className="text-sm text-muted">
-                  Unpublish the film to make direct edits.
+                  Unpublish to edit creator-submitted metadata.
                 </p>
               )
             )}

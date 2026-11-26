@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 
 export function FilmImage({
@@ -29,7 +29,7 @@ export function FilmImage({
   return (
     <img
       src={image.url}
-      alt=""
+      alt={image.alt ?? ''}
       width={image.width}
       height={image.height}
       className={style}

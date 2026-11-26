@@ -1,4 +1,4 @@
-﻿import { genres } from '../../../../shared/films.js';
+import { genres } from '../../../../shared/films.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
 import { imageView } from '../media/assets.js';
@@ -7,7 +7,8 @@ import { Film, FilmCredit } from './models.js';
 
 const cardFields =
   'publicId slug classification title synopsis genres language runtimeMinutes releaseYear poster releaseAt trailer.provider';
-const images = 'publicId purpose url width height bytes references createdAt';
+const images =
+  'publicId purpose url width height bytes references createdAt alt';
 export const missingFilm = () =>
   new AppError(404, 'FILM_NOT_FOUND', 'Film not found.');
 const released = (now) => ({ releaseAt: { $lte: now } });
@@ -15,8 +16,8 @@ const upcoming = (now) => ({ releaseAt: { $gt: now }, announce: true });
 const existsNow = (film, now) => film.releaseAt <= now;
 const viewImage = (asset) => {
   if (!asset?.url) return null;
-  const { url, variants, width, height } = imageView(asset);
-  return { url, variants, width, height };
+  const { url, variants, width, height, alt } = imageView(asset);
+  return { url, variants, width, height, ...(alt && { alt }) };
 };
 const populatePoster = (query) => query.populate('poster', images);
 const nameFilter = (q) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { useSiteSettings } from '../site/public.jsx';
 import { accountKeys, accounts } from './api.js';
 import {
   AuthForm,
@@ -18,10 +19,11 @@ const linkClass =
 export function LoginPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const settings = useSiteSettings();
   const target =
     ['/account', '/account/settings'].includes(state?.from) ||
     (typeof state?.from === 'string' &&
-      /^\/(?:submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|organizer\/live(?:\/new|\/[a-f0-9-]{36}(?:\/correction)?)?|(?:podcasts|live)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?|$)/.test(
+      /^\/(?:admin(?:\/[a-z0-9-]+)*|submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|organizer\/live(?:\/new|\/[a-f0-9-]{36}(?:\/correction)?)?|(?:podcasts|live)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?|$)/.test(
         state.from,
       ))
       ? state.from
@@ -45,9 +47,11 @@ export function LoginPage() {
         <Link to="/forgot-password" className={linkClass}>
           Forgot password?
         </Link>
-        <Link to="/register" className={linkClass}>
-          Create an account
-        </Link>
+        {settings.registrationOpen && !settings.maintenance && (
+          <Link to="/register" className={linkClass}>
+            Create an account
+          </Link>
+        )}
       </div>
     </AuthPage>
   );
@@ -55,6 +59,15 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const settings = useSiteSettings();
+  if (!settings.registrationOpen || settings.maintenance)
+    return (
+      <AuthPage title="Registration is currently closed">
+        <Link to="/login" className={linkClass}>
+          Sign in
+        </Link>
+      </AuthPage>
+    );
   return (
     <AuthPage title="Create an account">
       <AuthForm

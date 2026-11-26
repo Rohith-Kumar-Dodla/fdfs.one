@@ -10,9 +10,16 @@ const adminSubmissionPage = (name) => async () => {
 const adminTalentPage = (name) => async () => ({
   Component: (await import('../talent/Admin.jsx'))[name],
 });
-const filmPage = (name) => async () => ({
-  Component: (await import('../films/Manage.jsx'))[name],
-});
+const filmPage = (name, props) => async () => {
+  const Page = (await import('../films/Manage.jsx'))[name];
+  return { Component: () => <Page {...props} /> };
+};
+const adminPage = (file, name, props) => async () => {
+  const Page = (
+    await (file === 'Site' ? import('./Site.jsx') : import('./Moderation.jsx'))
+  )[name];
+  return { Component: () => <Page {...props} /> };
+};
 const podcastPage = (name) => async () => ({
   Component: (await import('../podcasts/Admin.jsx'))[name],
 });
@@ -28,7 +35,12 @@ const livePage = (name, props) => async () => {
 
 export const administrationRoutes = [
   {
-    element: <AccountGuard verified roles={['admin']} />,
+    element: (
+      <AccountGuard
+        verified
+        roles={['admin', 'super_admin', 'content_manager', 'moderator']}
+      />
+    ),
     children: [
       {
         path: '/admin',
@@ -54,6 +66,45 @@ export const administrationRoutes = [
               Component: (await import('./Users.jsx')).UserDetailPage,
             }),
           },
+          {
+            path: 'roles',
+            lazy: async () => ({
+              Component: (await import('./Users.jsx')).RolesPage,
+            }),
+          },
+          {
+            path: 'roles/:id',
+            lazy: async () => ({
+              Component: (await import('./Users.jsx')).UserDetailPage,
+            }),
+          },
+          { path: 'homepage', lazy: adminPage('Site', 'HomepageAdmin') },
+          { path: 'settings', lazy: adminPage('Site', 'SettingsAdmin') },
+          {
+            path: 'moderation',
+            lazy: adminPage('Moderation', 'CommunityAdmin'),
+          },
+          {
+            path: 'reports',
+            lazy: adminPage('Moderation', 'CommunityAdmin', { reports: true }),
+          },
+          {
+            path: 'moderation/live/:id',
+            lazy: adminPage('Moderation', 'LiveModerationAdmin'),
+          },
+          {
+            path: 'cinema',
+            lazy: filmPage('AdminFilms', { classification: 'independent' }),
+          },
+          {
+            path: 'cinema/new',
+            lazy: filmPage('NewOriginal', { classification: 'independent' }),
+          },
+          {
+            path: 'originals',
+            lazy: filmPage('AdminFilms', { classification: 'original' }),
+          },
+          { path: 'originals/new', lazy: filmPage('NewOriginal') },
           { path: 'submissions', lazy: adminSubmissionPage('SubmissionList') },
           { path: 'talent', lazy: adminTalentPage('AdminTalentList') },
           { path: 'talent/new', lazy: adminTalentPage('AdminNewTalent') },

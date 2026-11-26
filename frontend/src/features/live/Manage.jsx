@@ -6,6 +6,7 @@ import {
   eventCategories,
   formatEventTime,
 } from '../../../../shared/live.js';
+import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import {
   Card,
@@ -35,7 +36,14 @@ import {
 
 const options = (values) => values.map((value) => [value, readable(value)]);
 const listPath = (admin) => (admin ? '/admin/live' : '/organizer/live');
-const queryKeys = ['/admin/live', '/organizer/live', '/admin/audit', 'live'];
+const queryKeys = [
+  '/admin/live',
+  '/organizer/live',
+  '/admin/audit',
+  '/admin/overview',
+  'live',
+  'site-homepage',
+];
 function Workspace({ admin, children }) {
   return admin ? (
     children
@@ -159,6 +167,7 @@ function EventActions({ event, admin, path }) {
   const [confirmation, setConfirmation] = useState(null);
   const [error, setError] = useState('');
   const [thumb, setThumb] = useState(event.replayThumbnail);
+  const [publication, setPublication] = useState('');
   const change = useChange(queryKeys);
   const ask = (action, label, details) => {
     change.reset();
@@ -179,7 +188,10 @@ function EventActions({ event, admin, path }) {
   const editable = scheduled || event.broadcast === 'postponed';
   const published = event.status === 'published';
   const actions = [
-    ...(published && scheduled
+    ...(published &&
+    scheduled &&
+    (!event.publicationAt ||
+      Date.parse(event.publicationAt) <= Date.parse(event.serverNow))
       ? [['start', 'Start broadcast', { broadcasting: true }]]
       : []),
     ...(event.broadcast === 'live' ? [['end', 'End broadcast']] : []),
@@ -202,12 +214,41 @@ function EventActions({ event, admin, path }) {
       {actions.length > 0 && (
         <Card className="grid min-w-0 gap-3">
           <h2 className="text-lg font-semibold">Broadcast and publication</h2>
+          {admin &&
+            !published &&
+            (scheduled || event.moderation === 'approved') && (
+              <label className={field}>
+                Announcement publication time (optional, local)
+                <input
+                  type="datetime-local"
+                  className={control}
+                  value={publication}
+                  onChange={(event) => setPublication(event.target.value)}
+                />
+              </label>
+            )}
+          {published &&
+            event.publicationAt &&
+            Date.parse(event.publicationAt) > Date.parse(event.serverNow) && (
+              <p>
+                Announcement scheduled for{' '}
+                {new Date(event.publicationAt).toLocaleString()}.
+              </p>
+            )}
           <div className="flex flex-wrap gap-2">
             {actions.map(([action, label, details]) => (
               <Button
                 key={action}
                 variant="outline"
-                onClick={() => ask(action, label, details)}
+                onClick={() =>
+                  ask(
+                    action,
+                    label,
+                    action === 'publish' && publication
+                      ? { publicationAt: new Date(publication).toISOString() }
+                      : details,
+                  )
+                }
               >
                 {label}
               </Button>
@@ -281,7 +322,7 @@ function EventActions({ event, admin, path }) {
                 className={control}
                 maxLength={2048}
                 required
-                defaultValue={event.replay?.sourceUrl}
+                defaultValue={event.replay?.sourceUrl ?? event.plannedReplayUrl}
               />
             </label>
             <label className="flex min-h-11 items-center gap-2 text-sm">
@@ -367,8 +408,9 @@ function ChatSettings({ event, admin, path }) {
   );
 }
 
-function ChatModeration({ path }) {
+export function ChatModeration({ path }) {
   const [reports, setReports] = useState(false);
+  const [reason, setReason] = useState('');
   const [cursor, setCursor] = useState();
   const [confirmation, setConfirmation] = useState(null);
   const url = path + '/chat';
@@ -379,7 +421,12 @@ function ChatModeration({ path }) {
     queryFn: ({ signal }) =>
       get(url + (reports ? '/reports' : ''), signal, { cursor }),
   });
-  const change = useChange([url, '/admin/audit']);
+  const change = useChange([
+    url,
+    '/admin/audit',
+    '/admin/moderation/live-reports',
+    '/admin/overview',
+  ]);
   function action(operation, id, label, minutes) {
     change.reset();
     setConfirmation({
@@ -391,6 +438,7 @@ function ChatModeration({ path }) {
           action: operation,
           ...(operation === 'resolve' ? { reportId: id } : { messageId: id }),
           ...(minutes && { minutes }),
+          ...(reason.trim() && { reason: reason.trim() }),
         },
       },
     });
@@ -398,6 +446,15 @@ function ChatModeration({ path }) {
   return (
     <Card className="grid min-w-0 gap-4">
       <h2 className="text-lg font-semibold">Chat moderation</h2>
+      <label className={field}>
+        Moderation reason (optional)
+        <input
+          className={control}
+          maxLength={500}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </label>
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -448,7 +505,16 @@ function ChatModeration({ path }) {
                       </p>
                       <p className="whitespace-pre-wrap">{message.text}</p>
                       <div className="flex flex-wrap gap-2">
-                        {!row.hidden && (
+                        {row.hidden ? (
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              action('restore', message.id, 'Restore message')
+                            }
+                          >
+                            Restore message
+                          </Button>
+                        ) : (
                           <Button
                             variant="outline"
                             onClick={() =>
@@ -542,6 +608,23 @@ function ChatModeration({ path }) {
   );
 }
 
+function EventPreview({ event }) {
+  const [show, setShow] = useState(false);
+  const video = event.broadcast === 'ended' ? event.replay : event.video;
+  if (!video) return null;
+  return (
+    <Card className="grid min-w-0 gap-2">
+      <h2 className="font-semibold">Protected playback preview</h2>
+      <div>
+        <Button variant="outline" onClick={() => setShow(!show)}>
+          {show ? 'Close video preview' : 'Preview event video'}
+        </Button>
+      </div>
+      {show && <YouTubePlayer video={video} title={event.title + ' preview'} />}
+    </Card>
+  );
+}
+
 export function ManageLiveEvent({ admin = false, correction = false }) {
   const { id } = useParams();
   const base = listPath(admin);
@@ -611,6 +694,7 @@ export function ManageLiveEvent({ admin = false, correction = false }) {
                   }}
                 />
               )}
+              {admin && <EventPreview key={event.revision} event={event} />}
               {event.status !== 'archived' && (
                 <EventActions
                   key={event.revision}

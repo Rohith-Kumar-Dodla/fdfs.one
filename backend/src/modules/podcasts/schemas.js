@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { participantRoles } from '../../../../shared/podcasts.js';
 import { idParams, listInput, publicId } from '../../utils/list.js';
@@ -27,6 +27,7 @@ const releaseDate = z.iso.datetime();
 const revision = z.number().int().nonnegative();
 
 export const showContent = z.strictObject({
+  name: text(120).optional(),
   introduction: text(280),
   description: text(6000),
   coverId: publicId.optional(),
@@ -39,6 +40,7 @@ export const showContent = z.strictObject({
 
 export const episodeFields = {
   title: text(140),
+  commentsEnabled: z.boolean().optional(),
   synopsis: text(280),
   notes: text(12000).optional(),
   number: z.number().int().min(1).max(9999),
@@ -149,7 +151,7 @@ export const createEpisodeInput = z.object({
 });
 export const editEpisodeInput = z.object({
   params: idParams,
-  body: episode({ revision }),
+  body: episode({ revision, keepPublished: z.literal(true).optional() }),
 });
 export const publishEpisodeInput = z.object({
   params: idParams,

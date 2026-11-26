@@ -67,6 +67,9 @@ export const adminCreate = z.object({
     ...fields,
     slug: slug.optional(),
     organizerId: publicId.optional(),
+    plannedReplayUrl: youtubeUrl.optional(),
+    chatEnabled: z.boolean().optional(),
+    remindersEnabled: z.boolean().optional(),
   }),
 });
 export const adminEdit = z.object({
@@ -96,7 +99,6 @@ export const staffAction = z.object({
   params: idParams,
   body: z.union([
     action([
-      'publish',
       'unpublish',
       'archive',
       'cancel',
@@ -104,6 +106,11 @@ export const staffAction = z.object({
       'end',
       'remove_replay',
     ]),
+    z.strictObject({
+      action: z.literal('publish'),
+      revision,
+      publicationAt: time.optional(),
+    }),
     z.strictObject({
       action: z.literal('start'),
       revision,

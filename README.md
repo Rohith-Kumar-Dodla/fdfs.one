@@ -41,7 +41,13 @@ Overall Phase 3 is PASS. Phase 3.2 adds independent films in Cinema and FDFS pro
 
 Phase 4.1 adds 404 Reality Not Found show and episode management, scheduled release, chapters, Talent appearances, and episode comments and reports. An administrator configures the actual show and supplies authorized artwork, video URLs, guest and host profiles, and any real chapter timestamps. See [testing](TESTING.md) for verification and remaining work.
 
-Phase 4.2 adds FDFS Live discovery, organizer submissions and approvals, manual broadcast management, replays, chat moderation and email reminders. Authorized broadcasters configure their stream in YouTube Studio and OBS. A verified organizer or administrator starts the FDFS event after the YouTube stream is ready. Phase 4.1 is PASS. Phase 4.2 implementation and isolated checks are complete, and Phase 4.2 and overall Phase 4 are PENDING active YouTube Live playback verification. The supplied link played as a replay. Physical-device testing and production content onboarding remain open. See [backend operations](BACKEND.md#fdfs-live) and [Phase 4.2 verification](TESTING.md#phase-42-verification).
+Phase 4.2 adds FDFS Live discovery, organizer submissions and approvals, manual broadcast management, replays, chat moderation and email reminders. Authorized broadcasters configure their stream in YouTube Studio and OBS. A verified organizer or administrator starts the FDFS event after the YouTube stream is ready. Phase 4.1 is PASS. Phase 4.2 implementation and isolated checks are complete, and Phase 4.2 and overall Phase 4 are PENDING active YouTube Live playback verification. The supplied link played as a replay. GitHub `main` includes the Phase 4.2 checkpoint `cea3a01`. Physical-device testing and production content onboarding remain open. See [backend operations](BACKEND.md#fdfs-live) and [Phase 4.2 verification](TESTING.md#phase-42-verification).
+
+Phase 4A adds centralized administration and platform management. Open `/admin` with a verified administrator account and select a module to create a draft, review the content and publish it. Use Website Settings for public configuration and Homepage Management for a saved preview, hero publication and Phase 6.1 section configuration. Existing administrator accounts retain access. See the [Super Administrator bootstrap command](BACKEND.md#centralized-administration) for first-time staff-role management.
+
+Phase 4A.1 is PASS. See the [isolated CMS verification results](TESTING.md#phase-4a1-verification).
+
+The roadmap has 11 main phases and 22 subphases. Phase 4A.2 covers analytics, live presence, support tickets and platform operations.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system
@@ -51,6 +57,8 @@ Phase 4.2 adds FDFS Live discovery, organizer submissions and approvals, manual 
 - 3.2 Cinema and Originals full-stack
 - 4.1 404 Podcasts full-stack
 - 4.2 FDFS Live full-stack
+- 4A.1 Centralized Admin Dashboard, CMS and Website Management
+- 4A.2 User Analytics, Live Presence, Support Tickets and Platform Operations
 - 5.1 Movie catalog and review backend
 - 5.2 Movie discovery and community frontend
 - 6.1 Homepage and global discovery

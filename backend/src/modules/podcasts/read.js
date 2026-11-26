@@ -1,4 +1,4 @@
-﻿import { podcastBrand } from '../../../../shared/podcasts.js';
+import { podcastBrand } from '../../../../shared/podcasts.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
 import { imageView } from '../media/assets.js';
@@ -6,7 +6,7 @@ import { normalizedName } from '../talent/models.js';
 import { EpisodeParticipant, PodcastEpisode, PodcastShow } from './models.js';
 
 const mediaFields =
-  'publicId purpose url width height bytes references createdAt';
+  'publicId purpose url width height bytes references createdAt alt';
 const peopleFields = 'publicId displayName slug status';
 const cardFields =
   'publicId slug title synopsis number season language topics duration thumbnail releaseAt teaser.provider';
@@ -32,8 +32,15 @@ const visible = (now, availability) => ({
 });
 const image = (asset, managed = false) => {
   if (!asset?.url) return null;
-  const { id, url, variants, width, height } = imageView(asset);
-  return { url, variants, width, height, ...(managed && { id }) };
+  const { id, url, variants, width, height, alt } = imageView(asset);
+  return {
+    url,
+    variants,
+    width,
+    height,
+    ...(alt && { alt }),
+    ...(managed && { id }),
+  };
 };
 const person = ({ publicId, displayName, slug }) => ({
   id: publicId,
@@ -165,6 +172,7 @@ export async function findReleasedEpisode(slug) {
       show: show._id,
       slug,
       ...visible(new Date(), 'released'),
+      commentsEnabled: { $ne: false },
     })
       .select('_id')
       .lean());
@@ -218,6 +226,7 @@ export async function getEpisode(identifier, admin = false) {
   const { notes, links, advisory, chapters, mainVideo, teaser } = episode;
   const result = {
     ...card(episode, now, show, admin),
+    commentsEnabled: episode.commentsEnabled !== false,
     notes,
     links,
     advisory,

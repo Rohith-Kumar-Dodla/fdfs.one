@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../../middlewares/validate.js';
 import { sendSuccess } from '../../utils/responses.js';
@@ -85,7 +85,7 @@ export function publicLiveRoutes(available) {
   router.get('/:slug', validate(slugInput), async (_req, res) =>
     sendSuccess(
       res,
-      await liveDetails({ ...visibility, ...input(res).params }),
+      await liveDetails({ ...visibility(), ...input(res).params }),
     ),
   );
   router.get('/:slug/chat', validate(historicSlug), async (_req, res) =>
@@ -210,7 +210,7 @@ export function mountLiveManagement(
     const eventForChat = (req, res, session) =>
       findManaged(
         input(res).params.id,
-        scoped ? { ...scope(req), ...visibility } : {},
+        scoped ? { ...scope(req), ...visibility() } : {},
         session,
       );
     router.get('/live/:id/chat', validate(historicId), async (req, res) =>
@@ -244,7 +244,7 @@ export function mountLiveManagement(
           input(res).body,
           audit(req, res),
         );
-        if (result.removed) liveNotify(result);
+        if (result.removed || result.restored) liveNotify(result);
         return sendSuccess(res, result);
       },
     );

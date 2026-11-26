@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { languages } from '../../../../shared/films.js';
@@ -24,6 +24,7 @@ import {
 } from '../../components/ui/states.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { FilmImage } from '../films/FilmImage.jsx';
+import { useSiteSettings } from '../site/public.jsx';
 import { EpisodeComments } from './Comments.jsx';
 import { EpisodePlayer } from './Player.jsx';
 
@@ -331,7 +332,7 @@ export function PodcastLanding() {
           </div>
         )}
         <SectionHeading as="h1" description={show.data?.introduction}>
-          {podcastBrand.name}
+          {show.data?.name ?? podcastBrand.name}
         </SectionHeading>
       </header>
       {show.isPending && <Skeleton className="h-24" />}
@@ -368,6 +369,7 @@ export function PodcastLanding() {
 }
 
 export function EpisodeDetail() {
+  const settings = useSiteSettings();
   const { slug } = useParams();
   const query = useQuery({
     queryKey: [...podcastKeys, 'episode', slug],
@@ -475,9 +477,11 @@ export function EpisodeDetail() {
           )}
           <People entries={episode.participants} title="Hosts and guests" />
           <Resources links={episode.links} title="Resources" />
-          {episode.availability === 'released' && (
-            <EpisodeComments key={episode.slug} slug={episode.slug} />
-          )}
+          {episode.availability === 'released' &&
+            settings.communityOpen &&
+            episode.commentsEnabled !== false && (
+              <EpisodeComments key={episode.slug} slug={episode.slug} />
+            )}
         </>
       )}
     </Container>

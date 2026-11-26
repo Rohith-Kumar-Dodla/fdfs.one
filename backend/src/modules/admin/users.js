@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { staffRoles } from '../../../../shared/admin.js';
 import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import {
@@ -60,7 +61,7 @@ export function modifyUser(id, context, operation, input = {}) {
       throw new AppError(404, 'USER_NOT_FOUND', 'Account not found.');
     if (
       target.publicId === context.actorId ||
-      target.roles.includes('admin') ||
+      target.roles.some((role) => staffRoles.includes(role)) ||
       target.status === 'deleted'
     ) {
       throw new AppError(
@@ -111,7 +112,11 @@ export function modifyUser(id, context, operation, input = {}) {
     }
 
     const updated = await User.findOneAndUpdate(
-      { _id: target._id, roles: { $ne: 'admin' }, status: { $ne: 'deleted' } },
+      {
+        _id: target._id,
+        roles: { $nin: staffRoles },
+        status: { $ne: 'deleted' },
+      },
       update,
       { session, returnDocument: 'after' },
     );

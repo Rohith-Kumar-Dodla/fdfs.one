@@ -1,7 +1,14 @@
 import mongoose from 'mongoose';
+import { z } from 'zod';
+import { mediaCategories } from '../../../../shared/site.js';
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../../utils/app-error.js';
-import { listInput, sendList } from '../../utils/list.js';
+import {
+  idParams,
+  listInput,
+  searchPattern,
+  sendList,
+} from '../../utils/list.js';
 import { User } from '../auth/models.js';
 import { recordAudit } from '../admin/audit.js';
 import { normalizeImage } from './images.js';
@@ -32,6 +39,9 @@ const schema = new mongoose.Schema(
       required: true,
       enum: ['staged', 'active', 'deleting'],
     },
+    title: { type: String, maxlength: 100 },
+    alt: { type: String, maxlength: 200 },
+    category: { type: String, enum: Object.keys(mediaCategories) },
     url: String,
     width: Number,
     height: Number,
@@ -43,7 +53,21 @@ const schema = new mongoose.Schema(
 schema.index({ status: 1, createdAt: -1 });
 schema.index({ owner: 1, createdAt: -1 });
 export const MediaAsset = mongoose.model('MediaAsset', schema);
-export const mediaListInput = listInput();
+schema.index({ status: 1, category: 1, createdAt: -1 });
+export const mediaListInput = listInput({
+  q: z.string().trim().min(1).max(80).optional(),
+  category: z.enum(Object.keys(mediaCategories)).optional(),
+  usage: z.enum(['used', 'unused']).optional(),
+  library: z.literal('true').optional(),
+});
+export const mediaMetadataInput = z.object({
+  params: idParams,
+  body: z.strictObject({
+    title: z.string().trim().max(100),
+    alt: z.string().trim().max(200),
+    category: z.enum(Object.keys(mediaCategories)),
+  }),
+});
 
 const providerError = () =>
   new AppError(
@@ -71,6 +95,7 @@ export function imageView({
   bytes,
   references,
   createdAt,
+  alt,
 }) {
   const variants = [320, 640, 1280]
     .filter((size) => size < width)
@@ -90,13 +115,67 @@ export function imageView({
     width,
     height,
     bytes,
+    ...(alt && { alt }),
     references: references.length,
     createdAt,
   };
 }
 
-export function listMedia(res, query) {
-  return sendList(res, MediaAsset, { status: 'active' }, query, imageView);
+function libraryView(row) {
+  return {
+    ...imageView(row),
+    title: row.title,
+    category: row.category ?? 'uncategorized',
+    uploadedBy: row.owner,
+    usage: row.references.map(({ kind, targetId }) => ({ kind, targetId })),
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function listMedia(res, query, uploadDetails) {
+  const filter = {
+    status: 'active',
+    ...((!uploadDetails || query.library) && { purpose: 'library' }),
+  };
+  if (query.category === 'uncategorized')
+    filter.category = { $in: [null, 'uncategorized'] };
+  else if (query.category) filter.category = query.category;
+  if (query.usage) filter['references.0'] = { $exists: query.usage === 'used' };
+  if (query.q)
+    filter.$or = [
+      { title: searchPattern(query.q) },
+      { alt: searchPattern(query.q) },
+      { publicId: query.q },
+    ];
+  return sendList(
+    res,
+    MediaAsset,
+    filter,
+    query,
+    uploadDetails
+      ? libraryView
+      : (row) => ({
+          ...imageView(row),
+          title: row.title,
+          category: row.category ?? 'uncategorized',
+        }),
+  );
+}
+
+export function saveMediaMetadata(id, values, context) {
+  return mongoose.connection.transaction(async (session) => {
+    const row = await MediaAsset.findOneAndUpdate(
+      { publicId: id, status: 'active', purpose: 'library' },
+      { $set: values },
+      { session, returnDocument: 'after' },
+    );
+    if (!row) throw missing();
+    await recordAudit(session, context, 'media.metadata', 'media', id, {
+      field: 'asset',
+      to: values.category,
+    });
+    return libraryView(row);
+  });
 }
 
 export function attachReference(assetId, reference, session) {
@@ -272,9 +351,10 @@ export function createMediaService(provider, logger) {
       const { next, retired } = await mongoose.connection.transaction(
         async (session) => {
           const retired = await claimImage(id, session);
+          const { title, alt, category } = retired;
           const next = await MediaAsset.findOneAndUpdate(
             { _id: asset._id, status: 'staged' },
-            { $set: { status: 'active' } },
+            { $set: { status: 'active', title, alt, category } },
             { session, returnDocument: 'after' },
           );
           if (!next) throw providerError();

@@ -42,17 +42,25 @@ reminderSchema.index({ state: 1, dueAt: 1 });
 reminderSchema.index({ state: 1, leaseUntil: 1 });
 export const Reminder = mongoose.model('LiveReminder', reminderSchema);
 const dueFor = (event, minutes) =>
-  new Date(event.startAt.getTime() - minutes * 60000);
-const eligible = (event, now) =>
+  new Date(
+    Math.max(
+      event.startAt.getTime() - minutes * 60000,
+      event.publicationAt?.getTime() ?? 0,
+    ),
+  );
+const eligible = (event, now, allowScheduledPublication = false) =>
   event &&
   event.status === 'published' &&
   event.moderation === 'approved' &&
+  (!event.publicationAt ||
+    event.publicationAt <= now ||
+    (allowScheduledPublication && event.publicationAt < event.startAt)) &&
   event.broadcast === 'scheduled' &&
   event.remindersEnabled &&
   event.startAt > now;
 
 export async function replanReminders(event, minutes, session) {
-  const ready = eligible(event, new Date());
+  const ready = eligible(event, new Date(), true);
   if (!ready) {
     await Reminder.updateMany(
       { event: event._id, state: { $in: ['pending', 'claimed'] } },
@@ -74,6 +82,21 @@ export async function replanReminders(event, minutes, session) {
     },
     { session },
   );
+  if (event.publicationAt > new Date()) {
+    await Reminder.updateMany(
+      {
+        event: event._id,
+        version: event.scheduleVersion,
+        state: { $in: ['pending', 'claimed'] },
+        dueAt: { $lt: event.publicationAt },
+      },
+      {
+        $set: { state: 'pending', dueAt: event.publicationAt },
+        $unset: { claim: 1, leaseUntil: 1 },
+      },
+      { session },
+    );
+  }
   await Reminder.updateMany(
     { event: event._id, version: event.scheduleVersion, state: 'paused' },
     { $set: next, $unset: { claim: 1, leaseUntil: 1 } },
@@ -213,7 +236,7 @@ export async function processReminders(
     const [event, user] = await Promise.all([
       LiveEvent.findById(job.event)
         .select(
-          'slug title startAt timeZone status moderation broadcast remindersEnabled scheduleVersion',
+          'slug title startAt timeZone status moderation broadcast publicationAt remindersEnabled scheduleVersion',
         )
         .lean(),
       User.findOne({

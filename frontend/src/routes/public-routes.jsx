@@ -1,3 +1,4 @@
+import { LegalPage } from '../features/site/public.jsx';
 import { PublicLayout } from '../layouts/PublicLayout.jsx';
 import { RouteError, RouteLoading, NotFound } from '../pages/RouteStates.jsx';
 import { modules } from './modules.js';
@@ -63,6 +64,7 @@ export const publicRoutes = [
               lazy: modulePage(module.path, true),
             },
           ]),
+          { path: '/legal/:kind', element: <LegalPage /> },
           ...accountRoutes,
           ...administrationRoutes,
           ...(import.meta.env.FDFS_DEV_SERVER

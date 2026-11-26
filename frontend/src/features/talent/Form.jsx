@@ -1,5 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
+import { DetailLink, get } from '../admin/common.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import {
   Checkbox,
@@ -8,6 +10,7 @@ import {
   Textarea,
 } from '../../components/ui/fields.jsx';
 import { Card } from '../../components/ui/surfaces.jsx';
+import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
 import { linkKinds } from '../../../../shared/talent.js';
 import { professionOptions, TalentImage } from './Public.jsx';
@@ -49,6 +52,15 @@ function ImageField({ label, url, value, image, onChange, admin, cover }) {
             onChange={(event) => onChange(event.target.value)}
           />
         </Field>
+      )}
+      {admin && (
+        <MediaPicker
+          label={'Select ' + label.toLowerCase() + ' from library'}
+          onSelect={(asset) => {
+            setUploaded(asset);
+            onChange(asset.id);
+          }}
+        />
       )}
       <ImageUpload
         label={'Choose ' + label.toLowerCase()}
@@ -196,7 +208,7 @@ export function TalentForm({
   submit,
   label = 'Save profile',
 }) {
-  const { register, handleSubmit, control } = useForm({
+  const { register, handleSubmit, control, getValues } = useForm({
     defaultValues: {
       displayName: profile?.displayName ?? '',
       alternativeName: profile?.alternativeName ?? '',
@@ -220,6 +232,15 @@ export function TalentForm({
   const [error, setError] = useState('');
   const uploadUrl = admin ? '/admin/media' : '/submissions/talent-images';
 
+  const [duplicate, setDuplicate] = useState('');
+  const duplicates = useQuery({
+    queryKey: ['/admin/talent/duplicates', duplicate],
+    enabled: admin && duplicate.length >= 3,
+    queryFn: ({ signal }) =>
+      get('/admin/talent/duplicates', signal, { name: duplicate }).then(
+        (result) => result.data,
+      ),
+  });
   function save(values) {
     const selected = Array.isArray(values.professions)
       ? values.professions
@@ -300,6 +321,36 @@ export function TalentForm({
                 {...register('displayName')}
               />
             </Field>
+            {admin && (
+              <div className="grid gap-2">
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setDuplicate(getValues('displayName').trim())
+                    }
+                  >
+                    Check for matching names
+                  </Button>
+                </div>
+                {duplicates.data
+                  ?.filter(({ id }) => id !== profile?.id)
+                  .map((row) => (
+                    <DetailLink key={row.id} to={'/admin/talent/' + row.id}>
+                      {row.displayName} ({row.status})
+                    </DetailLink>
+                  ))}
+                {duplicates.isSuccess &&
+                  !duplicates.data.some(({ id }) => id !== profile?.id) && (
+                    <p className="text-sm text-muted">
+                      No matching names found.
+                    </p>
+                  )}
+                {duplicates.isError && (
+                  <p role="alert">{duplicates.error.message}</p>
+                )}
+              </div>
+            )}
             <Field label="Alternative or professional name">
               <TextInput maxLength={100} {...register('alternativeName')} />
             </Field>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -45,7 +45,7 @@ export function TalentImage({ image, cover = false }) {
   return (
     <img
       src={image.url}
-      alt=""
+      alt={image.alt ?? ''}
       width={image.width}
       height={image.height}
       onError={() => setBroken(image.url)}

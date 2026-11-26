@@ -10,32 +10,36 @@ import { Container } from '../ui/surfaces.jsx';
 const links = [{ label: 'Home', path: '/' }, ...modules];
 const mobileNavigationId = 'mobile-navigation';
 
-function NavigationLinks({ pathname, onNavigate, mobile }) {
+function NavigationLinks({ pathname, onNavigate, mobile, hiddenModules }) {
   return (
     <ul className={mobile ? 'grid gap-1 py-3' : 'flex items-center gap-1'}>
-      {links.map(({ label, path, detailPath }) => {
-        const active =
-          matchPath({ path, end: path === '/' }, pathname) ||
-          (detailPath && matchPath(detailPath, pathname));
+      {links
+        .filter(({ path }) => !hiddenModules.includes(path))
+        .map(({ label, path, detailPath }) => {
+          const active =
+            matchPath({ path, end: path === '/' }, pathname) ||
+            (detailPath && matchPath(detailPath, pathname));
 
-        return (
-          <li key={path}>
-            <Link
-              to={path}
-              aria-current={active ? 'page' : undefined}
-              onClick={onNavigate}
-              className={`flex min-h-11 items-center rounded-control px-3 text-sm font-semibold transition-colors hover:bg-surface hover:text-foreground ${active ? 'bg-accent/10 text-accent' : 'text-muted'}`}
-            >
-              {label}
-            </Link>
-          </li>
-        );
-      })}
+          return (
+            <li key={path}>
+              <Link
+                to={path}
+                aria-current={active ? 'page' : undefined}
+                onClick={onNavigate}
+                className={`flex min-h-11 items-center rounded-control px-3 text-sm font-semibold transition-colors hover:bg-surface hover:text-foreground ${active ? 'bg-accent/10 text-accent' : 'text-muted'}`}
+              >
+                {label}
+              </Link>
+            </li>
+          );
+        })}
     </ul>
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({
+  settings = { name: 'FDFS.ONE', hiddenModules: [] },
+}) {
   const { pathname, key } = useLocation();
   const open = useUiStore((state) => state.mobileMenuOpen);
   const setOpen = useUiStore((state) => state.setMobileMenuOpen);
@@ -67,17 +71,36 @@ export function SiteHeader() {
       <Container className="flex min-h-[4.5rem] items-center justify-between gap-4">
         <Link
           to="/"
-          aria-label="FDFS.ONE home"
-          className="shrink-0 text-[1.35rem] leading-none font-extrabold tracking-[-0.065em]"
+          aria-label={settings.name + ' home'}
+          className="max-w-48 min-w-0 wrap-anywhere text-[1.35rem] leading-none font-extrabold tracking-[-0.065em]"
           onClick={() => setOpen(false)}
         >
-          FDFS<span className="text-accent">.ONE</span>
+          {settings.logo?.url ? (
+            <img
+              src={settings.logo.url}
+              alt=""
+              className="max-h-10 max-w-36 object-contain"
+            />
+          ) : settings.name === 'FDFS.ONE' ? (
+            <>
+              FDFS<span className="text-accent">.ONE</span>
+            </>
+          ) : (
+            settings.name
+          )}
         </Link>
         <nav aria-label="Primary" className="hidden lg:block">
-          <NavigationLinks pathname={pathname} />
+          <NavigationLinks
+            pathname={pathname}
+            hiddenModules={settings.hiddenModules}
+          />
         </nav>
         <div className="hidden lg:block">
-          <AccountNavigation />
+          <AccountNavigation
+            allowRegistration={
+              settings.registrationOpen !== false && !settings.maintenance
+            }
+          />
         </div>
         <IconButton
           ref={toggle}
@@ -102,11 +125,18 @@ export function SiteHeader() {
         <Container as="nav" aria-label="Mobile primary">
           <NavigationLinks
             pathname={pathname}
+            hiddenModules={settings.hiddenModules}
             onNavigate={() => setOpen(false)}
             mobile
           />
           <div className="border-t border-line py-3">
-            <AccountNavigation mobile onNavigate={() => setOpen(false)} />
+            <AccountNavigation
+              mobile
+              allowRegistration={
+                settings.registrationOpen !== false && !settings.maintenance
+              }
+              onNavigate={() => setOpen(false)}
+            />
           </div>
         </Container>
       </div>

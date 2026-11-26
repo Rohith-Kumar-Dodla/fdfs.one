@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
@@ -39,7 +39,7 @@ participants.index({ event: 1, user: 1 }, { unique: true });
 const reports = new Schema(
   {
     publicId: { type: String, unique: true, default: randomUUID },
-    event: ref,
+    event: { ...ref, ref: 'LiveEvent' },
     message: { ...ref, ref: 'LiveChatMessage' },
     reporter: ref,
     reason: String,
@@ -70,16 +70,26 @@ export const chatSendInput = z.strictObject({
 export const chatReportInput = z.object({
   body: z.strictObject({ messageId: publicId, reason: z.enum(reasons) }),
 });
+const moderationReason = z.string().trim().min(3).max(500).optional();
 export const chatActionInput = z.object({
   params: idParams,
   body: z.discriminatedUnion('action', [
-    z.strictObject({ action: z.enum(['hide', 'unmute']), messageId: publicId }),
+    z.strictObject({
+      action: z.enum(['hide', 'restore', 'unmute']),
+      messageId: publicId,
+      reason: moderationReason,
+    }),
     z.strictObject({
       action: z.literal('mute'),
       messageId: publicId,
       minutes: z.number().int().min(1).max(1440),
+      reason: moderationReason,
     }),
-    z.strictObject({ action: z.literal('resolve'), reportId: publicId }),
+    z.strictObject({
+      action: z.literal('resolve'),
+      reportId: publicId,
+      reason: moderationReason,
+    }),
   ]),
 });
 
@@ -255,8 +265,8 @@ export function moderateChat(loadEvent, input, context) {
       }).session(session);
       if (!message) throw unavailable();
       targetId = message.publicId;
-      if (input.action === 'hide') {
-        message.hiddenAt = now;
+      if (input.action === 'hide' || input.action === 'restore') {
+        message.hiddenAt = input.action === 'hide' ? now : undefined;
         await message.save({ session });
       } else {
         const filter = { event: event._id, user: message.author };
@@ -280,11 +290,12 @@ export function moderateChat(loadEvent, input, context) {
       'live.chat_' + input.action,
       'live-event',
       event.publicId,
-      { field: 'live', to: targetId },
+      { field: 'live', to: targetId, reason: input.reason },
     );
     return {
       slug: event.slug,
       removed: input.action === 'hide' ? targetId : undefined,
+      restored: input.action === 'restore' ? targetId : undefined,
     };
   });
 }

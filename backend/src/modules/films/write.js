@@ -1,4 +1,4 @@
-﻿import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
 import { recordAudit } from '../admin/audit.js';
@@ -287,14 +287,8 @@ async function currentFilm(id, revision, session) {
   return film;
 }
 
-export async function createOriginal(input, context) {
+export async function createAdminFilm(input, context) {
   const { classification, slug, ...content } = input;
-  if (classification !== 'original')
-    throw new AppError(
-      400,
-      'FILM_REVIEW_REQUIRED',
-      'Independent films are created from approved creator submissions.',
-    );
   const id = await filmWrite(async (session) => {
     const film = new Film({ classification, createdBy: context.actorId });
     film.slug = slug ?? filmSlug(content.title, film.publicId);
@@ -308,16 +302,23 @@ export async function createOriginal(input, context) {
   return getManagedFilm(id);
 }
 
-export async function editFilm(id, { revision, ...content }, context) {
+export async function editFilm(
+  id,
+  { revision, keepPublished, ...content },
+  context,
+) {
   await filmWrite(async (session) => {
     const film = await currentFilm(id, revision, session);
-    if (film.status !== 'draft')
+    if (
+      film.status !== 'draft' &&
+      !(film.status === 'published' && !film.creatorId && keepPublished)
+    )
       throw new AppError(
         409,
         'FILM_UNPUBLISH_REQUIRED',
         'Unpublish this film before making direct edits.',
       );
-    if (film.classification === 'independent') {
+    if (film.creatorId || film.status === 'published') {
       // An administrator can curate an independent film, while the original creator remains its rights attestor.
       if (
         content.rightsConfirmed !== film.rightsConfirmed ||
@@ -336,16 +337,29 @@ export async function editFilm(id, { revision, ...content }, context) {
         throw new AppError(
           409,
           'FILM_CREATOR_REVIEW_REQUIRED',
-          'Changes to independent film rights or videos require a new creator proposal.',
+          film.creatorId
+            ? 'Changes to creator film rights or videos require a new creator proposal.'
+            : 'Unpublish before changing video sources or distribution rights.',
         );
       }
+    }
+    if (film.status === 'published') {
+      requireFilmReady(content);
+      if (film.classification === 'original' && !content.productionCompany)
+        throw new AppError(
+          400,
+          'FILM_PRODUCTION_REQUIRED',
+          'Record the authorized production company.',
+        );
     }
     await setContent(
       film,
       content,
       context,
       session,
-      film.creatorId ? { attestedAt: film.rightsConfirmedAt } : {},
+      film.creatorId || film.status === 'published'
+        ? { attestedAt: film.rightsConfirmedAt }
+        : {},
     );
     if (film.creatorId) {
       film.rightsConfirmedBy = film.creatorId;

@@ -1,3 +1,12 @@
+import { can } from '../../../../shared/admin.js';
+import { AppError } from '../../utils/app-error.js';
+import { LiveEvent } from '../live/models.js';
+import { ChatReport } from '../live/chat.js';
+import { listInput, searchPattern, sendList } from '../../utils/list.js';
+import { authorize, permit } from './policy.js';
+import { changeStaff, staffInput } from './roles.js';
+import { mountSiteAdmin } from '../site/routes.js';
+import { overview } from './overview.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { mountLiveManagement } from '../live/routes.js';
@@ -15,13 +24,14 @@ import {
   requireRoles,
   requireVerifiedEmail,
 } from '../auth/authorization.js';
-import { User } from '../auth/models.js';
 import { createSessionService } from '../auth/sessions.js';
 import {
   createMediaService,
   listMedia,
   MediaAsset,
   mediaListInput,
+  mediaMetadataInput,
+  saveMediaMetadata,
 } from '../media/assets.js';
 import { readImage, uploadRateLimit } from '../media/images.js';
 import { mountAdminTalent } from '../talent/routes.js';
@@ -34,6 +44,7 @@ import {
 import { releaseInput } from '../films/schemas.js';
 import { publishIndependent } from '../films/write.js';
 import {
+  categories,
   createSubmission,
   editSubmissionInput,
   getSubmission,
@@ -122,7 +133,91 @@ export function mountPhase22(
     );
   }
 
-  admin.use(requireRoles('admin'));
+  admin.use(permit('dashboard'));
+  mountSiteAdmin(admin);
+  admin.use('/users', permit('users'));
+  admin.use('/audit', permit('audit'));
+  admin.use('/media', permit('media'));
+  admin.use('/talent', permit('content', 'talent'));
+  admin.use('/talent/:id/association', permit('users'));
+  admin.use(
+    ['/podcasts/show', '/podcasts/episodes'],
+    permit('content', 'podcasts'),
+  );
+  admin.use(['/podcasts/comments', '/podcasts/reports'], permit('moderation'));
+  admin.use('/live', (req, res, next) => {
+    if (
+      /^\/[^/]+\/chat(?:\/|$)/i.test(req.path) &&
+      can(req.auth.user, 'moderation')
+    )
+      return next();
+    return permit('content', 'live')(req, res, next);
+  });
+  admin.patch(
+    '/users/:id/staff',
+    permit('roles'),
+    validate(staffInput),
+    async (req, res) =>
+      sendSuccess(
+        res,
+        await changeStaff(id(res), body(res), context(req, res)),
+      ),
+  );
+  admin.get(
+    '/moderation/live-events',
+    permit('moderation'),
+    validate(listInput({ q: z.string().trim().min(1).max(80).optional() })),
+    (_req, res) =>
+      sendList(
+        res,
+        LiveEvent,
+        {
+          moderation: 'approved',
+          ...(query(res).q && { title: searchPattern(query(res).q) }),
+        },
+        query(res),
+        (row) => ({
+          id: row.publicId,
+          title: row.title,
+          broadcast: row.broadcast,
+        }),
+        'publicId title broadcast',
+      ),
+  );
+  admin.get(
+    '/moderation/live-reports',
+    permit('moderation'),
+    validate(
+      listInput({ status: z.enum(['open', 'resolved']).default('open') }),
+    ),
+    (_req, res) =>
+      sendList(
+        res,
+        ChatReport,
+        { resolvedAt: query(res).status === 'open' ? null : { $type: 'date' } },
+        query(res),
+        (row) => ({
+          id: row.publicId,
+          reason: row.reason,
+          createdAt: row.createdAt,
+          event: row.event && {
+            id: row.event.publicId,
+            title: row.event.title,
+          },
+          message: row.message && {
+            text: row.message.text,
+            name: row.message.name,
+          },
+          resolvedAt: row.resolvedAt,
+        }),
+        'publicId event message reason createdAt resolvedAt',
+        undefined,
+        (find) =>
+          find
+            .populate('event', 'publicId title')
+            .populate('message', 'text name'),
+      ),
+  );
   mountPodcastManagement(api, admin, authenticate);
   mountLiveManagement(api, admin, authenticate, {
     available,
@@ -131,17 +226,9 @@ export function mountPhase22(
   });
   mountAdminFilms(admin);
   mountAdminTalent(admin);
-  admin.get('/overview', async (req, res) => {
-    const [users, reviewQueue, images, auditEvents] = await Promise.all([
-      User.countDocuments(),
-      Submission.countDocuments({
-        status: { $in: ['submitted', 'under_review'] },
-      }),
-      MediaAsset.countDocuments({ status: 'active' }),
-      AuditLog.countDocuments(),
-    ]);
-    return sendSuccess(res, { users, reviewQueue, images, auditEvents });
-  });
+  admin.get('/overview', async (req, res) =>
+    sendSuccess(res, await overview(user(req))),
+  );
   admin.get('/users', validate(usersInput), (req, res) =>
     listUsers(res, query(res)),
   );
@@ -216,15 +303,44 @@ export function mountPhase22(
   submissions.post('/:id/submit', validate(resourceAction), async (req, res) =>
     sendSuccess(res, await updateOwnSubmission(user(req), id(res))),
   );
-  admin.get('/submissions', validate(submissionListInput), (req, res) =>
-    listSubmissions(res, query(res)),
-  );
-  admin.get('/submissions/:id', validate(submissionInput), async (req, res) =>
-    sendSuccess(res, await details(await getSubmission(id(res)))),
+  const submissionModule = {
+    film: 'independent',
+    original: 'original',
+    podcast: 'podcasts',
+    live: 'live',
+    talent: 'talent',
+  };
+  const submissionAccess = (account, category) =>
+    can(account, 'moderation') ||
+    can(account, 'content', submissionModule[category]);
+  const reviewed = async (req, res, next) => {
+    const record = await getSubmission(id(res));
+    if (!submissionAccess(user(req), record.category))
+      throw new AppError(403, 'FORBIDDEN', 'You do not have permission.');
+    res.locals.submission = record;
+    next();
+  };
+  admin.get('/submissions', validate(submissionListInput), (req, res) => {
+    const allowed = categories.filter((category) =>
+      submissionAccess(user(req), category),
+    );
+    if (
+      !allowed.length ||
+      (query(res).category && !allowed.includes(query(res).category))
+    )
+      throw new AppError(403, 'FORBIDDEN', 'You do not have permission.');
+    return listSubmissions(res, query(res), undefined, allowed);
+  });
+  admin.get(
+    '/submissions/:id',
+    validate(submissionInput),
+    reviewed,
+    async (_req, res) => sendSuccess(res, await details(res.locals.submission)),
   );
   admin.post(
     '/submissions/:id/moderate',
     validate(moderationInput),
+    reviewed,
     async (req, res) =>
       sendSuccess(
         res,
@@ -234,7 +350,13 @@ export function mountPhase22(
   admin.post(
     '/submissions/:id/publish',
     validate(publishInput),
+    reviewed,
     async (req, res) => {
+      authorize(
+        user(req),
+        'content',
+        submissionModule[res.locals.submission.category],
+      );
       const result = await publishSubmission(
         id(res),
         context(req, res),
@@ -253,7 +375,7 @@ export function mountPhase22(
   );
 
   admin.get('/media', validate(mediaListInput), (req, res) =>
-    listMedia(res, query(res)),
+    listMedia(res, query(res), can(user(req), 'media_manage')),
   );
   admin.post('/media', ...upload, async (req, res) =>
     sendSuccess(
@@ -262,20 +384,39 @@ export function mountPhase22(
       { status: 201 },
     ),
   );
-  admin.put('/media/:id', validate(userInput), ...upload, async (req, res) =>
-    sendSuccess(
-      res,
-      await media.replaceLibrary(
-        user(req),
-        id(res),
-        context(req, res),
-        req.body,
-        req.get('Content-Type'),
+  admin.patch(
+    '/media/:id',
+    permit('media_manage'),
+    validate(mediaMetadataInput),
+    async (req, res) =>
+      sendSuccess(
+        res,
+        await saveMediaMetadata(id(res), body(res), context(req, res)),
       ),
-    ),
   );
-  admin.delete('/media/:id', validate(resourceAction), async (req, res) =>
-    sendSuccess(res, await media.deleteLibrary(id(res), context(req, res))),
+  admin.put(
+    '/media/:id',
+    permit('media_manage'),
+    validate(userInput),
+    ...upload,
+    async (req, res) =>
+      sendSuccess(
+        res,
+        await media.replaceLibrary(
+          user(req),
+          id(res),
+          context(req, res),
+          req.body,
+          req.get('Content-Type'),
+        ),
+      ),
+  );
+  admin.delete(
+    '/media/:id',
+    permit('media_manage'),
+    validate(resourceAction),
+    async (req, res) =>
+      sendSuccess(res, await media.deleteLibrary(id(res), context(req, res))),
   );
   profileImage.get('/', async (req, res) =>
     sendSuccess(res, { image: await media.getProfile(user(req)) }),

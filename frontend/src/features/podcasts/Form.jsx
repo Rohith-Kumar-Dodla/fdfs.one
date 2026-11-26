@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Link } from 'react-router';
@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/fields.jsx';
 import { Card } from '../../components/ui/surfaces.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
+import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
 
 const optional = (value) => value?.trim() || undefined;
@@ -88,6 +89,13 @@ function Artwork({ record, primary, label, value, change }) {
                 }}
               />
             </Field>
+            <MediaPicker
+              label={'Select ' + title.toLowerCase() + ' from library'}
+              onSelect={(image) => {
+                remember((current) => ({ ...current, [slot]: image }));
+                change((current) => ({ ...current, [slot]: image.id }));
+              }}
+            />
             {id && (
               <div>
                 <Button
@@ -377,6 +385,7 @@ export function ShowForm({ show, change, save }) {
   const [error, setError] = useState('');
   const { register, handleSubmit, control } = useForm({
     defaultValues: {
+      name: show?.name ?? '404 Reality Not Found',
       introduction: show?.introduction ?? '',
       description: show?.description ?? '',
       languages: show?.languages ?? [],
@@ -422,6 +431,9 @@ export function ShowForm({ show, change, save }) {
             });
           })}
         >
+          <Field label="Show name">
+            <TextInput required maxLength={120} {...register('name')} />
+          </Field>
           <Field label="Short introduction">
             <Textarea
               required
@@ -471,6 +483,7 @@ export function EpisodeForm({ episode, change, save }) {
   const { register, handleSubmit, control, getValues, setValue } = useForm({
     defaultValues: {
       title: episode?.title ?? '',
+      commentsEnabled: episode?.commentsEnabled ?? true,
       synopsis: episode?.synopsis ?? '',
       notes: episode?.notes ?? '',
       season: episode?.season ?? 1,
@@ -578,6 +591,7 @@ export function EpisodeForm({ episode, change, save }) {
         ? new Date(values.releaseAt).toISOString()
         : undefined,
       rightsConfirmed: values.rightsConfirmed,
+      commentsEnabled: values.commentsEnabled,
       rightsNotes: optional(values.rightsNotes),
       ...(episode
         ? { revision: episode.revision }
@@ -683,6 +697,10 @@ export function EpisodeForm({ episode, change, save }) {
           />
           <PeoplePicker {...participants} register={register} />
           <Links array={links} register={register} />
+          <label className="flex min-h-11 items-center gap-2">
+            <Checkbox {...register('commentsEnabled')} />
+            Enable episode comments
+          </label>
           <Rights register={register} />
           <Field label="Private rights notes">
             <Textarea maxLength={1000} rows={2} {...register('rightsNotes')} />

@@ -1,6 +1,14 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router';
+import { useOutletContext, useParams } from 'react-router';
+import {
+  can,
+  contentModules,
+  roleLabels,
+  staffRoles,
+} from '../../../../shared/admin.js';
+import { filmLabels } from '../../../../shared/films.js';
+import { ErrorState } from '../../components/ui/states.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Badge, Card, SectionHeading } from '../../components/ui/surfaces.jsx';
 import {
@@ -63,10 +71,7 @@ export function UsersPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Select
           label="Role"
-          options={['viewer', 'creator', 'organizer', 'admin'].map((role) => [
-            role,
-            readable(role),
-          ])}
+          options={Object.entries(roleLabels)}
           value={records.params.role ?? ''}
           onChange={(value) => records.filter('role', value)}
         />
@@ -96,6 +101,7 @@ export function UsersPage() {
 
 export function UserDetailPage() {
   const { id } = useParams();
+  const account = useOutletContext();
   const path = url + '/' + id;
   const query = useQuery({
     queryKey: [url, id],
@@ -122,7 +128,16 @@ export function UserDetailPage() {
             <dl className="grid gap-2 sm:grid-cols-2">
               {[
                 ['Email', user.email],
-                ['Roles', user.roles.join(', ')],
+                [
+                  'Roles',
+                  user.roles.map((role) => roleLabels[role] ?? role).join(', '),
+                ],
+                [
+                  'Content scopes',
+                  user.cmsModules
+                    ?.map((value) => filmLabels[value] ?? value)
+                    .join(', ') || 'None',
+                ],
                 ['Status', user.status],
                 [
                   'Verification',
@@ -138,7 +153,14 @@ export function UserDetailPage() {
                 </div>
               ))}
             </dl>
-            {user.roles.includes('admin') || user.status === 'deleted' ? (
+            {can(account, 'roles') &&
+              account.id !== user.id &&
+              user.status !== 'deleted' && (
+                <StaffForm user={user} confirm={confirm} />
+              )}
+            {user.id === account?.id ||
+            user.roles.some((role) => staffRoles.includes(role)) ||
+            user.status === 'deleted' ? (
               <p className="text-sm text-muted">This account is protected.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -207,5 +229,138 @@ export function UserDetailPage() {
         change={change}
       />
     </>
+  );
+}
+export function RolesPage() {
+  const account = useOutletContext();
+  if (!can(account, 'roles')) return <ErrorState title="Access restricted" />;
+  return (
+    <>
+      <SectionHeading as="h1">Roles and Permissions</SectionHeading>
+      <p className="text-muted">
+        Select an account under Users to grant or revoke a staff role. Role
+        changes require the account to sign in again.
+      </p>
+      <dl className="grid gap-3 sm:grid-cols-2">
+        {[
+          [
+            'super_admin',
+            'Manages staff permissions, publishing, moderation and platform settings.',
+          ],
+          [
+            'admin',
+            'Manages publishing, moderation, accounts and platform settings.',
+          ],
+          [
+            'content_manager',
+            'Manages content and reviews submissions in assigned modules.',
+          ],
+          [
+            'moderator',
+            'Reviews submissions and manages comment and live chat reports.',
+          ],
+          ['support_agent', 'Reserved for future support workflows.'],
+        ].map(([role, description]) => (
+          <Card key={role}>
+            <dt className="font-semibold">{roleLabels[role]}</dt>
+            <dd className="text-sm text-muted">{description}</dd>
+          </Card>
+        ))}
+      </dl>
+      <DetailLink to="/admin/users">Open user accounts</DetailLink>
+    </>
+  );
+}
+
+function StaffForm({ user, confirm }) {
+  const [role, setRole] = useState('content_manager');
+  const enabled = user.roles.includes(role);
+  return (
+    <form
+      className="grid gap-3 rounded-panel border border-line p-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(
+          event.currentTarget,
+          event.nativeEvent.submitter,
+        );
+        const grant = data.get('mode') !== 'revoke';
+        confirm(
+          'staff',
+          (grant ? 'Save ' : 'Revoke ') + roleLabels[role] + '?',
+          user.fullName,
+          {
+            role,
+            enabled: grant,
+            reason: data.get('reason'),
+            ...(role === 'content_manager' &&
+              grant && { modules: data.getAll('modules') }),
+          },
+        );
+      }}
+    >
+      <h3 className="font-semibold">Staff permissions</h3>
+      <label className="grid gap-1 text-sm">
+        Staff role
+        <select
+          className={control}
+          value={role}
+          onChange={(event) => setRole(event.target.value)}
+        >
+          {staffRoles.map((value) => (
+            <option key={value} value={value}>
+              {roleLabels[value]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {role === 'content_manager' && (
+        <fieldset
+          key={user.cmsModules?.join(',')}
+          className="grid gap-1 sm:grid-cols-2"
+        >
+          <legend className="text-sm">Content modules</legend>
+          {contentModules.map((module) => (
+            <label
+              className="flex min-h-11 items-center gap-2 text-sm"
+              key={module}
+            >
+              <input
+                name="modules"
+                type="checkbox"
+                value={module}
+                defaultChecked={user.cmsModules?.includes(module)}
+              />
+              {filmLabels[module] ?? readable(module)}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      <label className="grid gap-1 text-sm">
+        Reason
+        <input
+          name="reason"
+          required
+          minLength={3}
+          maxLength={300}
+          className={control}
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="submit"
+          name="mode"
+          value="grant"
+          disabled={user.status !== 'active' || !user.emailVerified}
+        >
+          {enabled ? 'Save role' : 'Grant role'}
+        </Button>
+        {enabled && (
+          <Button type="submit" variant="outline" name="mode" value="revoke">
+            Revoke role
+          </Button>
+        )}
+      </div>
+    </form>
   );
 }

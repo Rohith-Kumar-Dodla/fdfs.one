@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Link } from 'react-router';
@@ -15,6 +15,7 @@ import {
   TextInput,
 } from '../../components/ui/fields.jsx';
 import { Card } from '../../components/ui/surfaces.jsx';
+import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
 import { FilmImage } from './FilmImage.jsx';
 
@@ -81,6 +82,18 @@ function FilmMedia({ admin, record, images = [], value, change }) {
                     }}
                   />
                 </Field>
+              )}
+              {admin && (
+                <MediaPicker
+                  label={'Select ' + field + ' from library'}
+                  onSelect={(image) => {
+                    setUploaded((current) => [...current, image]);
+                    change((current) => ({
+                      ...current,
+                      [field + 'Id']: image.id,
+                    }));
+                  }}
+                />
               )}
               {id && (
                 <div>
@@ -293,7 +306,9 @@ export function FilmForm({
   creation = false,
   change,
   save,
-  button = 'Save film draft',
+  button = record?.status === 'published'
+    ? 'Save published film'
+    : 'Save film draft',
 }) {
   const [media, setMedia] = useState({
     posterId: record?.posterId ?? '',
@@ -325,7 +340,8 @@ export function FilmForm({
   const credits = useFieldArray({ control, name: 'credits' });
   const extras = useFieldArray({ control, name: 'extras' });
   const awards = useFieldArray({ control, name: 'awards' });
-  const lockedVideo = admin && record?.classification === 'independent';
+  const lockedVideo =
+    admin && Boolean(record?.creatorId || record?.status === 'published');
   function submit(values) {
     const draft = validDraft.safeParse({
       ...values,
@@ -491,8 +507,9 @@ export function FilmForm({
             <legend className="mb-2 text-lg font-semibold">Videos</legend>
             {lockedVideo && (
               <p className="text-sm text-muted">
-                Independent film videos and rights changes go through creator
-                review.
+                {record.creatorId
+                  ? 'Video and rights changes for creator submissions require creator review.'
+                  : 'Unpublish first to change video sources or distribution rights.'}
               </p>
             )}
             <Field label="Main film YouTube URL">

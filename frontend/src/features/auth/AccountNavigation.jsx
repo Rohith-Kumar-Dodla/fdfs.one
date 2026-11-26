@@ -1,3 +1,4 @@
+import { can } from '../../../../shared/admin.js';
 import { useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
@@ -37,7 +38,7 @@ function AccountFeatureLinks({ onNavigate }) {
           My live events
         </Link>
       )}
-      {account.roles.includes('admin') && (
+      {can(account, 'dashboard') && (
         <Link
           to="/admin"
           className={buttonClasses('ghost')}
@@ -50,7 +51,11 @@ function AccountFeatureLinks({ onNavigate }) {
   );
 }
 
-export function AccountNavigation({ onNavigate, mobile = false }) {
+export function AccountNavigation({
+  onNavigate,
+  mobile = false,
+  allowRegistration = true,
+}) {
   const status = useAuthStore((state) => state.status);
   const showToast = useUiStore((state) => state.showToast);
   const details = useRef(null);
@@ -87,13 +92,15 @@ export function AccountNavigation({ onNavigate, mobile = false }) {
         >
           Sign in
         </Link>
-        <Link
-          to="/register"
-          className={buttonClasses('primary')}
-          onClick={onNavigate}
-        >
-          Register
-        </Link>
+        {allowRegistration && (
+          <Link
+            to="/register"
+            className={buttonClasses('primary')}
+            onClick={onNavigate}
+          >
+            Register
+          </Link>
+        )}
       </div>
     );
   }

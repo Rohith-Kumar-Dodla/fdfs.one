@@ -1,4 +1,8 @@
-﻿import { Router } from 'express';
+import { can } from '../../../../shared/admin.js';
+import { AppError } from '../../utils/app-error.js';
+import { authorize } from '../admin/policy.js';
+import { Film } from './models.js';
+import { Router } from 'express';
 import { validate } from '../../middlewares/validate.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
 import { requireRoles } from '../auth/authorization.js';
@@ -14,7 +18,7 @@ import {
   publicList,
 } from './schemas.js';
 import { getManagedFilm, getPublicFilm, listFilms } from './read.js';
-import { changeFilmStatus, createOriginal, editFilm } from './write.js';
+import { changeFilmStatus, createAdminFilm, editFilm } from './write.js';
 
 const data = (res) => res.locals.validated;
 const id = (res) => data(res).params.id;
@@ -52,28 +56,72 @@ export function publicFilmRoutes(available) {
 }
 
 export function mountAdminFilms(admin) {
-  admin.get('/films', validate(adminList), (req, res) =>
-    listFilms(res, data(res).query, { admin: true }),
-  );
-  admin.post('/films', validate(adminCreate), async (req, res) =>
-    sendSuccess(res, await createOriginal(data(res).body, context(req, res)), {
-      status: 201,
-    }),
-  );
-  admin.get('/films/:id', validate(adminDetail), async (req, res) =>
+  const filmAccess = async (req, res, next) => {
+    const film = await Film.findOne({ publicId: id(res) })
+      .select('classification')
+      .lean();
+    if (!film) throw new AppError(404, 'FILM_NOT_FOUND', 'Film not found.');
+    authorize(req.auth.user, 'content', film.classification);
+    next();
+  };
+  admin.get('/films', validate(adminList), (req, res) => {
+    const input = data(res).query;
+    const allowed = ['independent', 'original'].filter((module) =>
+      can(req.auth.user, 'content', module),
+    );
+    if (
+      !allowed.length ||
+      (input.classification && !allowed.includes(input.classification))
+    )
+      throw new AppError(403, 'FORBIDDEN', 'You do not have permission.');
+    return listFilms(
+      res,
+      {
+        ...input,
+        classification:
+          input.classification ??
+          (allowed.length === 1 ? allowed[0] : undefined),
+      },
+      { admin: true },
+    );
+  });
+  for (const [path, module] of [
+    ['/films', 'original'],
+    ['/cinema', 'independent'],
+  ]) {
+    admin.post(path, validate(adminCreate), async (req, res) => {
+      authorize(req.auth.user, 'content', module);
+      if (data(res).body.classification !== module)
+        throw new AppError(
+          400,
+          'INVALID_CLASSIFICATION',
+          'This form uses a different film classification.',
+        );
+      return sendSuccess(
+        res,
+        await createAdminFilm(data(res).body, context(req, res)),
+        { status: 201 },
+      );
+    });
+  }
+  admin.get('/films/:id', validate(adminDetail), filmAccess, async (req, res) =>
     sendSuccess(res, await getManagedFilm(id(res))),
   );
-  admin.patch('/films/:id', validate(adminEdit), async (req, res) =>
+  admin.patch('/films/:id', validate(adminEdit), filmAccess, async (req, res) =>
     sendSuccess(
       res,
       await editFilm(id(res), data(res).body, context(req, res)),
     ),
   );
-  admin.post('/films/:id/status', validate(adminStatus), async (req, res) =>
-    sendSuccess(
-      res,
-      await changeFilmStatus(id(res), data(res).body, context(req, res)),
-    ),
+  admin.post(
+    '/films/:id/status',
+    validate(adminStatus),
+    filmAccess,
+    async (req, res) =>
+      sendSuccess(
+        res,
+        await changeFilmStatus(id(res), data(res).body, context(req, res)),
+      ),
   );
 }
 

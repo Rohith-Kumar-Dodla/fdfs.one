@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { participantRoles } from '../../../../shared/podcasts.js';
 import { languages } from '../../../../shared/films.js';
@@ -82,6 +82,7 @@ const episode = new Schema(
     },
     title: { type: String, required: true, maxlength: 140 },
     titlePrefixes: [String],
+    commentsEnabled: { type: Boolean, default: true },
     synopsis: { type: String, required: true, maxlength: 280 },
     notes: String,
     season: {

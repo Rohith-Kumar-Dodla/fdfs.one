@@ -21,3 +21,9 @@ Use `GET /api/v1/live` and `GET /api/v1/live/:slug` for discovery and detail. Di
 Connect to the shared Socket.IO server with a current access token in `auth.token` for protected actions, or omit it for guest reads. Join by slug, pass a stable client UUID when retrying a chat message, and rejoin and reload REST state and paginated history after reconnecting. Replace the socket credential after access-token refresh.
 
 The reminder endpoint exposes per-account subscription and delivery state, separate from the transport. This phase delivers reminders by email. Later platform integration can reuse event and subscription identifiers with Expo notification preferences and device delivery registration.
+
+## Platform configuration
+
+Future clients can read `/api/v1/site/settings` for the public brand, image variants, navigation visibility, contact and legal content, maintenance state and community flags. The active homepage hero is available at `/api/v1/site/homepage`. Its featured link identifies a currently public resource. Phase 6.1 will define the full homepage section rendering contract.
+
+Existing entertainment routes keep the same stable IDs and slugs. Scheduled announcements and releases follow server UTC timestamps. Optional staff roles and module scopes can appear in the private account response. Clients can use them to hide ineligible controls, while the centralized API remains authoritative for every staff operation.

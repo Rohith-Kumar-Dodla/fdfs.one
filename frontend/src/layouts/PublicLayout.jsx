@@ -6,15 +6,24 @@ import {
   useLocation,
   useNavigation,
 } from 'react-router';
+import { legalSections } from '../../../shared/site.js';
+import { SiteMetadata, useSiteSettings } from '../features/site/public.jsx';
 import { SiteHeader } from '../components/common/SiteHeader.jsx';
 import { ToastViewport } from '../components/common/ToastViewport.jsx';
-import { Container } from '../components/ui/surfaces.jsx';
+import { Container, SectionHeading } from '../components/ui/surfaces.jsx';
 import { Spinner } from '../components/ui/states.jsx';
 
 export function PublicLayout() {
   const main = useRef(null);
   const { pathname, hash } = useLocation();
   const navigation = useNavigation();
+  const settings = useSiteSettings();
+  const admin = /^\/admin(?:\/|$)/.test(pathname);
+  const accountAccess =
+    /^\/(?:login|register|forgot-password|reset-password|verify-email|verification-pending|account)(?:\/|$)/.test(
+      pathname,
+    );
+  const maintenance = settings.maintenance && !admin && !accountAccess;
   const previousPath = useRef(pathname);
 
   useEffect(() => {
@@ -36,7 +45,8 @@ export function PublicLayout() {
       >
         Skip to content
       </Link>
-      <SiteHeader />
+      <SiteMetadata path={pathname} settings={settings} />
+      {!admin && <SiteHeader settings={settings} />}
       <main
         ref={main}
         id="main-content"
@@ -48,16 +58,76 @@ export function PublicLayout() {
             <Spinner label="Loading page" />
           </Container>
         )}
-        <Outlet />
+        {maintenance ? (
+          <Container className="grid justify-items-start gap-4 py-16">
+            <SectionHeading as="h1">Website maintenance</SectionHeading>
+            <p className="text-muted">Please check back shortly.</p>
+            <Link className="text-accent underline" to="/login">
+              Sign in
+            </Link>
+          </Container>
+        ) : (
+          <Outlet />
+        )}
       </main>
       <footer className="border-t border-line bg-nav">
         <Container className="flex flex-wrap items-center justify-between gap-3 py-7">
           <Link to="/" className="font-bold tracking-tight">
-            FDFS<span className="text-accent">.ONE</span>
+            {settings.name === 'FDFS.ONE' ? (
+              <>
+                FDFS<span className="text-accent">.ONE</span>
+              </>
+            ) : (
+              settings.name
+            )}
           </Link>
           <small className="text-sm text-muted">
-            Film, culture and community.
+            {settings.footer ?? settings.description}
           </small>
+          {(settings.contact ||
+            settings.supportEmail ||
+            settings.links.length > 0 ||
+            settings.socials.length > 0 ||
+            Object.keys(settings.legal).length > 0) && (
+            <div className="grid w-full gap-2 wrap-anywhere text-sm">
+              {settings.contact && <p>{settings.contact}</p>}
+              {settings.supportEmail && (
+                <a
+                  className="text-accent underline"
+                  href={'mailto:' + settings.supportEmail}
+                >
+                  {settings.supportEmail}
+                </a>
+              )}
+              <nav
+                className="flex flex-wrap gap-x-4 gap-y-2"
+                aria-label="Footer"
+              >
+                {[...settings.links, ...settings.socials].map(
+                  ({ url, label }, index) => (
+                    <a
+                      className="inline-flex min-h-11 items-center text-accent underline"
+                      key={url + index}
+                      href={url}
+                    >
+                      {label}
+                    </a>
+                  ),
+                )}
+                {Object.keys(legalSections)
+                  .filter((key) => settings.legal[key])
+                  .map((key) => (
+                    <Link
+                      className="inline-flex min-h-11 items-center text-accent underline"
+                      key={key}
+                      to={'/legal/' + key}
+                    >
+                      {legalSections[key]}
+                    </Link>
+                  ))}
+              </nav>
+            </div>
+          )}
         </Container>
       </footer>
       <ToastViewport />

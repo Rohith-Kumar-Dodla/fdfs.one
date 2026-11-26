@@ -91,3 +91,15 @@ The discovery, event detail, video, live chat, organizer forms and administrator
 The backend entry point returned HTTP 200 for health and readiness, accepted a Socket.IO client, and drained socket and database connections on graceful shutdown.
 
 The supplied YouTube link initialized paused in the shared player. A viewer click started the video and advanced its clock in the published replay view. YouTube reported the content as originating from a live broadcast, with no active live indicator during the check. Active YouTube Live playback is PENDING an authorized and currently active broadcast.
+
+## Phase 4A.1 verification
+
+GitHub `main` was checked at `cea3a01`, completing Phase 4.2 synchronization. Phase 4.1 remains PASS. Overall Phase 4 remains PENDING active YouTube Live playback. An authorized active source was unavailable for the carry-forward check.
+
+Lint, Prettier, the production build and all 137 tests passed on Node.js 24.22.1. This includes 63 frontend and 74 backend tests. The production dependency audit reported zero vulnerabilities. The configured-secret scan found zero matches in source and built assets.
+
+The isolated suites cover legacy administrator access, one-time Super Administrator bootstrap, protected accounts, immediate session invalidation, module scopes, dashboard counts, all five direct publishing workflows, protected previews, schedule embargoes, stale edits, reference protection, homepage publication, public settings projections, maintenance, registration and community controls. The bootstrap was exercised against disposable accounts.
+
+The isolated production-build Chrome workflow created and published Cinema, Originals, a podcast episode, a live event and a Talent Profile from the administrator forms. Each item appeared on its corresponding public route. The profile displayed the podcast appearance. The authorized Cinema and Originals recordings started after a viewer click and advanced. The live test verified scheduled player state, explicit start and end notifications over Socket.IO, and replay publication. Fresh Chrome sessions started and advanced the public podcast recording and the FDFS Live replay after a viewer action. Editing a published Cinema film updated the public title, and unpublication removed public route and homepage featured access. The Cloudinary probe uploaded, selected, fetched and protected a referenced asset, and removed the temporary image through cleanup.
+
+Chrome also verified a saved homepage draft preview, publication of the homepage hero, website branding, navigation visibility, plain-text legal content, closed registration and maintenance administrator access. The public routes loaded again after maintenance was cleared. The administrator layout, forms, records tables, media picker, preview controls, publication dialogs and navigation fit at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920px, plus 568×320 and 844×390 in landscape. Physical-device verification and approved production content and legal onboarding remain pending.

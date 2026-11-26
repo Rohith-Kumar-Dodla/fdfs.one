@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
 import { languages } from '../../../../shared/films.js';
@@ -33,6 +33,8 @@ const keys = [
   'talent',
   'podcast-comments',
   '/admin/audit',
+  '/admin/overview',
+  'site-homepage',
 ];
 const statusOptions = ['draft', 'published', 'archived'].map((status) => [
   status,
@@ -278,7 +280,7 @@ export function ManageEpisode() {
               {episode.title}
             </h2>
             <StatusActions record={episode} url={url} episode />
-            {episode.status === 'draft' && (
+            {episode.status !== 'archived' && (
               <>
                 <EpisodePlayer
                   key={'review-' + episode.revision}
@@ -297,7 +299,18 @@ export function ManageEpisode() {
                   key={episode.revision}
                   episode={episode}
                   change={change}
-                  save={(data) => change.mutate({ url, method: 'patch', data })}
+                  save={(data) =>
+                    change.mutate({
+                      url,
+                      method: 'patch',
+                      data: {
+                        ...data,
+                        ...(episode.status === 'published' && {
+                          keepPublished: true,
+                        }),
+                      },
+                    })
+                  }
                 />
               </>
             )}

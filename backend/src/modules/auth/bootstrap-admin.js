@@ -30,7 +30,12 @@ async function bootstrap() {
     await connectDatabase(config.MONGODB_URI, logger);
     await initializeAuthIndexes();
     if (
-      await User.exists({ $or: [{ roles: 'admin' }, { bootstrapAdmin: true }] })
+      await User.exists({
+        $or: [
+          { roles: { $in: ['admin', 'super_admin'] } },
+          { bootstrapAdmin: true },
+        ],
+      })
     ) {
       throw new Error(
         'Administrator bootstrap has already been used or an administrator exists.',

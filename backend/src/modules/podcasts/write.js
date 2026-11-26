@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import { podcastBrand } from '../../../../shared/podcasts.js';
 import { AppError } from '../../utils/app-error.js';
 import { recordAudit } from '../admin/audit.js';
@@ -206,6 +206,7 @@ async function setEpisode(record, input, context, session) {
     'podcast-episode',
     session,
   );
+  const published = record.status === 'published';
   const title = normalizedName(fields.title) || fields.title;
   const words = title.split(' ');
   record.set({
@@ -216,8 +217,16 @@ async function setEpisode(record, input, context, session) {
     titlePrefixes: words.map((_, index) => words.slice(index).join(' ')),
     mainVideo: video(mainUrl),
     teaser: video(teaserUrl),
-    releaseAt: releaseAt ? new Date(releaseAt) : undefined,
-    rightsConfirmedAt: fields.rightsConfirmed ? new Date() : undefined,
+    releaseAt: published
+      ? record.releaseAt
+      : releaseAt
+        ? new Date(releaseAt)
+        : undefined,
+    rightsConfirmedAt: published
+      ? record.rightsConfirmedAt
+      : fields.rightsConfirmed
+        ? new Date()
+        : undefined,
     updatedBy: context.actorId,
   });
   record.increment();
@@ -277,10 +286,32 @@ export async function createEpisode({ slug, ...content }, context) {
   return getEpisode(id, true);
 }
 
-export async function editEpisode(id, { revision, ...content }, context) {
+export async function editEpisode(
+  id,
+  { revision, keepPublished, ...content },
+  context,
+) {
   await write(async (session) => {
     const record = await readManaged(id, revision, session);
-    if (record.status !== 'draft') throw transition();
+    if (
+      record.status !== 'draft' &&
+      !(record.status === 'published' && keepPublished)
+    )
+      throw transition();
+    if (
+      record.status === 'published' &&
+      (content.rightsConfirmed !== record.rightsConfirmed ||
+        content.rightsNotes !== record.rightsNotes ||
+        video(content.mainUrl)?.providerVideoId !==
+          record.mainVideo?.providerVideoId ||
+        video(content.teaserUrl)?.providerVideoId !==
+          record.teaser?.providerVideoId)
+    )
+      throw new AppError(
+        409,
+        'PODCAST_UNPUBLISH_REQUIRED',
+        'Unpublish before changing episode video sources or distribution rights.',
+      );
     await setEpisode(record, content, context, session);
     await podcastAudit(
       session,

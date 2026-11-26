@@ -1,4 +1,8 @@
-﻿import { useState } from 'react';
+import { can } from '../../../../shared/admin.js';
+import { mediaCategories } from '../../../../shared/site.js';
+import { useOutletContext } from 'react-router';
+import { MediaFilters } from './MediaPicker.jsx';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { Button } from '../../components/ui/Button.jsx';
@@ -12,6 +16,7 @@ import {
   control,
   date,
   QueryState,
+  Select,
   useChange,
   useRecords,
 } from './common.jsx';
@@ -57,7 +62,11 @@ function VideoPreview() {
 }
 
 export function MediaPage() {
-  const { query, params, changePage } = useRecords(url);
+  const records = useRecords(url);
+  const { query, params, changePage } = records;
+  const account = useOutletContext();
+  const manage = can(account, 'media_manage');
+  const [metadata, setMetadata] = useState(null);
   const [replace, setReplace] = useState(null);
   const [remove, setRemove] = useState(null);
   const [notice, setNotice] = useState('');
@@ -70,6 +79,10 @@ export function MediaPage() {
         : 'Image removed from the library. Provider cleanup is pending.',
     ),
   );
+  const save = useChange(keys, () => {
+    setMetadata(null);
+    setNotice('Media details saved.');
+  });
   async function upload(file, id) {
     await uploadImage(id ? url + '/' + id : url, file, id ? 'put' : 'post');
     await Promise.all(
@@ -91,13 +104,29 @@ export function MediaPage() {
           {notice}
         </p>
       )}
+      <MediaFilters records={records} />
+      <Select
+        label="Reference status"
+        options={[
+          ['used', 'Referenced'],
+          ['unused', 'Unused'],
+        ]}
+        value={params.usage ?? ''}
+        onChange={(value) => records.filter('usage', value)}
+      />
       <QueryState query={query} empty="No uploaded images">
         {(images) => (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {images.map((image) => (
               <li key={image.id}>
                 <Card className="grid gap-3">
-                  <ImagePreview image={image} alt="Uploaded image preview" />
+                  <ImagePreview
+                    image={image}
+                    alt={image.alt || 'Uploaded image preview'}
+                  />
+                  <h2 className="font-semibold wrap-anywhere">
+                    {image.title || 'Untitled image'}
+                  </h2>
                   <div className="text-sm text-muted wrap-anywhere">
                     <p>
                       {image.width} × {image.height} ·{' '}
@@ -118,35 +147,63 @@ export function MediaPage() {
                       {image.references} active{' '}
                       {image.references === 1 ? 'reference' : 'references'}
                     </p>
+                    <p>
+                      {mediaCategories[image.category]} ?{' '}
+                      {image.references ? 'Referenced' : 'Unused'}
+                    </p>
+                    {image.alt && <p>Alternative text ? {image.alt}</p>}
+                    {image.uploadedBy && (
+                      <p>Uploaded by ? {image.uploadedBy}</p>
+                    )}
+                    {image.usage?.length > 0 && (
+                      <ul>
+                        {image.usage.map(({ kind, targetId }) => (
+                          <li key={kind + targetId}>
+                            {kind} ? {targetId}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p>Media ID {image.id}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      disabled={image.references > 0}
-                      onClick={() => setReplace(image)}
-                    >
-                      Replace
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={image.references > 0}
-                      onClick={() => {
-                        change.reset();
-                        setRemove({
-                          title: 'Delete image?',
-                          description:
-                            'The image will be removed from the library.',
-                          request: {
-                            url: url + '/' + image.id,
-                            method: 'delete',
-                          },
-                        });
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                  {manage && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          save.reset();
+                          setMetadata(image);
+                        }}
+                      >
+                        Edit details
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={image.references > 0}
+                        onClick={() => setReplace(image)}
+                      >
+                        Replace
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={image.references > 0}
+                        onClick={() => {
+                          change.reset();
+                          setRemove({
+                            title: 'Delete image?',
+                            description:
+                              'The image will be removed from the library.',
+                            request: {
+                              url: url + '/' + image.id,
+                              method: 'delete',
+                            },
+                          });
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               </li>
             ))}
@@ -177,6 +234,65 @@ export function MediaPage() {
             label="Choose the replacement image"
             onUpload={(file) => upload(file, replace.id)}
           />
+        )}
+      </Dialog>
+      <Dialog
+        open={Boolean(metadata)}
+        onClose={() => setMetadata(null)}
+        title="Edit media details"
+      >
+        {metadata && (
+          <form
+            key={metadata.id}
+            className="grid gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save.mutate({
+                url: url + '/' + metadata.id,
+                method: 'patch',
+                data: Object.fromEntries(new FormData(event.currentTarget)),
+              });
+            }}
+          >
+            <label className="grid gap-1 text-sm">
+              Media title
+              <input
+                name="title"
+                className={control}
+                maxLength={100}
+                defaultValue={metadata.title}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Alternative text
+              <input
+                name="alt"
+                className={control}
+                maxLength={200}
+                defaultValue={metadata.alt}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Category
+              <select
+                name="category"
+                className={control}
+                defaultValue={metadata.category}
+              >
+                {Object.entries(mediaCategories).map(([key, value]) => (
+                  <option key={key} value={key}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <Button type="submit" loading={save.isPending}>
+                Save details
+              </Button>
+            </div>
+            {save.isError && <p role="alert">{save.error.message}</p>}
+          </form>
         )}
       </Dialog>
       <ConfirmAction

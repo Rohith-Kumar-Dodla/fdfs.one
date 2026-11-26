@@ -1,6 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router';
+import { can } from '../../../../shared/admin.js';
+import { useNavigate, useOutletContext, useParams } from 'react-router';
 import { professions } from '../../../../shared/talent.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { TextInput } from '../../components/ui/fields.jsx';
@@ -20,7 +21,13 @@ import { TalentForm } from './Form.jsx';
 import { professionOptions, ProfileContent, TalentImage } from './Public.jsx';
 
 const base = '/admin/talent';
-const invalidationKeys = [base, 'talent', '/admin/audit'];
+const invalidationKeys = [
+  base,
+  'talent',
+  '/admin/audit',
+  '/admin/overview',
+  'site-homepage',
+];
 const columns = [
   {
     title: 'Name',
@@ -96,6 +103,7 @@ export function AdminTalentList() {
 }
 
 function ProfileActions({ profile }) {
+  const account = useOutletContext();
   const [action, setAction] = useState(null);
   const change = useChange(invalidationKeys);
   const url = base + '/' + profile.id;
@@ -179,36 +187,47 @@ function ProfileActions({ profile }) {
       </Card>
       <Card className="grid min-w-0 gap-3">
         <h2 className="text-lg font-semibold">Approved account association</h2>
-        {profile.associatedUserId && (
-          <p className="wrap-anywhere text-sm text-muted">
-            Current account {profile.associatedUserId}
-          </p>
-        )}
-        <form
-          className="grid gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            associate(new FormData(event.currentTarget).get('account').trim());
-          }}
-        >
-          <label className="grid min-w-0 gap-1 text-sm">
-            Verified user account ID
-            <TextInput name="account" required minLength={36} maxLength={36} />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="outline">
-              Approve association
-            </Button>
+        {can(account, 'users') && (
+          <>
             {profile.associatedUserId && (
-              <Button variant="outline" onClick={() => associate(null)}>
-                Remove association
-              </Button>
+              <p className="wrap-anywhere text-sm text-muted">
+                Current account {profile.associatedUserId}
+              </p>
             )}
-          </div>
-        </form>
-        <DetailLink to="/admin/users">
-          Find an account in user management
-        </DetailLink>
+            <form
+              className="grid gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                associate(
+                  new FormData(event.currentTarget).get('account').trim(),
+                );
+              }}
+            >
+              <label className="grid min-w-0 gap-1 text-sm">
+                Verified user account ID
+                <TextInput
+                  name="account"
+                  required
+                  minLength={36}
+                  maxLength={36}
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" variant="outline">
+                  Approve association
+                </Button>
+                {profile.associatedUserId && (
+                  <Button variant="outline" onClick={() => associate(null)}>
+                    Remove association
+                  </Button>
+                )}
+              </div>
+            </form>
+            <DetailLink to="/admin/users">
+              Find an account in user management
+            </DetailLink>
+          </>
+        )}
       </Card>
       <ConfirmAction
         action={action}

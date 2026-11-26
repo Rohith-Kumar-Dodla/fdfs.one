@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import { createSessionService } from '../auth/sessions.js';
 import { slug } from '../films/schemas.js';
+import { siteFlags } from '../site/service.js';
 import { publicEvent } from './events.js';
 import { chatSendInput, sendChat } from './chat.js';
 
@@ -110,6 +111,12 @@ export function attachLiveSockets(
         );
       joining = true;
       try {
+        if ((await siteFlags()).maintenance)
+          throw new AppError(
+            503,
+            'SITE_MAINTENANCE',
+            'The website is temporarily in maintenance.',
+          );
         const event = await publicEvent(slug);
         if (!socket.connected) return { slug };
         if (joined) await socket.leave(roomName(joined));
@@ -142,6 +149,13 @@ export function attachLiveSockets(
           'ROOM_REQUIRED',
           'Join the event before sending messages.',
         );
+      const flags = await siteFlags();
+      if (flags.maintenance || !flags.communityOpen)
+        throw new AppError(
+          403,
+          'COMMUNITY_CLOSED',
+          'Community participation is currently closed.',
+        );
       const user = await authenticate(socket);
       if (!user.emailVerifiedAt)
         throw new AppError(
@@ -158,9 +172,10 @@ export function attachLiveSockets(
   });
 
   return {
-    notify({ slug, status, removed }) {
+    notify({ slug, status, removed, restored }) {
       const room = io.to(roomName(slug));
       if (removed) room.emit('chat:removed', { slug, id: removed });
+      else if (restored) room.emit('chat:restored', { slug, id: restored });
       else room.emit('live:state', { slug });
       if (status && status !== 'published') room.socketsLeave(roomName(slug));
     },

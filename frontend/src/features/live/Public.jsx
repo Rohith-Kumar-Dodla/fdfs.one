@@ -21,6 +21,7 @@ import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { control, DetailLink } from '../admin/common.jsx';
 import { protectedRequest } from '../auth/api.js';
 import { useAccount } from '../auth/guards.jsx';
+import { useSiteSettings } from '../site/public.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
 import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { LiveChat, useLiveConnection } from './Chat.jsx';
@@ -388,9 +389,13 @@ function ReminderControl({ event, account }) {
 }
 
 function EventContent({ event, slug }) {
+  const settings = useSiteSettings();
   const { data: account } = useAccount();
   const realtime = useLiveConnection(slug, account);
-  const chat = event.chatEnabled && event.broadcast !== 'cancelled';
+  const chat =
+    settings.communityOpen &&
+    event.chatEnabled &&
+    event.broadcast !== 'cancelled';
   const video = event.video ?? event.replay;
   return (
     <>

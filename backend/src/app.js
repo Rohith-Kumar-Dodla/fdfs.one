@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import { handleError, notFound } from './middlewares/errors.js';
 import { isCookieAuthPath } from './modules/auth/cookies.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
+import { mountPublicSite } from './modules/site/routes.js';
 import { mountPhase22 } from './modules/admin/routes.js';
 import { publicTalentRoutes } from './modules/talent/routes.js';
 import { publicFilmRoutes } from './modules/films/routes.js';
@@ -79,6 +80,7 @@ export function createApp({
     }),
   );
   api.use(express.json({ limit: '100kb' }));
+  mountPublicSite(api, isDatabaseConnected);
   api.use('/talent', publicTalentRoutes(isDatabaseConnected));
   api.use('/films', publicFilmRoutes(isDatabaseConnected));
   api.use('/podcasts', publicPodcastRoutes(isDatabaseConnected));

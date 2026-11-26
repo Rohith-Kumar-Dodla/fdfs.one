@@ -1,4 +1,5 @@
-﻿import { Router } from 'express';
+import { Personality, normalizedName } from './models.js';
+import { Router } from 'express';
 import { validate } from '../../middlewares/validate.js';
 import { idParams } from '../../utils/list.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
@@ -50,6 +51,32 @@ export function publicTalentRoutes(available) {
 }
 
 export function mountAdminTalent(admin) {
+  admin.get(
+    '/talent/duplicates',
+    validate(
+      z.object({
+        query: z.object({ name: z.string().trim().min(3).max(100) }),
+      }),
+    ),
+    async (_req, res) => {
+      const name = normalizedName(data(res).query.name);
+      const matches = await Personality.find({
+        searchNames: name,
+        status: { $ne: 'archived' },
+      })
+        .select('publicId displayName status')
+        .limit(6)
+        .lean();
+      sendSuccess(
+        res,
+        matches.map(({ publicId, displayName, status }) => ({
+          id: publicId,
+          displayName,
+          status,
+        })),
+      );
+    },
+  );
   admin.get('/talent', validate(adminListInput), (req, res) =>
     listTalent(res, data(res).query, true),
   );

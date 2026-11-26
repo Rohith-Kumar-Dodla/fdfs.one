@@ -1,14 +1,20 @@
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { listInput, sendList } from '../../utils/list.js';
+import { listInput, publicId, sendList } from '../../utils/list.js';
 
 export const actions = [
   'user.role_changed',
   'user.status_changed',
   'user.sessions_revoked',
+  'user.staff_changed',
+  'site.settings',
+  'site.homepage_save',
+  'site.homepage_publish',
+  'media.metadata',
   'submission.review',
   'submission.approve',
   'submission.reject',
+  'submission.request_changes',
   'submission.archive',
   'submission.publish',
   'media.replace',
@@ -54,12 +60,26 @@ export const actions = [
     'remove_replay',
     'options',
     'chat_hide',
+    'chat_restore',
     'chat_mute',
     'chat_unmute',
     'chat_resolve',
   ].map((action) => 'live.' + action),
 ];
 
+const targetTypes = [
+  'user',
+  'submission',
+  'media',
+  'personality',
+  'film',
+  'podcast-show',
+  'podcast-episode',
+  'comment',
+  'comment-report',
+  'live-event',
+  'site',
+];
 const schema = new mongoose.Schema(
   {
     actorId: { type: String, required: true, immutable: true },
@@ -77,6 +97,7 @@ const schema = new mongoose.Schema(
         'comment',
         'comment-report',
         'live-event',
+        'site',
       ],
       required: true,
       immutable: true,
@@ -93,6 +114,12 @@ const schema = new mongoose.Schema(
       field: {
         type: String,
         enum: [
+          'super_admin',
+          'admin',
+          'content_manager',
+          'moderator',
+          'support_agent',
+          'site',
           'creator',
           'organizer',
           'account-status',
@@ -109,6 +136,7 @@ const schema = new mongoose.Schema(
           'live',
         ],
       },
+      reason: { type: String, maxlength: 500 },
       from: String,
       to: String,
     },
@@ -122,7 +150,15 @@ schema.index({ actorId: 1, createdAt: -1 });
 schema.index({ action: 1, createdAt: -1 });
 
 export const AuditLog = mongoose.model('AuditLog', schema);
-export const auditListInput = listInput({ action: z.enum(actions).optional() });
+export const auditListInput = listInput({
+  action: z.enum(actions).optional(),
+  actor: publicId.optional(),
+  resource: z.enum(targetTypes).optional(),
+  target: z.string().trim().min(1).max(100).optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  outcome: z.literal('success').optional(),
+});
 
 export async function recordAudit(
   session,
@@ -139,7 +175,20 @@ export async function recordAudit(
 }
 
 export function listAudit(res, query) {
-  const filter = query.action ? { action: query.action } : {};
+  const { action, actor, resource, target, from, to, outcome } = query;
+  const filter = {
+    ...(action && { action }),
+    ...(actor && { actorId: actor }),
+    ...(resource && { targetType: resource }),
+    ...(target && { targetId: target }),
+    ...(outcome && { outcome }),
+    ...((from || to) && {
+      createdAt: {
+        ...(from && { $gte: new Date(from) }),
+        ...(to && { $lt: new Date(Date.parse(to) + 86400000) }),
+      },
+    }),
+  };
   return sendList(
     res,
     AuditLog,

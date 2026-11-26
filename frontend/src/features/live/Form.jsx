@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/surfaces.jsx';
 import { control, DetailLink, useChange } from '../admin/common.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
+import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
 
 export const field = 'grid min-w-0 gap-1 text-sm';
@@ -157,6 +158,12 @@ export function ArtworkUpload({ admin, label, image, onChange }) {
           <FilmImage landscape image={image} />
         </div>
       )}
+      {admin && (
+        <MediaPicker
+          label={'Select ' + label.toLowerCase() + ' from library'}
+          onSelect={onChange}
+        />
+      )}
       <ImageUpload
         label={label}
         onUpload={async (file) =>
@@ -264,7 +271,12 @@ export function EventForm({
             ...content,
             ...(event
               ? { revision: event.revision }
-              : { organizerId: optional('organizerId') }),
+              : {
+                  organizerId: optional('organizerId'),
+                  plannedReplayUrl: optional('plannedReplayUrl'),
+                  chatEnabled: data.has('chatEnabled'),
+                  remindersEnabled: data.has('remindersEnabled'),
+                }),
           }
         : { ...submission, ...(!record && { category: 'live' }) },
     });
@@ -360,6 +372,19 @@ export function EventForm({
             <input name="organizerId" className={control} maxLength={36} />
           </label>
         )}
+        {admin && !event && (
+          <fieldset className="grid gap-2">
+            <legend className="font-semibold">Event availability</legend>
+            <label className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" name="chatEnabled" defaultChecked />
+              Enable live chat
+            </label>
+            <label className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" name="remindersEnabled" defaultChecked />
+              Enable email reminders
+            </label>
+          </fieldset>
+        )}
         <label className={field}>
           YouTube Live URL
           <input
@@ -370,6 +395,17 @@ export function EventForm({
             defaultValue={initial?.videoUrl ?? initial?.video?.sourceUrl}
           />
         </label>
+        {admin && !event && (
+          <label className={field}>
+            Planned replay YouTube URL (optional)
+            <input
+              className={control}
+              type="url"
+              name="plannedReplayUrl"
+              maxLength={2048}
+            />
+          </label>
+        )}
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"

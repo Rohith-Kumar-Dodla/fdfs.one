@@ -13,6 +13,7 @@ export function accountView(user) {
     fullName: user.fullName,
     email: user.email,
     roles: user.roles,
+    ...(user.cmsModules?.length && { cmsModules: user.cmsModules }),
     emailVerified: Boolean(user.emailVerifiedAt),
     status: user.status,
     bio: user.bio,

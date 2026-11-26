@@ -1,4 +1,4 @@
-﻿import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
 import { filmography } from '../films/read.js';
@@ -24,7 +24,7 @@ const cardFields =
 const publicFields =
   cardFields + ' alternativeName biography location website links coverImage';
 const mediaFields =
-  'publicId purpose url width height bytes references createdAt';
+  'publicId purpose url width height bytes references createdAt alt';
 const populate = (query, fields) => {
   for (const field of fields) query.populate(field, mediaFields);
   return query;
@@ -61,8 +61,15 @@ export function talentWrite(work) {
 
 function projectImage(image, admin) {
   if (!image?.url) return null;
-  const { id, url, width, height, variants } = imageView(image);
-  return { url, width, height, variants, ...(admin && { id }) };
+  const { id, url, width, height, variants, alt } = imageView(image);
+  return {
+    url,
+    width,
+    height,
+    variants,
+    ...(alt && { alt }),
+    ...(admin && { id }),
+  };
 }
 
 function projectProfile(record, detail = false, admin = false) {

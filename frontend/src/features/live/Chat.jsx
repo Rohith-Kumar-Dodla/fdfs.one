@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { io } from 'socket.io-client';
@@ -69,6 +69,11 @@ export function useLiveConnection(slug, account) {
       if (changed !== slug) return;
       setIncoming((rows) => rows.filter((message) => message.id !== id));
       setRemoved((ids) => [...ids, id].slice(-100));
+      void client.invalidateQueries({ queryKey: ['live', 'history', slug] });
+    });
+    socket.on('chat:restored', ({ slug: changed, id }) => {
+      if (changed !== slug) return;
+      setRemoved((ids) => ids.filter((removed) => removed !== id));
       void client.invalidateQueries({ queryKey: ['live', 'history', slug] });
     });
     socket.connect();

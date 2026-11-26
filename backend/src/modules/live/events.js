@@ -25,7 +25,11 @@ const conflict = () =>
 const isEditable = (event) =>
   event.status !== 'archived' &&
   ['scheduled', 'postponed'].includes(event.broadcast);
-export const visibility = { status: 'published', moderation: 'approved' };
+export const visibility = (now = new Date()) => ({
+  status: 'published',
+  moderation: 'approved',
+  $or: [{ publicationAt: null }, { publicationAt: { $lte: now } }],
+});
 const artwork = ['poster', 'banner', 'replayThumbnail'];
 const listFields =
   'publicId slug title summary category topic language venue startAt endAt timeZone actualStartAt actualEndAt broadcast chatEnabled slowSeconds remindersEnabled organizer poster banner replayThumbnail replay.provider';
@@ -34,7 +38,7 @@ const detailFields = listFields.replace(
   'description talent video replay',
 );
 const imageFields =
-  'publicId purpose url width height bytes references createdAt';
+  'publicId purpose url width height bytes references createdAt alt';
 
 function populate(query, managed = false, detail = false) {
   query.populate('organizer', managed ? 'fullName publicId' : 'fullName');
@@ -109,8 +113,11 @@ function view(row, managed = false, detail = false) {
         .map((key) => {
           const image = imageView(row[key]);
           if (managed) return [key, image];
-          const { id, url, width, height, variants } = image;
-          return [key, { id, url, width, height, variants }];
+          const { id, url, width, height, variants, alt } = image;
+          return [
+            key,
+            { id, url, width, height, variants, ...(alt && { alt }) },
+          ];
         }),
     ),
     ...(detail && {
@@ -131,6 +138,8 @@ function view(row, managed = false, detail = false) {
       moderation: row.moderation,
       organizerId: row.organizer?.publicId,
       revision: row.__v,
+      publicationAt: row.publicationAt,
+      plannedReplayUrl: row.plannedReplayUrl,
       rightsConfirmed: row.rightsConfirmed,
       rightsNotes: row.rightsNotes,
     }),
@@ -138,7 +147,7 @@ function view(row, managed = false, detail = false) {
 }
 
 export async function publicEvent(slug) {
-  const event = await LiveEvent.findOne({ slug, ...visibility });
+  const event = await LiveEvent.findOne({ slug, ...visibility() });
   if (!event) throw missing();
   return event;
 }
@@ -152,7 +161,7 @@ export async function liveDetails(selector, managed = false) {
 }
 
 export async function listEvents(res, query, scope) {
-  const filter = scope ? { ...scope } : { ...visibility };
+  const filter = scope ? { ...scope } : visibility();
   const {
     category,
     q,
@@ -322,7 +331,14 @@ async function organizerById(id, session) {
 }
 
 export function createEvent(input, actor, context) {
-  const { organizerId, slug, ...content } = input;
+  const {
+    organizerId,
+    slug,
+    chatEnabled,
+    remindersEnabled,
+    plannedReplayUrl,
+    ...content
+  } = input;
   return write(async (session) => {
     const organizer = organizerId
       ? await organizerById(organizerId, session)
@@ -331,6 +347,11 @@ export function createEvent(input, actor, context) {
       slug: slug ?? slugFrom(content.title),
       organizer: organizer._id,
       createdBy: context.actorId,
+      plannedReplayUrl: plannedReplayUrl
+        ? provider(plannedReplayUrl, 'replay').sourceUrl
+        : undefined,
+      chatEnabled,
+      remindersEnabled,
     });
     await applyContent(event, content, context.actorId, session);
     await event.save({ session });
@@ -412,7 +433,17 @@ async function transition(event, input, context, session) {
       )
         throw conflict();
       requireReady(event);
+      if (input.publicationAt && new Date(input.publicationAt) > event.startAt)
+        throw new AppError(
+          400,
+          'LIVE_PUBLICATION_DATE',
+          'Publication must occur by the scheduled event start.',
+        );
       event.set({
+        publicationAt:
+          input.publicationAt && new Date(input.publicationAt) > now
+            ? input.publicationAt
+            : undefined,
         status: 'published',
         moderation: 'approved',
         approvedAt: now,
@@ -432,7 +463,8 @@ async function transition(event, input, context, session) {
       if (
         event.status !== 'published' ||
         event.moderation !== 'approved' ||
-        event.broadcast !== 'scheduled'
+        event.broadcast !== 'scheduled' ||
+        event.publicationAt > now
       )
         throw conflict();
       requireReady(event);
@@ -471,6 +503,7 @@ async function transition(event, input, context, session) {
     case 'remove_replay':
       if (event.broadcast !== 'ended') throw conflict();
       event.set({
+        plannedReplayUrl: undefined,
         replay: input.replayUrl
           ? provider(input.replayUrl, 'replay')
           : undefined,
@@ -593,6 +626,7 @@ export function publishEventSubmission(lead) {
     );
     event.set({
       status: 'published',
+      publicationAt: undefined,
       broadcast: 'scheduled',
       moderation: 'approved',
       approvedAt: new Date(),

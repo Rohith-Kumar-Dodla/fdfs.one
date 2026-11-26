@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { rateLimit } from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -355,7 +355,7 @@ export function mountPodcastComments(api, admin, authenticate) {
           'comment_' + body.action,
           'comment',
           params.id,
-          { field: 'comment-status', from, to },
+          { field: 'comment-status', from, to, reason: body.reason },
         );
       });
       return sendSuccess(res, null);

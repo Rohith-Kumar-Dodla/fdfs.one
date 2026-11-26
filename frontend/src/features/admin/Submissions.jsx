@@ -1,3 +1,4 @@
+import { can } from '../../../../shared/admin.js';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -55,6 +56,13 @@ const states = [
   'published',
   'archived',
 ];
+const submissionModule = {
+  film: 'independent',
+  original: 'original',
+  podcast: 'podcasts',
+  live: 'live',
+  talent: 'talent',
+};
 const categoryLabel = (id) =>
   categories.find(([category]) => category === id)?.[1] ?? id;
 const columns = [
@@ -204,11 +212,18 @@ export function NewSubmissionPage() {
 }
 
 export function SubmissionList({ admin = false }) {
+  const account = useOutletContext();
+  const allowed =
+    !admin || can(account, 'moderation')
+      ? categories
+      : categories.filter(([category]) =>
+          can(account, 'content', submissionModule[category]),
+        );
   const [search] = useSearchParams();
   const category = search.get('category');
   const records = useRecords(
     admin ? adminUrl : ownerUrl,
-    categories.some(([key]) => key === category) ? { category } : {},
+    allowed.some(([key]) => key === category) ? { category } : {},
   );
   const content = (
     <>
@@ -220,10 +235,26 @@ export function SubmissionList({ admin = false }) {
           <DetailLink to={ownerUrl + '/new'}>Create submission</DetailLink>
         </div>
       )}
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          records.filter(
+            'q',
+            new FormData(event.currentTarget).get('q').trim(),
+          );
+        }}
+      >
+        <label className="grid flex-1 gap-1 text-sm">
+          Search submissions
+          <input className={control} name="q" maxLength={80} />
+        </label>
+        <Button type="submit">Search</Button>
+      </form>
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
           label="Category"
-          options={categories}
+          options={allowed}
           value={records.params.category ?? ''}
           onChange={(value) => records.filter('category', value)}
         />
@@ -246,6 +277,8 @@ export function SubmissionList({ admin = false }) {
 }
 
 function SubmissionActions({ record, admin, url }) {
+  const account = useOutletContext();
+  const publish = can(account, 'content', submissionModule[record.category]);
   const [action, setAction] = useState(null);
   const editable = ['draft', 'rejected'].includes(record.status);
   const change = useChange([
@@ -320,10 +353,16 @@ function SubmissionActions({ record, admin, url }) {
               className="grid gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
-                confirm('Reject submission', 'moderate', {
-                  action: 'reject',
-                  reason: new FormData(event.currentTarget).get('reason'),
-                });
+                const corrections =
+                  event.nativeEvent.submitter?.value === 'request_changes';
+                confirm(
+                  corrections ? 'Request corrections' : 'Reject submission',
+                  'moderate',
+                  {
+                    action: corrections ? 'request_changes' : 'reject',
+                    reason: new FormData(event.currentTarget).get('reason'),
+                  },
+                );
               }}
             >
               <label className="grid gap-1 text-sm">
@@ -340,10 +379,13 @@ function SubmissionActions({ record, admin, url }) {
                 <Button type="submit" variant="outline">
                   Reject submission
                 </Button>
+                <Button type="submit" variant="outline" value="request_changes">
+                  Request corrections
+                </Button>
               </div>
             </form>
           )}
-          {record.status === 'approved' && record.proposal && (
+          {publish && record.status === 'approved' && record.proposal && (
             <div>
               <Button
                 onClick={() =>
@@ -359,7 +401,7 @@ function SubmissionActions({ record, admin, url }) {
               </Button>
             </div>
           )}
-          {record.status === 'approved' && record.eventProposal && (
+          {publish && record.status === 'approved' && record.eventProposal && (
             <div>
               <Button
                 onClick={() =>
@@ -370,7 +412,7 @@ function SubmissionActions({ record, admin, url }) {
               </Button>
             </div>
           )}
-          {record.status === 'approved' && record.filmProposal && (
+          {publish && record.status === 'approved' && record.filmProposal && (
             <ReleaseForm
               onRelease={(release) =>
                 confirm('Publish approved film', 'publish', { release })
