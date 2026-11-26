@@ -32,6 +32,15 @@ const detailRoutes = new Set([
 export function routeCategory(path) {
   const [, root, slug, extra] = path.split('/');
   if (root === 'admin' || root === '_dev') return null;
+  if (root === 'movies')
+    return {
+      module: 'reviews',
+      ...(slug?.length <= 90 &&
+        validSlug.test(slug) &&
+        !extra && { content: slug }),
+    };
+  if (root === 'reviews' && /^[a-f0-9-]{36}$/.test(slug ?? '') && !extra)
+    return { module: 'reviews', content: 'review-' + slug };
   return {
     module: !root ? 'home' : routes.has(root) ? root : 'other',
     ...(detailRoutes.has(root) &&
@@ -71,6 +80,14 @@ function initialConsent() {
 
 export function AnalyticsPreferences() {
   const [allow, setAllow] = useState(initialConsent);
+  useEffect(() => {
+    const sync = (event) => {
+      if (event.key === consentKey || event.key === null)
+        setAllow(initialConsent());
+    };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
   return (
     <label className="flex min-h-11 items-center gap-2 text-sm">
       <input
@@ -128,7 +145,8 @@ export function RealtimeProvider({ children }) {
   useEffect(() => {
     const sameTab = (event) => setAllowed(event.detail === true);
     const otherTab = (event) => {
-      if (event.key === consentKey) setAllowed(event.newValue === 'allow');
+      if (event.key === consentKey || event.key === null)
+        setAllowed(initialConsent());
     };
     window.addEventListener('fdfs:consent', sameTab);
     window.addEventListener('storage', otherTab);

@@ -1,5 +1,7 @@
 import { can } from '../../../../shared/admin.js';
 import { User } from '../auth/models.js';
+import { Movie, ReviewReport } from '../reviews/models.js';
+import { publicMovieFilter } from '../reviews/movies.js';
 import { Film } from '../films/models.js';
 import { visibility } from '../live/events.js';
 import { LiveEvent } from '../live/models.js';
@@ -46,6 +48,8 @@ export async function overview(account) {
           })
         : 0,
     );
+  if (content('movies'))
+    metrics.movies = Movie.countDocuments(publicMovieFilter(now));
   if (content('talent')) metrics.talent = Personality.countDocuments(published);
   if (content('live'))
     Object.assign(metrics, {
@@ -74,7 +78,8 @@ export async function overview(account) {
     metrics.reports = Promise.all([
       CommentReport.countDocuments({ status: 'open' }),
       ChatReport.countDocuments({ resolvedAt: null }),
-    ]).then(([comments, chat]) => comments + chat);
+      ReviewReport.countDocuments({ status: 'open' }),
+    ]).then(([comments, chat, reviews]) => comments + chat + reviews);
   }
   if (can(account, 'media'))
     metrics.images = MediaAsset.countDocuments({

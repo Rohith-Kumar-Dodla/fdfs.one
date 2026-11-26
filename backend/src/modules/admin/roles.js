@@ -1,5 +1,7 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
+import { normalizedEmail, password as passwordInput } from '../auth/schemas.js';
 import { z } from 'zod';
 import { contentModules, staffRoles } from '../../../../shared/admin.js';
 import { AppError } from '../../utils/app-error.js';
@@ -35,9 +37,30 @@ export const staffInput = z.object({
     ),
 });
 
-export function bootstrapSuper(email) {
+export async function bootstrapSuper(address, { password, bcryptCost } = {}) {
+  const email = normalizedEmail.parse(address);
+  const passwordHash =
+    password === undefined
+      ? undefined
+      : await bcrypt.hash(passwordInput.parse(password), bcryptCost);
   return mongoose.connection
     .transaction(async (session) => {
+      const target = await User.findOne({ email })
+        .select('+superSeed')
+        .session(session);
+      if (
+        passwordHash &&
+        target?.superSeed &&
+        target.roles.includes('super_admin') &&
+        target.status === 'active' &&
+        target.emailVerifiedAt
+      )
+        return accountView(target);
+      if (passwordHash && target)
+        throw conflict(
+          'SUPER_ACCOUNT_EXISTS',
+          'This address belongs to an existing account. Inspect ownership before any privileged recovery.',
+        );
       if (
         await User.exists({
           $or: [{ superSeed: true }, { roles: 'super_admin' }],
@@ -47,15 +70,32 @@ export function bootstrapSuper(email) {
           'SUPER_BOOTSTRAPPED',
           'Super Administrator bootstrap has already been used.',
         );
-      const user = await User.findOneAndUpdate(
-        { ...active, email, roles: 'admin' },
-        {
-          $addToSet: { roles: 'super_admin' },
-          $set: { superSeed: true },
-          $inc: { authVersion: 1 },
-        },
-        { session, returnDocument: 'after' },
-      );
+      const user = passwordHash
+        ? (
+            await User.create(
+              [
+                {
+                  email,
+                  fullName: 'FDFS.ONE Administrator',
+                  passwordHash,
+                  roles: ['viewer', 'admin', 'super_admin'],
+                  status: 'active',
+                  emailVerifiedAt: new Date(),
+                  superSeed: true,
+                },
+              ],
+              { session },
+            )
+          )[0]
+        : await User.findOneAndUpdate(
+            { ...active, email, roles: 'admin' },
+            {
+              $addToSet: { roles: 'super_admin' },
+              $set: { superSeed: true },
+              $inc: { authVersion: 1 },
+            },
+            { session, returnDocument: 'after' },
+          );
       if (!user)
         throw conflict(
           'SUPER_INELIGIBLE',

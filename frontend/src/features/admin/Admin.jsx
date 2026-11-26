@@ -36,6 +36,7 @@ const stats = {
   unverified: 'Unverified accounts',
   suspended: 'Suspended accounts',
   cinema: 'Published Cinema films',
+  movies: 'Published movies',
   originals: 'Published Originals',
   episodes: 'Published episodes',
   talent: 'Published Talent Profiles',

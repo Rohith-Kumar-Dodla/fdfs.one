@@ -39,6 +39,8 @@ The development-only `/_dev/api` route exercises health and readiness. Authentic
 
 ## Account routes
 
+Protected administrator URLs use the shared sign-in form with administration-specific guidance. Authentication returns the account to the validated internal destination. Staff scopes are checked after sign-in.
+
 Guests can open `/login`, `/register`, `/verification-pending`, `/verify-email`, `/forgot-password` and `/reset-password`. Email links carry their one-time token in the fragment, which the form removes from the visible address after reading. Account-only pages are `/account` and `/account/settings` for profile changes, preferences, password changes and session revocation.
 
 Use the account guard for protected pages and supply verification or role requirements when the corresponding features are added. Backend authorization remains authoritative. The existing public header shows guest links or an account menu based on the restored session.
@@ -92,6 +94,8 @@ The shared application layout creates one Socket.IO connection on the configured
 Verified organizers use `/organizer/live` for their event list, draft form, scoped broadcast controls and chat moderation. Drafts and protected corrections use the shared submissions review, including rejection feedback and resubmission. Administrators use `/admin/live` to manage the full lifecycle and chat. Public reminder actions read the signed-in account's subscription, subscribe and cancel using REST.
 
 ## Centralized CMS
+
+Movies supports searching, filters, draft and published edits, preview, publication and archival. Artwork uses the shared library picker and upload controls. Credits select published Talent Profiles. Review moderation supports reasons, hiding, restoring and dismissing reports, and audited rating abuse decisions. The workspaces reuse the responsive drawer, dialogs and keyboard focus conventions. External import is unavailable. Public Reviews and movie routes remain placeholders for Phase 5.2.
 
 The administration layout groups Overview, Content, Community, Platform and System routes. It uses the shared account session, permission-aware navigation, an accessible mobile drawer, a collapsible desktop sidebar and a breadcrumb. Listing pages reuse responsive records, pagination, filtered searches, confirmation dialogs and retry states. Quick actions open the five implemented module creation forms. Cinema and Originals have separate workspaces. The existing film detail and moderation routes remain compatible.
 

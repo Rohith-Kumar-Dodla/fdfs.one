@@ -4,6 +4,7 @@ export const contentModules = [
   'podcasts',
   'live',
   'talent',
+  'movies',
 ];
 export const staffRoles = [
   'super_admin',

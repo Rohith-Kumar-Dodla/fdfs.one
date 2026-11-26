@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   AnalyticsPreferences,
@@ -19,6 +19,16 @@ it('keeps private route segments and admin navigation out of audience analytics'
   });
   expect(routeCategory('/live/unknown/children')).toEqual({ module: 'live' });
   expect(routeCategory('/reviews')).toEqual({ module: 'reviews' });
+  expect(routeCategory('/movies/public-movie')).toEqual({
+    module: 'reviews',
+    content: 'public-movie',
+  });
+  expect(
+    routeCategory('/reviews/84b77770-cc6f-42cb-aa0a-26bd143cc047'),
+  ).toEqual({
+    module: 'reviews',
+    content: 'review-84b77770-cc6f-42cb-aa0a-26bd143cc047',
+  });
 });
 
 it('defaults optional analytics to off and emits consent changes in both directions', () => {

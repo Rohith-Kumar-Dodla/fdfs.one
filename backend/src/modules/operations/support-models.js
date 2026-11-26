@@ -94,6 +94,7 @@ const notice = new Schema(
     owner: String,
     type: String,
     ticket: String,
+    path: String,
     readAt: Date,
     key: { type: String, unique: true },
   },

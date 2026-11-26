@@ -29,10 +29,15 @@ export function LoginPage() {
       ? state.from
       : '/account';
 
+  const administrator = /^\/admin(?:\/|\?|$)/.test(target);
   return (
     <AuthPage
       title="Sign in"
-      description="Sign in to manage your FDFS.ONE account."
+      description={
+        administrator
+          ? 'Sign in to FDFS.ONE Administration.'
+          : 'Sign in to manage your FDFS.ONE account.'
+      }
     >
       <AuthForm
         fields={[{ ...emailField, autoComplete: 'username' }, passwordField]}
@@ -47,11 +52,13 @@ export function LoginPage() {
         <Link to="/forgot-password" className={linkClass}>
           Forgot password?
         </Link>
-        {settings.registrationOpen && !settings.maintenance && (
-          <Link to="/register" className={linkClass}>
-            Create an account
-          </Link>
-        )}
+        {!administrator &&
+          settings.registrationOpen &&
+          !settings.maintenance && (
+            <Link to="/register" className={linkClass}>
+              Create an account
+            </Link>
+          )}
       </div>
     </AuthPage>
   );

@@ -27,6 +27,7 @@ describe('CMS navigation', () => {
       '/admin/submissions',
       '/admin/moderation',
       '/admin/reports',
+      '/admin/review-moderation',
     ]);
     expect(paths({ roles: ['support_agent'] })).toEqual(['/admin/support']);
     expect(paths({ roles: ['admin'] })).not.toContain('/admin/roles');

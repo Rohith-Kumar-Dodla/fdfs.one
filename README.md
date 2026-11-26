@@ -51,7 +51,11 @@ Phase 4A.2 and overall Phase 4A are PASS. Phase 4A.2 implements analytics, live 
 
 Production setup uses a named MongoDB replica-set database with transactions, index creation and TTL support, encrypted storage and backups, a trusted HTTPS frontend URL, a verified transactional SMTP sender, and one backend instance for presence. Review approved privacy and ticket-retention terms before onboarding. A production Super Administrator and approved content onboarding remain separate setup tasks.
 
-The roadmap has 11 main phases and 22 subphases. Phase 5 begins with the movie catalogue and review backend.
+Phase 5.1 implementation and isolated verification passed. Production account provisioning remains pending hidden password entry. This phase adds the administrator movie catalogue, the public catalogue API, and shared ratings, reviews, likes, comments and moderation. Open `/admin` to sign in. Use Movies to manage catalogue entries and Review moderation to act on reports. The Phase 4A.2 checkpoint `65bb559` is on GitHub `main`. [Phase 5.1 verification](TESTING.md#phase-51-verification)
+
+The requested permanent Super Administrator uses `admin@fdfs.one`. Run the owner bootstrap from a local terminal with hidden password entry. Manual catalogue management is available. External import requires licensed provider access. The public Reviews experience remains Phase 5.2. [Owner bootstrap](BACKEND.md#centralized-administration)
+
+The roadmap has 11 main phases and 22 subphases.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

@@ -7,6 +7,7 @@ import { authorize, permit } from './policy.js';
 import { changeStaff, staffInput } from './roles.js';
 import { mountSiteAdmin } from '../site/routes.js';
 import { overview } from './overview.js';
+import { mountReviews } from '../reviews/routes.js';
 import { mountOperations } from '../operations/routes.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -118,6 +119,7 @@ export function mountPhase22(
     health,
     noticeNotify,
     supportEmailAvailable,
+    movieMetadataProvider,
   } = {},
 ) {
   const admin = Router();
@@ -156,6 +158,11 @@ export function mountPhase22(
     supportEmailAvailable,
   });
   admin.use(permit('dashboard'));
+  mountReviews(api, admin, authenticate, {
+    available,
+    notify: noticeNotify,
+    movieMetadataProvider,
+  });
   mountSiteAdmin(admin);
   admin.use('/users', permit('users'));
   admin.use('/audit', permit('audit'));

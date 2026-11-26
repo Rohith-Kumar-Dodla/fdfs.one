@@ -17,6 +17,7 @@ import {
 import { Card } from '../../components/ui/surfaces.jsx';
 import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
+import { protectedRequest } from '../auth/api.js';
 import { FilmImage } from './FilmImage.jsx';
 
 const trim = (value) => value?.trim() || undefined;
@@ -176,7 +177,14 @@ function FilmMedia({ admin, record, images = [], value, change }) {
   );
 }
 
-function FilmCredits({ fields, register, append, remove }) {
+export function FilmCredits({
+  fields,
+  register,
+  append,
+  remove,
+  maximum = 60,
+  staffSearch,
+}) {
   const [search, setSearch] = useState('');
   const [q, setQuery] = useState('');
   useEffect(() => {
@@ -184,13 +192,16 @@ function FilmCredits({ fields, register, append, remove }) {
     return () => clearTimeout(timer);
   }, [search]);
   const matches = useQuery({
-    queryKey: ['talent', 'film-credit-selection', q],
-    meta: { public: true },
+    queryKey: ['talent', 'film-credit-selection', q, Boolean(staffSearch)],
+    meta: { public: !staffSearch },
     enabled: q.length >= 2,
-    queryFn: ({ signal }) =>
-      apiClient
-        .get('/talent', { params: { q, limit: 8 }, signal })
-        .then(({ data }) => data),
+    queryFn: ({ signal }) => {
+      const params = { q, limit: 8 };
+      const request = staffSearch
+        ? protectedRequest({ url: staffSearch, params, signal })
+        : apiClient.get('/talent', { params, signal });
+      return request.then(({ data }) => data);
+    },
   });
   return (
     <fieldset className="grid min-w-0 gap-3">
@@ -222,7 +233,7 @@ function FilmCredits({ fields, register, append, remove }) {
             <li key={person.id} className="min-w-0">
               <Button
                 variant="outline"
-                disabled={fields.length >= 60}
+                disabled={fields.length >= maximum}
                 className="max-w-full whitespace-normal wrap-anywhere"
                 onClick={() =>
                   append({

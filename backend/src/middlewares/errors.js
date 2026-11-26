@@ -38,12 +38,23 @@ const parserErrors = {
   },
 };
 
+const safeServiceErrors = new Set([
+  'MOVIE_METADATA_UNAVAILABLE',
+  'MOVIE_METADATA_INVALID',
+  'DEPENDENCY_UNAVAILABLE',
+  'SITE_MAINTENANCE',
+]);
+
 export function handleError(error, req, res, _next) {
   if (res.headersSent) {
     req.log.error('Request failed after response headers were sent');
     return res.destroy();
   }
-  if (error instanceof AppError && error.status >= 400 && error.status < 500) {
+  if (
+    error instanceof AppError &&
+    ((error.status >= 400 && error.status < 500) ||
+      safeServiceErrors.has(error.code))
+  ) {
     return sendError(res, error);
   }
   if (Object.hasOwn(parserErrors, error?.type)) {

@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { genres, languages } from '../../../../shared/films.js';
 import { professions } from '../../../../shared/talent.js';
@@ -110,6 +110,7 @@ const filmSchema = new Schema(
     },
     releaseAt: Date,
     announce: { type: Boolean, default: false },
+    engagementFence: { type: Number, select: false },
     createdBy: { type: String, immutable: true, required: true },
     updatedBy: { type: String, required: true },
   },

@@ -1,3 +1,4 @@
+import { initializeReviewsIndexes } from './modules/reviews/models.js';
 import { createPresenceStore } from './modules/operations/presence.js';
 import { createOperationsHealth } from './modules/operations/platform.js';
 import { initializeOperationsIndexes } from './modules/operations/routes.js';
@@ -149,6 +150,7 @@ async function start() {
           initializePodcastIndexes(),
           initializeLiveIndexes(),
           initializeOperationsIndexes(),
+          initializeReviewsIndexes(),
         ]);
         indexesReady = true;
       },

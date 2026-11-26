@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { announcementTypes, audiences } from '../../../../shared/operations.js';
@@ -180,6 +180,8 @@ const labels = {
   reply: 'Support replied to your ticket',
   status: 'Your support ticket status changed',
   resolved: 'Your support ticket was resolved',
+  review_comment: 'Someone commented on your review',
+  review_moderation: 'Your review activity was moderated',
 };
 export async function listNotices(res, query, user) {
   return sendList(
@@ -187,11 +189,11 @@ export async function listNotices(res, query, user) {
     Notice,
     { owner: user.publicId },
     query,
-    ({ publicId, type, ticket, createdAt, readAt }) => ({
+    ({ publicId, type, ticket, path, createdAt, readAt }) => ({
       id: publicId,
       type,
       label: labels[type] ?? 'Support update',
-      destination: '/support/tickets/' + ticket,
+      destination: path ?? '/support/tickets/' + ticket,
       createdAt,
       readAt,
     }),

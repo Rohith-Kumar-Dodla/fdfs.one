@@ -64,6 +64,11 @@ export const publicRoutes = [
               lazy: modulePage(module.path, true),
             },
           ]),
+          {
+            path: '/reviews/:reviewId',
+            handle: { module: modules.find(({ path }) => path === '/reviews') },
+            lazy: loadModulePage,
+          },
           { path: '/legal/:kind', element: <LegalPage /> },
           ...[
             ['/support', 'SupportHome'],

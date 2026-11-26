@@ -9,6 +9,8 @@ import {
 import { eventUtcTime } from '../../../../shared/live.js';
 import { AppError } from '../../utils/app-error.js';
 import { User, Session } from '../auth/models.js';
+import { Movie, Review } from '../reviews/models.js';
+import { publicMovieFilter } from '../reviews/movies.js';
 import { Film } from '../films/models.js';
 import { slug } from '../films/schemas.js';
 import { LiveEvent } from '../live/models.js';
@@ -133,7 +135,27 @@ export function analyticsOptions(config = {}) {
   };
 }
 
+const reviewSlug = /^review-([a-f0-9-]{36})$/;
 async function published(module, value, now) {
+  if (module === 'reviews') {
+    const match = reviewSlug.exec(value);
+    if (!match) return Movie.exists({ ...publicMovieFilter(now), slug: value });
+    const row = await Review.findOne({
+      publicId: match[1],
+      status: 'published',
+    })
+      .select('targetType target')
+      .lean();
+    if (!row) return null;
+    if (row.targetType === 'movie')
+      return Movie.exists({ ...publicMovieFilter(now), _id: row.target });
+    return Film.exists({
+      _id: row.target,
+      classification: row.targetType === 'cinema' ? 'independent' : 'original',
+      status: 'published',
+      releaseAt: { $lte: now },
+    });
+  }
   const filter = { slug: value, status: 'published' };
   if (module === 'cinema' || module === 'originals')
     return Film.exists({
@@ -163,12 +185,29 @@ export async function ingest(input, user, options, secret, now = new Date()) {
   if (!options.enabled) return { collected: false };
   if (
     input.kind === 'playback' &&
-    !['cinema', 'originals', 'podcasts', 'live'].includes(input.module)
+    !['cinema', 'originals', 'podcasts', 'live', 'reviews'].includes(
+      input.module,
+    )
   )
     throw new AppError(
       400,
       'INVALID_ANALYTICS_CONTENT',
       'Unsupported playback module.',
+    );
+  if (
+    input.module === 'reviews' &&
+    input.kind === 'playback' &&
+    !(await Movie.exists({
+      ...publicMovieFilter(now),
+      slug: input.content,
+      trailerAuthorized: true,
+      'trailer.providerVideoId': { $type: 'string' },
+    }))
+  )
+    throw new AppError(
+      400,
+      'INVALID_ANALYTICS_CONTENT',
+      'Trailer is unavailable.',
     );
   if (input.content && !(await published(input.module, input.content, now)))
     throw new AppError(

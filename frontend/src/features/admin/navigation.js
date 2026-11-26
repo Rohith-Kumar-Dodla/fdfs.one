@@ -13,6 +13,7 @@ export const groups = [
     'Content',
     [
       ['/admin/cinema', 'Cinema', 'content', 'independent'],
+      ['/admin/movies', 'Movies', 'content', 'movies'],
       ['/admin/originals', 'Originals', 'content', 'original'],
       ['/admin/podcasts', '404 Reality Not Found', 'content', 'podcasts'],
       ['/admin/live', 'Live Events', 'content', 'live'],
@@ -27,6 +28,7 @@ export const groups = [
       ['/admin/submissions', 'Submissions', 'submissions'],
       ['/admin/moderation', 'Comments and Live Chat', 'moderation'],
       ['/admin/reports', 'Reports and Moderation', 'moderation'],
+      ['/admin/review-moderation', 'Review moderation', 'moderation'],
       ['/admin/support', 'Support tickets', 'support'],
     ],
   ],
@@ -50,6 +52,7 @@ export const groups = [
 
 export const quickActions = [
   ['/admin/cinema/new', 'Add Film', 'independent'],
+  ['/admin/movies/new', 'Add Movie', 'movies'],
   ['/admin/originals/new', 'Add Original', 'original'],
   ['/admin/podcasts/episodes/new', 'Add Podcast Episode', 'podcasts'],
   ['/admin/live/new', 'Create Live Event', 'live'],

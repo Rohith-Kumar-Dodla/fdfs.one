@@ -56,9 +56,11 @@ export function AccountGuard({ verified = false, roles }) {
         />
       </Container>
     );
-  if (verified && !user.data.emailVerified)
-    return <Navigate to="/verification-pending" replace />;
-  if (roles && !roles.some((role) => user.data.roles.includes(role)))
+  if (
+    roles &&
+    (user.data.status !== 'active' ||
+      !roles.some((role) => user.data.roles.includes(role)))
+  )
     return (
       <Container className="grid justify-items-start gap-4 py-12">
         <ErrorState
@@ -71,5 +73,7 @@ export function AccountGuard({ verified = false, roles }) {
       </Container>
     );
 
+  if (verified && !user.data.emailVerified)
+    return <Navigate to="/verification-pending" replace />;
   return <Outlet context={user.data} />;
 }

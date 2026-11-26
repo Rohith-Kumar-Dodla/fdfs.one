@@ -9,6 +9,16 @@ export const actions = [
   'user.staff_changed',
   'site.settings',
   'site.analytics',
+  ...['create', 'edit', 'publish', 'unpublish', 'archive'].map(
+    (action) => 'movie.' + action,
+  ),
+  ...[
+    'hide',
+    'restore',
+    'report_resolve',
+    'rating_exclude',
+    'rating_restore',
+  ].map((action) => 'review.' + action),
   ...['assign', 'priority', 'status', 'attachment'].map(
     (action) => 'support.' + action,
   ),
@@ -88,6 +98,11 @@ const targetTypes = [
   'site',
   'support',
   'announcement',
+  'movie',
+  'review',
+  'review-comment',
+  'review-report',
+  'rating',
 ];
 const schema = new mongoose.Schema(
   {
@@ -133,6 +148,9 @@ const schema = new mongoose.Schema(
           'account-association',
           'film',
           'live',
+          'movie',
+          'review',
+          'rating',
         ],
       },
       reason: { type: String, maxlength: 500 },

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
+import { movieAppearances } from '../reviews/movies.js';
 import { filmography } from '../films/read.js';
 import { appearances } from '../podcasts/read.js';
 import { sendList } from '../../utils/list.js';
@@ -175,18 +176,20 @@ export async function getPublicTalent(slug) {
     },
   ]);
   if (!record) throw notFound();
-  const [, films, episodes] = await Promise.all([
+  const [, films, episodes, movies] = await Promise.all([
     Personality.populate(
       record,
       imageFields.map(([path]) => ({ path, select: mediaFields })),
     ),
     filmography(record._id),
     appearances(record._id),
+    movieAppearances(record._id),
   ]);
   return {
     ...projectProfile(record, true),
     achievements: record.achievements,
     filmography: films,
+    movieAppearances: movies,
     podcastAppearances: episodes,
   };
 }

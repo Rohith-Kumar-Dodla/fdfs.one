@@ -11,7 +11,7 @@ const currentPassword = z
   .min(1)
   .max(72)
   .refine((value) => Buffer.byteLength(value, 'utf8') <= 72);
-const password = currentPassword.pipe(z.string().min(12));
+export const password = currentPassword.pipe(z.string().min(12));
 const fullName = z.string().trim().min(2).max(100);
 const code = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const body = (fields) => z.object({ body: z.strictObject(fields) });

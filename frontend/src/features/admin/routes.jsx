@@ -36,8 +36,8 @@ const livePage = (name, props) => async () => {
   return { Component: () => <Page {...props} /> };
 };
 
-function StaffPermission({ permission, children }) {
-  return can(useOutletContext(), permission) ? (
+function StaffPermission({ permission, module, children }) {
+  return can(useOutletContext(), permission, module) ? (
     children
   ) : (
     <EmptyState title="Access restricted" />
@@ -59,6 +59,17 @@ const operationsPage =
       ),
     };
   };
+
+const moviePage = (name) => async () => {
+  const Page = (await import('../reviews/Admin.jsx'))[name];
+  return {
+    Component: () => (
+      <StaffPermission permission="content" module="movies">
+        <Page />
+      </StaffPermission>
+    ),
+  };
+};
 
 export const administrationRoutes = [
   {
@@ -86,6 +97,23 @@ export const administrationRoutes = [
             lazy: async () => ({
               Component: (await import('./Admin.jsx')).OverviewPage,
             }),
+          },
+          { path: 'movies', lazy: moviePage('MoviesAdmin') },
+          { path: 'movies/new', lazy: moviePage('ManageMovie') },
+          { path: 'movies/:id', lazy: moviePage('ManageMovie') },
+          {
+            path: 'review-moderation',
+            lazy: async () => {
+              const { ReviewsModeration } =
+                await import('../reviews/Moderation.jsx');
+              return {
+                Component: () => (
+                  <StaffPermission permission="moderation">
+                    <ReviewsModeration />
+                  </StaffPermission>
+                ),
+              };
+            },
           },
           {
             path: 'analytics',

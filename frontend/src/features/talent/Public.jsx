@@ -443,6 +443,35 @@ export function TalentProfile() {
               </p>
             )}
           </section>
+          {!!profile.movieAppearances?.length && (
+            <section className="grid gap-2">
+              <h2 className="text-xl font-semibold">Movie credits</h2>
+              <ul className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {profile.movieAppearances.map((item) => (
+                  <Card as="li" key={item.id} className="min-w-0 wrap-anywhere">
+                    <Link
+                      to={item.path}
+                      className="inline-flex min-h-11 items-center font-semibold text-accent underline"
+                    >
+                      {item.title}
+                    </Link>
+                    {item.releaseYear && (
+                      <p className="text-sm text-muted">{item.releaseYear}</p>
+                    )}
+                    <p className="text-sm">
+                      {item.credits
+                        .map(({ role, character }) =>
+                          [professions[role], character]
+                            .filter(Boolean)
+                            .join(' ? '),
+                        )
+                        .join(', ')}
+                    </p>
+                  </Card>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="grid gap-2">
             <h2 className="text-xl font-semibold">Podcast appearances</h2>
             {profile.podcastAppearances?.length ? (
