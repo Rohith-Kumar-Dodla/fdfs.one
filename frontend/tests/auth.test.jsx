@@ -56,10 +56,17 @@ function respond(config, data, status = 200) {
 
 function renderRoute(path) {
   const request = apiClient.defaults.adapter;
-  apiClient.defaults.adapter = (config) =>
-    config.url === '/site/settings'
-      ? respond(config, siteDefaults)
-      : request(config);
+  apiClient.defaults.adapter = (config) => {
+    if (config.url === '/site/settings') return respond(config, siteDefaults);
+    if (['/announcements', '/announcements/account'].includes(config.url))
+      return respond(config, []);
+    if (config.url === '/notifications/unread')
+      return respond(config, { count: 0 });
+    if (config.url === '/admin/activity')
+      return respond(config, { available: false });
+    if (config.url === '/admin/analytics/overview') return respond(config, {});
+    return request(config);
+  };
   const router = createMemoryRouter(publicRoutes, { initialEntries: [path] });
   render(
     <QueryClientProvider client={queryClient}>

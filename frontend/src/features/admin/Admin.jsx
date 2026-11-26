@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Link,
+  Navigate,
   NavLink,
   Outlet,
   useLocation,
@@ -9,6 +10,7 @@ import {
 } from 'react-router';
 import { can } from '../../../../shared/admin.js';
 import { AccountNavigation } from '../auth/AccountNavigation.jsx';
+import { OperationsOverview } from '../operations/OpsAdmin.jsx';
 import { quickActions, visibleGroups } from './navigation.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
@@ -154,6 +156,14 @@ export function AdminLayout() {
 
 export function OverviewPage() {
   const account = useOutletContext();
+  return can(account, 'dashboard') ? (
+    <DashboardOverview account={account} />
+  ) : (
+    <Navigate to="/admin/support" replace />
+  );
+}
+
+function DashboardOverview({ account }) {
   const url = '/admin/overview';
   const query = useQuery({
     queryKey: [url],
@@ -171,6 +181,7 @@ export function OverviewPage() {
             </DetailLink>
           ))}
       </div>
+      {can(account, 'analytics') && <OperationsOverview />}
       <QueryState query={query}>
         {(data) => (
           <div className="grid gap-5">

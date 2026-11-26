@@ -1,7 +1,14 @@
 import { can } from '../../../../shared/admin.js';
 
 export const groups = [
-  ['Overview', [['/admin', 'Overview', 'dashboard']]],
+  [
+    'Overview',
+    [
+      ['/admin', 'Overview', 'dashboard'],
+      ['/admin/analytics', 'Analytics', 'analytics'],
+      ['/admin/activity', 'Live activity', 'analytics'],
+    ],
+  ],
   [
     'Content',
     [
@@ -20,6 +27,7 @@ export const groups = [
       ['/admin/submissions', 'Submissions', 'submissions'],
       ['/admin/moderation', 'Comments and Live Chat', 'moderation'],
       ['/admin/reports', 'Reports and Moderation', 'moderation'],
+      ['/admin/support', 'Support tickets', 'support'],
     ],
   ],
   [
@@ -28,9 +36,16 @@ export const groups = [
       ['/admin/media', 'Media library', 'media'],
       ['/admin/homepage', 'Homepage Management', 'site'],
       ['/admin/settings', 'Website Settings', 'site'],
+      ['/admin/announcements', 'Announcements', 'announcements'],
     ],
   ],
-  ['System', [['/admin/audit', 'Audit Logs', 'audit']]],
+  [
+    'System',
+    [
+      ['/admin/audit', 'Audit Logs', 'audit'],
+      ['/admin/system-health', 'System health', 'operations'],
+    ],
+  ],
 ];
 
 export const quickActions = [

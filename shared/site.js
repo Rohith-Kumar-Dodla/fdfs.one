@@ -22,6 +22,8 @@ export const siteDefaults = {
   registrationOpen: true,
   maintenance: false,
   communityOpen: true,
+  supportOpen: true,
+  analyticsOpen: true,
 };
 export const mediaCategories = {
   uncategorized: 'Uncategorized',

@@ -26,4 +26,8 @@ The reminder endpoint exposes per-account subscription and delivery state, separ
 
 Future clients can read `/api/v1/site/settings` for the public brand, image variants, navigation visibility, contact and legal content, maintenance state and community flags. The active homepage hero is available at `/api/v1/site/homepage`. Its featured link identifies a currently public resource. Phase 6.1 will define the full homepage section rendering contract.
 
+Future native clients can use the same `/api/v1/support/config`, ticket list, detail, message and private attachment routes. Send the current account bearer token or a scoped `Guest` token as applicable. Display deadlines from server responses. Fetch private attachments on demand and keep cached copies out of shared media storage.
+
+The shared Socket.IO presence protocol accepts an allowlisted route category, optional eligible event slug, coarse device category, visibility and playback state. Native clients can link pulses to foreground lifecycle and supported active playback. Use a rotating anonymous ID if permitted, and restart the session on credential changes. The analytics event API uses client UUIDs, with opt-in and server-assigned timestamps. The account notifications API supports listing, unread counts and owned read actions. Its socket signal triggers a REST refresh. Native push delivery and device registration remain later mobile work.
+
 Existing entertainment routes keep the same stable IDs and slugs. Scheduled announcements and releases follow server UTC timestamps. Optional staff roles and module scopes can appear in the private account response. Clients can use them to hide ineligible controls, while the centralized API remains authoritative for every staff operation.

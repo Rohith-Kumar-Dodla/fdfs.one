@@ -90,7 +90,8 @@ export function createApp({
     const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);
     api.use('/auth', auth);
     mountPhase22(api, authConfig, logger, {
-      available: authOptions?.available,
+      available: authOptions?.available ?? isDatabaseConnected,
+      config,
       ...phase22Options,
     });
     api.use('/users', users);

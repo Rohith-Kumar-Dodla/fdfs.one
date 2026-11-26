@@ -1,3 +1,4 @@
+import { createPresenceStore, mountPresence } from '../operations/presence.js';
 import { Server } from 'socket.io';
 import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
@@ -13,7 +14,7 @@ const messageInput = chatSendInput.extend({ slug });
 
 export function attachLiveSockets(
   server,
-  { authConfig, origins, available, logger },
+  { authConfig, origins, available, logger, presence = createPresenceStore() },
 ) {
   const sessions = createSessionService(authConfig);
   const io = new Server(server, {
@@ -68,11 +69,24 @@ export function attachLiveSockets(
     }
   });
 
+  const operationsPresence = mountPresence(
+    io,
+    presence,
+    authenticate,
+    available,
+    logger,
+  );
   io.on('connection', (socket) => {
     let joined;
     let windowStart = 0;
     let operations = 0;
     let joining = false;
+    let roomQueue = Promise.resolve();
+    const changeRoom = (operation) => (input) => {
+      const next = roomQueue.then(() => operation(input));
+      roomQueue = next.catch(() => {});
+      return next;
+    };
     const handle = (name, schema, operation) =>
       socket.on(name, async (input, ack) => {
         if (typeof ack !== 'function') return;
@@ -102,45 +116,48 @@ export function attachLiveSockets(
         }
       });
 
-    handle('event:join', roomInput, async ({ slug }) => {
-      if (joining)
-        throw new AppError(
-          409,
-          'ROOM_BUSY',
-          'Wait for the current room change.',
-        );
-      joining = true;
-      try {
-        if ((await siteFlags()).maintenance)
-          throw new AppError(
-            503,
-            'SITE_MAINTENANCE',
-            'The website is temporarily in maintenance.',
-          );
-        const event = await publicEvent(slug);
-        if (!socket.connected) return { slug };
-        if (joined) await socket.leave(roomName(joined));
-        await socket.join(roomName(slug));
-        joined = slug;
+    operationsPresence.bind(socket, handle);
+    handle(
+      'event:join',
+      roomInput,
+      changeRoom(async ({ slug }) => {
+        joining = true;
         try {
-          await publicEvent(slug);
-        } catch (error) {
+          if ((await siteFlags()).maintenance)
+            throw new AppError(
+              503,
+              'SITE_MAINTENANCE',
+              'The website is temporarily in maintenance.',
+            );
+          const event = await publicEvent(slug);
+          if (!socket.connected) return { slug };
+          if (joined) await socket.leave(roomName(joined));
+          await socket.join(roomName(slug));
+          joined = slug;
+          try {
+            await publicEvent(slug);
+          } catch (error) {
+            await socket.leave(roomName(slug));
+            joined = undefined;
+            throw error;
+          }
+          return { slug, broadcast: event.broadcast };
+        } finally {
+          joining = false;
+        }
+      }),
+    );
+    handle(
+      'event:leave',
+      roomInput,
+      changeRoom(async ({ slug }) => {
+        if (joined === slug) {
           await socket.leave(roomName(slug));
           joined = undefined;
-          throw error;
         }
-        return { slug, broadcast: event.broadcast };
-      } finally {
-        joining = false;
-      }
-    });
-    handle('event:leave', roomInput, async ({ slug }) => {
-      if (joined === slug) {
-        await socket.leave(roomName(slug));
-        joined = undefined;
-      }
-      return { slug };
-    });
+        return { slug };
+      }),
+    );
     handle('chat:send', messageInput, async ({ slug, ...message }) => {
       const room = roomName(slug);
       if (joining || joined !== slug || !socket.rooms.has(room))
@@ -179,7 +196,9 @@ export function attachLiveSockets(
       else room.emit('live:state', { slug });
       if (status && status !== 'published') room.socketsLeave(roomName(slug));
     },
+    notice: operationsPresence.notice,
     close() {
+      operationsPresence.close();
       io.disconnectSockets(true);
       io.engine.close();
     },

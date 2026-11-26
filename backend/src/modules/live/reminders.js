@@ -315,6 +315,7 @@ export function startReminderWorker({
   intervalMs,
   available,
   logger,
+  health = () => {},
 }) {
   let job;
   let stopping = false;
@@ -323,7 +324,11 @@ export function startReminderWorker({
     job = processReminders(deliver, {
       shouldContinue: () => !stopping && available(),
     })
-      .catch(() => logger.warn('Live reminder scan failed'))
+      .then(() => health('healthy'))
+      .catch(() => {
+        health('degraded');
+        logger.warn('Live reminder scan failed');
+      })
       .finally(() => {
         job = undefined;
       });

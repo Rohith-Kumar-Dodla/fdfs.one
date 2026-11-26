@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { visibleGroups } from '../src/features/admin/navigation.js';
 
 const paths = (account) =>
@@ -28,7 +28,7 @@ describe('CMS navigation', () => {
       '/admin/moderation',
       '/admin/reports',
     ]);
-    expect(paths({ roles: ['support_agent'] })).toEqual([]);
+    expect(paths({ roles: ['support_agent'] })).toEqual(['/admin/support']);
     expect(paths({ roles: ['admin'] })).not.toContain('/admin/roles');
     expect(paths({ roles: ['super_admin'] })).toContain('/admin/roles');
   });

@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useBeforeUnload, useBlocker } from 'react-router';
+import { supportCategories } from '../../../../shared/operations.js';
 import { contentModules } from '../../../../shared/admin.js';
-import { legalSections, modulePaths } from '../../../../shared/site.js';
+import {
+  legalSections,
+  modulePaths,
+  siteDefaults,
+} from '../../../../shared/site.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
@@ -169,7 +174,13 @@ function SettingsEditor({ record }) {
   );
   const [dirty, setDirty] = useState(false);
   const change = useChange(
-    [settingsUrl, 'site-settings', 'site-homepage', '/admin/audit'],
+    [
+      settingsUrl,
+      'site-settings',
+      'site-homepage',
+      'support-config',
+      '/admin/audit',
+    ],
     () => setDirty(false),
   );
   const save = (event) => {
@@ -204,6 +215,9 @@ function SettingsEditor({ record }) {
           maintenance: input.has('maintenance'),
           registrationOpen: input.has('registrationOpen'),
           communityOpen: input.has('communityOpen'),
+          supportOpen: input.has('supportOpen'),
+          analyticsOpen: input.has('analyticsOpen'),
+          supportCategories: input.getAll('supportCategories'),
         },
       },
     });
@@ -341,13 +355,37 @@ function SettingsEditor({ record }) {
           {[
             ['registrationOpen', 'Allow new registrations'],
             ['communityOpen', 'Allow new comments and live chat'],
+            ['supportOpen', 'Allow new support tickets'],
+            ['analyticsOpen', 'Collect consented historical analytics'],
             ['maintenance', 'Show maintenance page to public visitors'],
           ].map(([key, label]) => (
             <label className="flex min-h-11 items-center gap-2" key={key}>
-              <input name={key} type="checkbox" defaultChecked={value[key]} />
+              <input
+                name={key}
+                type="checkbox"
+                defaultChecked={value[key] ?? siteDefaults[key]}
+              />
               {label}
             </label>
           ))}
+          <fieldset className="grid gap-1 sm:grid-cols-2">
+            <legend className="font-medium">
+              Support categories for new tickets
+            </legend>
+            {Object.entries(supportCategories).map(([key, label]) => (
+              <label className="flex min-h-11 items-center gap-2" key={key}>
+                <input
+                  type="checkbox"
+                  name="supportCategories"
+                  value={key}
+                  defaultChecked={(
+                    value.supportCategories ?? Object.keys(supportCategories)
+                  ).includes(key)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
           <p className="text-sm text-muted">
             Administrator sign-in and access stay available during maintenance.
           </p>

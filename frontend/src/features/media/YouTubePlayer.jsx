@@ -1,4 +1,4 @@
-﻿import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { isYouTubeId, youtubeEmbed } from '../../../../shared/youtube.js';
 import { Spinner } from '../../components/ui/states.jsx';
 
@@ -123,6 +123,9 @@ function Embed({
             onStateChange: ({ data }) => {
               if (disposed) return;
               callbacks.current.onPlaybackState?.(data);
+              window.dispatchEvent(
+                new CustomEvent('fdfs:playback', { detail: data }),
+              );
               clearInterval(ticker);
               readPosition();
               if (data === 1 && callbacks.current.onPosition)
@@ -135,6 +138,7 @@ function Embed({
 
     return () => {
       disposed = true;
+      window.dispatchEvent(new CustomEvent('fdfs:playback', { detail: -1 }));
       clearTimeout(timeout);
       clearInterval(ticker);
       control.current = null;

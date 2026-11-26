@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { Button, buttonClasses } from '../../components/ui/Button.jsx';
+import { NotificationsLink } from '../operations/Notices.jsx';
 import { accounts } from './api.js';
 import { useAuthStore } from './state.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -38,7 +39,7 @@ function AccountFeatureLinks({ onNavigate }) {
           My live events
         </Link>
       )}
-      {can(account, 'dashboard') && (
+      {(can(account, 'dashboard') || can(account, 'support')) && (
         <Link
           to="/admin"
           className={buttonClasses('ghost')}
@@ -132,6 +133,17 @@ export function AccountNavigation({
           onClick={close}
         >
           Settings
+        </Link>
+        <NotificationsLink
+          onNavigate={close}
+          className={buttonClasses('ghost')}
+        />
+        <Link
+          to="/support/tickets"
+          onClick={close}
+          className={buttonClasses('ghost')}
+        >
+          My support tickets
         </Link>
         <AccountFeatureLinks onNavigate={close} />
         <Button variant="ghost" onClick={logout} loading={working}>

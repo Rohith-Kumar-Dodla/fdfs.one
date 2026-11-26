@@ -47,7 +47,11 @@ Phase 4A adds centralized administration and platform management. Open `/admin` 
 
 Phase 4A.1 is PASS. See the [isolated CMS verification results](TESTING.md#phase-4a1-verification).
 
-The roadmap has 11 main phases and 22 subphases. Phase 4A.2 covers analytics, live presence, support tickets and platform operations.
+Phase 4A.2 and overall Phase 4A are PASS. Phase 4A.2 implements analytics, live presence, support tickets and platform operations. Administrators use Overview, Analytics and Live activity for aggregate metrics, Announcements to publish scheduled banners, and System health to inspect observed service states. Verified Support Agents enter through `/admin/support` and can manage tickets. Users open and track tickets from the Support Center. Website Settings controls new tickets, available categories and historical analytics collection.
+
+Production setup uses a named MongoDB replica-set database with transactions, index creation and TTL support, encrypted storage and backups, a trusted HTTPS frontend URL, a verified transactional SMTP sender, and one backend instance for presence. Review approved privacy and ticket-retention terms before onboarding. A production Super Administrator and approved content onboarding remain separate setup tasks.
+
+The roadmap has 11 main phases and 22 subphases. Phase 5 begins with the movie catalogue and review backend.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

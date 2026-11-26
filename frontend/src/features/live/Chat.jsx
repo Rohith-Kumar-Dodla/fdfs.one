@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { io } from 'socket.io-client';
+import { useRealtime } from '../operations/Realtime.jsx';
 import { apiClient } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/surfaces.jsx';
@@ -13,26 +13,27 @@ export function useLiveConnection(slug, account) {
   const token = useAuthStore((state) => state.accessToken);
   const client = useQueryClient();
   const socketRef = useRef(null);
+  const socket = useRealtime();
   const [connection, setConnection] = useState('Connecting');
   const [incoming, setIncoming] = useState([]);
   const [removed, setRemoved] = useState([]);
   const [attempt, reconnect] = useState(0);
   const activeToken = account?.status === 'active' ? token : null;
   useEffect(() => {
-    const origin = new URL(apiClient.defaults.baseURL, window.location.origin)
-      .origin;
-    const socket = io(origin, {
-      autoConnect: false,
-      auth: activeToken ? { token: activeToken } : {},
-      withCredentials: false,
-    });
+    if (!socket) return;
+    const handlers = new Map();
+    let disposed = false;
+    const on = (name, callback) => {
+      handlers.set(name, callback);
+      socket.on(name, callback);
+    };
     socketRef.current = socket;
     const refresh = () => {
       void client.invalidateQueries({ queryKey: ['live', 'event', slug] });
       void client.invalidateQueries({ queryKey: ['live', 'history', slug] });
       void client.invalidateQueries({ queryKey: ['live', 'directory'] });
     };
-    socket.on('connect', async () => {
+    const join = async () => {
       setConnection('Joining chat');
       setIncoming([]);
       setRemoved([]);
@@ -40,49 +41,51 @@ export function useLiveConnection(slug, account) {
         const result = await socket
           .timeout(5000)
           .emitWithAck('event:join', { slug });
-        if (socketRef.current !== socket || !socket.connected) return;
+        if (disposed || !socket.connected) return;
         setConnection(result.ok ? 'Connected' : result.message);
       } catch {
-        if (socketRef.current === socket && socket.connected)
-          setConnection('Could not join chat');
+        if (!disposed && socket.connected) setConnection('Could not join chat');
       }
-      refresh();
-    });
-    socket.on('disconnect', () => setConnection('Disconnected. Reconnecting…'));
-    socket.on('connect_error', (error) => {
+      if (!disposed) refresh();
+    };
+    on('connect', join);
+    on('disconnect', () => setConnection('Disconnected. Reconnecting…'));
+    on('connect_error', (error) => {
       setConnection(
         error.data?.message ?? 'Connection interrupted. Reconnecting…',
       );
       if (activeToken && error.data?.code === 'AUTH_REQUIRED')
         void refreshSession(activeToken).catch(() => {});
     });
-    socket.on('live:state', ({ slug: changed }) => {
+    on('live:state', ({ slug: changed }) => {
       if (changed === slug) refresh();
     });
-    socket.on('chat:message', (message) => {
+    on('chat:message', (message) => {
       if (message.slug === slug)
         setIncoming((rows) =>
           [...rows.filter(({ id }) => id !== message.id), message].slice(-100),
         );
     });
-    socket.on('chat:removed', ({ slug: changed, id }) => {
+    on('chat:removed', ({ slug: changed, id }) => {
       if (changed !== slug) return;
       setIncoming((rows) => rows.filter((message) => message.id !== id));
       setRemoved((ids) => [...ids, id].slice(-100));
       void client.invalidateQueries({ queryKey: ['live', 'history', slug] });
     });
-    socket.on('chat:restored', ({ slug: changed, id }) => {
+    on('chat:restored', ({ slug: changed, id }) => {
       if (changed !== slug) return;
       setRemoved((ids) => ids.filter((removed) => removed !== id));
       void client.invalidateQueries({ queryKey: ['live', 'history', slug] });
     });
-    socket.connect();
+    if (socket.connected) void join();
     return () => {
-      socket.removeAllListeners();
-      socket.disconnect();
+      disposed = true;
+      if (socket.connected)
+        socket.timeout(5000).emit('event:leave', { slug }, () => {});
+      for (const [name, callback] of handlers) socket.off(name, callback);
       socketRef.current = null;
     };
-  }, [activeToken, attempt, client, slug]);
+  }, [activeToken, attempt, client, slug, socket]);
   async function send(payload) {
     if (!socketRef.current?.connected)
       throw new Error('Chat is disconnected. Try again after reconnecting.');
@@ -103,7 +106,10 @@ export function useLiveConnection(slug, account) {
     incoming,
     removed,
     send,
-    retry: () => reconnect((value) => value + 1),
+    retry: () => {
+      if (socket && !socket.connected) socket.connect();
+      reconnect((value) => value + 1);
+    },
   };
 }
 

@@ -7,6 +7,7 @@ import { authorize, permit } from './policy.js';
 import { changeStaff, staffInput } from './roles.js';
 import { mountSiteAdmin } from '../site/routes.js';
 import { overview } from './overview.js';
+import { mountOperations } from '../operations/routes.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { mountLiveManagement } from '../live/routes.js';
@@ -106,7 +107,18 @@ export function mountPhase22(
   api,
   authConfig,
   logger,
-  { available, mediaProvider, publishers, liveNotify, reminderLead = 15 } = {},
+  {
+    available,
+    mediaProvider,
+    publishers,
+    liveNotify,
+    reminderLead = 15,
+    config,
+    presence,
+    health,
+    noticeNotify,
+    supportEmailAvailable,
+  } = {},
 ) {
   const admin = Router();
   const submissions = Router();
@@ -133,6 +145,16 @@ export function mountPhase22(
     );
   }
 
+  mountOperations(api, admin, authenticate, {
+    authConfig,
+    available,
+    config,
+    presence,
+    health,
+    notify: noticeNotify,
+    mediaProvider,
+    supportEmailAvailable,
+  });
   admin.use(permit('dashboard'));
   mountSiteAdmin(admin);
   admin.use('/users', permit('users'));

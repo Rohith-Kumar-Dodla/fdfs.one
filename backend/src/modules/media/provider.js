@@ -9,7 +9,7 @@ export function loadMediaConfig(env = process.env) {
     : null;
 }
 
-export function createCloudinaryProvider(config) {
+export function createCloudinaryProvider(config, health = () => {}) {
   if (!config) return null;
   cloudinary.config({ ...config, secure: true });
   return {
@@ -38,18 +38,33 @@ export function createCloudinaryProvider(config) {
           )
           .once('error', reject)
           .end(data);
-      });
+      }).then(
+        (value) => {
+          health('healthy');
+          return value;
+        },
+        (error) => {
+          health('degraded');
+          throw error;
+        },
+      );
     },
     async remove(publicId) {
-      const response = await cloudinary.uploader.destroy(publicId, {
-        resource_type: 'image',
-        type: 'upload',
-        invalidate: true,
-        timeout: 15000,
-      });
-      if (!['ok', 'not found'].includes(response?.result))
-        throw new Error('Image provider deletion failed');
-      return response.result;
+      try {
+        const response = await cloudinary.uploader.destroy(publicId, {
+          resource_type: 'image',
+          type: 'upload',
+          invalidate: true,
+          timeout: 15000,
+        });
+        if (!['ok', 'not found'].includes(response?.result))
+          throw new Error('Image provider deletion failed');
+        health('healthy');
+        return response.result;
+      } catch (error) {
+        health('degraded');
+        throw error;
+      }
     },
   };
 }

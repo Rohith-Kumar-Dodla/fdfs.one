@@ -33,6 +33,10 @@ const permissions = new Set([
   'media_manage',
   'moderation',
   'site',
+  'analytics',
+  'support',
+  'announcements',
+  'operations',
 ]);
 
 export function can(account, permission, module) {
@@ -45,6 +49,7 @@ export function can(account, permission, module) {
   if (roles.includes('super_admin')) return true;
   if (permission === 'roles') return false;
   if (roles.includes('admin')) return true;
+  if (permission === 'support') return roles.includes('support_agent');
   if (permission === 'dashboard')
     return roles.includes('content_manager') || roles.includes('moderator');
   if (permission === 'moderation') return roles.includes('moderator');

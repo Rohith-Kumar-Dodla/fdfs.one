@@ -166,9 +166,22 @@ export function saveConfig(key, revision, value, context, publish = false) {
       const previous = await SiteConfig.findById(key).session(session);
       if ((previous?.revision ?? 0) !== revision || (publish && !previous))
         throw stale();
-      if (publish) value = previous.value;
+      const next = publish ? previous.value : { ...value };
+      if (key === 'settings') {
+        for (const field of [
+          'analyticsOpen',
+          'supportOpen',
+          'supportCategories',
+        ]) {
+          if (
+            next[field] === undefined &&
+            previous?.value?.[field] !== undefined
+          )
+            next[field] = previous.value[field];
+        }
+      }
       if (key === 'homepage') {
-        const refs = references(value);
+        const refs = references(next);
         const valid = await features(refs, new Date(), session);
         if (refs.some((ref) => !valid.has(lookupKey(ref))))
           throw invalid('Choose published, publicly visible content.');
@@ -180,11 +193,11 @@ export function saveConfig(key, revision, value, context, publish = false) {
           : publish
             ? 'homepage-published'
             : 'homepage-draft';
-      await updateReferences(key, previous?.[field], value, kind, session);
+      await updateReferences(key, previous?.[field], next, kind, session);
       const row = await SiteConfig.findOneAndUpdate(
         { _id: key, revision },
         {
-          $set: { [field]: value },
+          $set: { [field]: next },
           $inc: { revision: 1 },
         },
         { session, upsert: !previous, returnDocument: 'after' },
@@ -202,6 +215,16 @@ export function saveConfig(key, revision, value, context, publish = false) {
         key,
         { field: 'site', to: String(row.revision) },
       );
+      if (
+        key === 'settings' &&
+        (previous?.value?.analyticsOpen !== false) !==
+          (next.analyticsOpen !== false)
+      ) {
+        await recordAudit(session, context, 'site.analytics', 'site', key, {
+          field: 'site',
+          to: next.analyticsOpen === false ? 'disabled' : 'enabled',
+        });
+      }
       return {
         revision: row.revision,
         value: row.value,
@@ -256,6 +279,8 @@ export async function publicSettings() {
     registrationOpen,
     maintenance,
     communityOpen,
+    supportOpen,
+    analyticsOpen,
   } = value;
   return {
     name,
@@ -272,6 +297,8 @@ export async function publicSettings() {
     registrationOpen,
     maintenance,
     communityOpen,
+    supportOpen: supportOpen ?? siteDefaults.supportOpen,
+    analyticsOpen: analyticsOpen ?? siteDefaults.analyticsOpen,
     ...Object.fromEntries(
       branding.map((item) => [
         item,

@@ -1,3 +1,10 @@
+import { createPresenceStore } from './modules/operations/presence.js';
+import { createOperationsHealth } from './modules/operations/platform.js';
+import { initializeOperationsIndexes } from './modules/operations/routes.js';
+import {
+  startSupportWorker,
+  supportMailer,
+} from './modules/operations/support-email.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { loadAuthConfig } from './config/auth.js';
@@ -31,6 +38,11 @@ async function start() {
   let indexesReady = false;
   let databaseStartup;
   const available = () => !stopping && indexesReady && isDatabaseConnected();
+  const health = createOperationsHealth();
+  const presence = createPresenceStore({
+    heartbeatMs: config.PRESENCE_HEARTBEAT_MS,
+    staleMs: config.PRESENCE_STALE_MS,
+  });
   let realtime;
   const app = createApp({
     config,
@@ -41,17 +53,33 @@ async function start() {
     phase22Options: {
       liveNotify: (event) => realtime.notify(event),
       reminderLead: config.LIVE_REMINDER_LEAD_MINUTES,
-      mediaProvider: createCloudinaryProvider(loadMediaConfig()),
+      mediaProvider: createCloudinaryProvider(loadMediaConfig(), (status) =>
+        health.set('cloudinary', status),
+      ),
+      presence,
+      health,
+      noticeNotify: (id) => realtime.notice(id),
     },
   });
   const server = createServer(app);
   realtime = attachLiveSockets(server, {
     authConfig,
     origins: config.CORS_ORIGINS,
+    presence,
     available,
     logger,
   });
+  const stopSupport = startSupportWorker(
+    supportMailer(authConfig, logger, undefined, config.SUPPORT_STAFF_EMAIL),
+    {
+      available: () => Boolean(authConfig.smtp && available()),
+      logger,
+      attempts: config.SUPPORT_EMAIL_ATTEMPTS,
+      health: health.set,
+    },
+  );
   const stopReminders = startReminderWorker({
+    health: (status) => health.set('reminderWorker', status),
     deliver: createReminderDelivery(authConfig, logger),
     intervalMs: config.LIVE_REMINDER_INTERVAL_MS,
     available: () => Boolean(authConfig.smtp && available()),
@@ -70,7 +98,7 @@ async function start() {
 
     try {
       realtime.close();
-      const reminderDrain = stopReminders();
+      const reminderDrain = Promise.all([stopReminders(), stopSupport()]);
       if (server.listening) {
         const drainDeadline = setTimeout(() => {
           logger.warn(
@@ -108,6 +136,7 @@ async function start() {
 
   server.listen(config.PORT, () => {
     if (stopping) return;
+    health.set('sockets', 'healthy');
     logger.info({ port: config.PORT }, 'HTTP server listening');
     databaseStartup = connectDatabase(config.MONGODB_URI, logger).then(
       async () => {
@@ -119,6 +148,7 @@ async function start() {
           initializeFilmIndexes(),
           initializePodcastIndexes(),
           initializeLiveIndexes(),
+          initializeOperationsIndexes(),
         ]);
         indexesReady = true;
       },

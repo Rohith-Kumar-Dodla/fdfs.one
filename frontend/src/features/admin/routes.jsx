@@ -1,3 +1,6 @@
+import { useOutletContext } from 'react-router';
+import { can } from '../../../../shared/admin.js';
+import { EmptyState } from '../../components/ui/states.jsx';
 import { AccountGuard } from '../auth/guards.jsx';
 
 const submissionPage = (name) => async () => ({
@@ -33,12 +36,42 @@ const livePage = (name, props) => async () => {
   return { Component: () => <Page {...props} /> };
 };
 
+function StaffPermission({ permission, children }) {
+  return can(useOutletContext(), permission) ? (
+    children
+  ) : (
+    <EmptyState title="Access restricted" />
+  );
+}
+const operationsPage =
+  (name, permission, support = false, props = {}) =>
+  async () => {
+    const Page = (
+      await (support
+        ? import('../operations/Support.jsx')
+        : import('../operations/OpsAdmin.jsx'))
+    )[name];
+    return {
+      Component: () => (
+        <StaffPermission permission={permission}>
+          <Page {...props} />
+        </StaffPermission>
+      ),
+    };
+  };
+
 export const administrationRoutes = [
   {
     element: (
       <AccountGuard
         verified
-        roles={['admin', 'super_admin', 'content_manager', 'moderator']}
+        roles={[
+          'admin',
+          'super_admin',
+          'content_manager',
+          'moderator',
+          'support_agent',
+        ]}
       />
     ),
     children: [
@@ -53,6 +86,50 @@ export const administrationRoutes = [
             lazy: async () => ({
               Component: (await import('./Admin.jsx')).OverviewPage,
             }),
+          },
+          {
+            path: 'analytics',
+            lazy: async () => {
+              const { HistoricalAnalytics } =
+                await import('../operations/Analytics.jsx');
+              return {
+                Component: () => (
+                  <StaffPermission permission="analytics">
+                    <HistoricalAnalytics />
+                  </StaffPermission>
+                ),
+              };
+            },
+          },
+          {
+            path: 'activity',
+            lazy: operationsPage('LiveActivity', 'analytics'),
+          },
+          {
+            path: 'support',
+            lazy: operationsPage('StaffTickets', 'support', true),
+          },
+          {
+            path: 'support/:id',
+            lazy: operationsPage('TicketDetail', 'support', true, {
+              staff: true,
+            }),
+          },
+          {
+            path: 'announcements',
+            lazy: operationsPage('AnnouncementList', 'announcements'),
+          },
+          {
+            path: 'announcements/new',
+            lazy: operationsPage('ManageAnnouncement', 'announcements'),
+          },
+          {
+            path: 'announcements/:id',
+            lazy: operationsPage('ManageAnnouncement', 'announcements'),
+          },
+          {
+            path: 'system-health',
+            lazy: operationsPage('SystemHealth', 'operations'),
           },
           {
             path: 'users',

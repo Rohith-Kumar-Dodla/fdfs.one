@@ -1,3 +1,4 @@
+import { supportCategories } from '../../../../shared/operations.js';
 import { z } from 'zod';
 import { contentModules } from '../../../../shared/admin.js';
 import { legalSections, modulePaths } from '../../../../shared/site.js';
@@ -46,6 +47,14 @@ export const settings = z.strictObject({
   registrationOpen: z.boolean(),
   maintenance: z.boolean(),
   communityOpen: z.boolean(),
+  supportOpen: z.boolean().optional(),
+  supportCategories: unique(
+    z
+      .array(z.enum(Object.keys(supportCategories)))
+      .min(1)
+      .max(Object.keys(supportCategories).length),
+  ).optional(),
+  analyticsOpen: z.boolean().optional(),
 });
 const reference = z.strictObject({
   module: z.enum(contentModules),

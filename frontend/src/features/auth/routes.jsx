@@ -1,3 +1,4 @@
+import { NotificationsPage } from '../operations/Notices.jsx';
 import { AccountGuard } from './guards.jsx';
 
 export const accountRoutes = [
@@ -15,6 +16,7 @@ export const accountRoutes = [
   {
     element: <AccountGuard />,
     children: [
+      { path: '/account/notifications', element: <NotificationsPage /> },
       {
         path: '/account',
         lazy: async () => ({

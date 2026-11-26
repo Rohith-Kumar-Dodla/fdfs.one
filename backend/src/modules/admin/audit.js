@@ -8,6 +8,13 @@ export const actions = [
   'user.sessions_revoked',
   'user.staff_changed',
   'site.settings',
+  'site.analytics',
+  ...['assign', 'priority', 'status', 'attachment'].map(
+    (action) => 'support.' + action,
+  ),
+  ...['create', 'edit', 'publish', 'unpublish', 'archive'].map(
+    (action) => 'announcement.' + action,
+  ),
   'site.homepage_save',
   'site.homepage_publish',
   'media.metadata',
@@ -79,6 +86,8 @@ const targetTypes = [
   'comment-report',
   'live-event',
   'site',
+  'support',
+  'announcement',
 ];
 const schema = new mongoose.Schema(
   {
@@ -86,19 +95,7 @@ const schema = new mongoose.Schema(
     action: { type: String, required: true, enum: actions, immutable: true },
     targetType: {
       type: String,
-      enum: [
-        'user',
-        'submission',
-        'media',
-        'personality',
-        'film',
-        'podcast-show',
-        'podcast-episode',
-        'comment',
-        'comment-report',
-        'live-event',
-        'site',
-      ],
+      enum: targetTypes,
       required: true,
       immutable: true,
     },
@@ -120,6 +117,8 @@ const schema = new mongoose.Schema(
           'moderator',
           'support_agent',
           'site',
+          'support',
+          'announcement',
           'creator',
           'organizer',
           'account-status',

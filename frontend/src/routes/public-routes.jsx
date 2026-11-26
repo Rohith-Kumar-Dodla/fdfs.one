@@ -65,6 +65,20 @@ export const publicRoutes = [
             },
           ]),
           { path: '/legal/:kind', element: <LegalPage /> },
+          ...[
+            ['/support', 'SupportHome'],
+            ['/support/new', 'NewTicket'],
+            ['/support/tickets', 'UserTickets'],
+            ['/support/tickets/:id', 'TicketDetail'],
+            ['/support/guest', 'GuestTicket'],
+          ].map(([path, name]) => ({
+            path,
+            lazy: async () => ({
+              Component: (await import('../features/operations/Support.jsx'))[
+                name
+              ],
+            }),
+          })),
           ...accountRoutes,
           ...administrationRoutes,
           ...(import.meta.env.FDFS_DEV_SERVER
