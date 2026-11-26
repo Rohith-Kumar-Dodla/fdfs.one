@@ -27,7 +27,7 @@ Tailwind v4 and `styles/index.css` define the color, type, spacing and motion fo
 
 Use native semantic controls with visible focus, a named icon button for icon-only actions and `FormField` for labels, hints and validation errors. `useValidatedForm(schema)` connects React Hook Form to Zod. Dialogs use the browser's modal behavior. Use the shared container, section heading, feedback states and pagination before creating local equivalents.
 
-The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Talent loads the public directory and profile views. The other modules lazy-load a shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
+The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Cinema, Originals and Talent load their public views. The remaining modules lazy-load a shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
 
 ## API and state
 
@@ -63,6 +63,14 @@ The reusable YouTube player builds privacy-enhanced iframe URLs from validated v
 
 `/talent` uses Axios and TanStack Query for paginated directory data. The URL holds debounced name search, profession, sort and page. The grid adapts from one to four columns, and the controls and profile header stack on narrow screens. Image components select API-provided size variants and display a neutral icon when a portrait is unavailable.
 
-`/talent/:slug` renders the authorized fields the API returns. It sets a profile title, description and canonical URL in the browser. The linked filmography and podcast sections have empty states until those modules publish relationships.
+`/talent/:slug` renders the authorized fields the API returns. It sets a profile title, description and canonical URL in the browser. Filmography links to released films under their respective Cinema or Originals routes. Podcast appearances retain an empty state until the Podcasts module publishes relationships.
 
 Verified account holders can open a structured talent proposal from the directory or start a correction from an individual profile. Administrators manage profiles under `/admin/talent`, review proposals through the existing submissions section, and use confirmation dialogs for publication, archiving and account association. The editor reuses media library uploads, supports replacing portrait and cover images, and accepts IDs of existing library images.
+
+## Cinema and Originals
+
+`/cinema` and `/originals` share discovery, poster cards and detail views. Each route supplies its own classification to the API, and title search, filters, sorting and pagination read from the URL. The detail view renders a canonical URL, optional media and approved cast and crew. It shows a release time for announced films and refreshes their availability from the backend.
+
+The shared image component uses 2:3 posters, 16:9 banners, Cloudinary variants, offscreen lazy loading and a neutral placeholder. The detail page mounts one YouTube iframe after a viewer selects the film, trailer or a behind-the-scenes video. It preserves provider controls and fullscreen. The player exposes the existing playback event interface for later progress tracking. [YouTube IFrame Player reference](https://developers.google.com/youtube/iframe_api_reference)
+
+Verified creators manage independent films at `/creator/films`, draft proposals through the shared form and use submission detail for review status or rejection feedback. Search published Talent Profiles for credits, or open a talent proposal when a profile is missing. Verified administrators use `/admin/films` for Originals and published independent records, with the existing submissions section for independent review and release.

@@ -10,6 +10,9 @@ const adminSubmissionPage = (name) => async () => {
 const adminTalentPage = (name) => async () => ({
   Component: (await import('../talent/Admin.jsx'))[name],
 });
+const filmPage = (name) => async () => ({
+  Component: (await import('../films/Manage.jsx'))[name],
+});
 
 export const administrationRoutes = [
   {
@@ -43,6 +46,9 @@ export const administrationRoutes = [
           { path: 'talent', lazy: adminTalentPage('AdminTalentList') },
           { path: 'talent/new', lazy: adminTalentPage('AdminNewTalent') },
           { path: 'talent/:id', lazy: adminTalentPage('AdminTalentDetail') },
+          { path: 'films', lazy: filmPage('AdminFilms') },
+          { path: 'films/new', lazy: filmPage('NewOriginal') },
+          { path: 'films/:id', lazy: filmPage('AdminFilmDetail') },
           {
             path: 'submissions/:id',
             lazy: adminSubmissionPage('SubmissionDetail'),
@@ -60,6 +66,17 @@ export const administrationRoutes = [
             }),
           },
         ],
+      },
+    ],
+  },
+  {
+    element: <AccountGuard verified roles={['creator']} />,
+    children: [
+      { path: '/creator/films', lazy: filmPage('CreatorFilms') },
+      { path: '/creator/films/new', lazy: filmPage('NewCreatorFilm') },
+      {
+        path: '/creator/films/:id/correction',
+        lazy: filmPage('NewCreatorFilm'),
       },
     ],
   },

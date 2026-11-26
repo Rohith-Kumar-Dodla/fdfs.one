@@ -6,6 +6,7 @@ import { createLogger } from './config/logger.js';
 import { initializeAuthIndexes } from './modules/auth/models.js';
 import { initializePhase22Indexes } from './modules/admin/routes.js';
 import { initializeTalentIndexes } from './modules/talent/models.js';
+import { initializeFilmIndexes } from './modules/films/models.js';
 import {
   createCloudinaryProvider,
   loadMediaConfig,
@@ -92,6 +93,7 @@ async function start() {
           initializeAuthIndexes(),
           initializePhase22Indexes(),
           initializeTalentIndexes(),
+          initializeFilmIndexes(),
         ]);
         indexesReady = true;
       },

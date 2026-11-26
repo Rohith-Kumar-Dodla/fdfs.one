@@ -36,6 +36,8 @@ Phase 2.1 is PASS. Gmail authenticated using the saved hostname, and earlier del
 
 Phase 3.1 passed automated checks and browser verification against the Express API and an isolated MongoDB replica set. It adds the published Talent directory and profile pages, an administrator Talent Profiles section, and talent proposals and corrections through the shared moderation workflow. Real profile onboarding requires authorized profile information and media. See [testing](TESTING.md) for verification results.
 
+Phase 3.2 passed automated checks and an isolated browser-to-database workflow. It adds independent films in Cinema and FDFS productions in Originals, including creator proposals, administrator publishing, scheduled announcements and released credits on Talent Profiles. Production onboarding requires a verified creator or an administrator, rights to publish the supplied media, and embeddable video URLs. Overall Phase 3 GitHub synchronization awaits authorization for the default branch.
+
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system
 - 2.1 Authentication and authorization

@@ -1,11 +1,28 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { apiClient } from '../src/api/client.js';
 import { publicRoutes } from '../src/routes/public-routes.jsx';
+
+const defaultAdapter = apiClient.defaults.adapter;
+beforeEach(() => {
+  apiClient.defaults.adapter = async () => ({
+    status: 200,
+    headers: {},
+    data: {
+      success: true,
+      message: 'OK',
+      data: [],
+      pagination: { totalPages: 0 },
+    },
+  });
+});
+afterEach(() => {
+  apiClient.defaults.adapter = defaultAdapter;
+});
 
 function renderRoute(path) {
   const client = new QueryClient({
@@ -58,10 +75,6 @@ describe('public routes', () => {
   });
 
   it.each([
-    ['/cinema', 'Cinema'],
-    ['/cinema/short-film', 'Cinema'],
-    ['/originals', 'Originals'],
-    ['/originals/original-film', 'Originals'],
     ['/podcasts', '404 Podcasts'],
     ['/podcasts/episode', '404 Podcasts'],
     ['/live', 'Live'],
@@ -84,6 +97,72 @@ describe('public routes', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 
+  it.each([
+    ['/cinema', 'Cinema', 'Cinema', false],
+    ['/cinema/short-film', 'Film unavailable', 'Cinema', true],
+    ['/originals', 'FDFS Originals', 'Originals', false],
+    ['/originals/original-film', 'Film unavailable', 'Originals', true],
+  ])(
+    'resolves %s with the shared film pages',
+    async (path, title, nav, detail) => {
+      const original = apiClient.defaults.adapter;
+      apiClient.defaults.adapter = async (config) => {
+        expect(config.params.classification).toBe(
+          nav === 'Cinema' ? 'independent' : 'original',
+        );
+        if (detail)
+          throw new AxiosError(
+            'Fixture not found',
+            'ERR_BAD_REQUEST',
+            config,
+            undefined,
+            {
+              status: 404,
+              headers: {},
+              data: {
+                success: false,
+                message: 'Fixture not found',
+                error: { code: 'FILM_NOT_FOUND' },
+              },
+            },
+          );
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            success: true,
+            message: 'OK',
+            data: [],
+            pagination: { totalPages: 0 },
+          },
+        };
+      };
+      try {
+        renderRoute(path);
+        expect(
+          await screen.findByRole(
+            'heading',
+            { name: title, level: 1 },
+            { timeout: 5000 },
+          ),
+        ).toBeVisible();
+        if (!detail)
+          expect(
+            await screen.findByRole('heading', {
+              name: 'No films published yet',
+            }),
+          ).toBeVisible();
+        expect(
+          within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+            'link',
+            { name: nav },
+          ),
+        ).toHaveAttribute('aria-current', 'page');
+      } finally {
+        apiClient.defaults.adapter = original;
+      }
+    },
+  );
   it.each([
     ['/talent', 'Talent', 'No talent profiles published yet'],
     ['/talent/profile', 'Talent profile unavailable', null],
@@ -165,7 +244,7 @@ describe('public routes', () => {
       await screen.findByRole('heading', { name: 'Cinema', level: 1 }),
     ).toBeVisible();
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('main')).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
   });
 
   it('renders a not-found page and provides an accessible way back', async () => {

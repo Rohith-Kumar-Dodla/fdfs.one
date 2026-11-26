@@ -24,7 +24,7 @@ const schema = new mongoose.Schema(
     purpose: {
       type: String,
       required: true,
-      enum: ['library', 'profile', 'talent'],
+      enum: ['library', 'profile', 'talent', 'film'],
       immutable: true,
     },
     status: {

@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import { idParams, listInput, sendList } from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
+import { filmProposal } from '../films/schemas.js';
+import {
+  prepareFilmProposal,
+  requireFilmCreator,
+  requireFilmReady,
+  setFilmProposalReferences,
+} from '../films/write.js';
 import { talentProposal } from '../talent/schemas.js';
 import {
   prepareTalentProposal,
@@ -65,8 +72,9 @@ const schema = new mongoose.Schema(
     reviewedAt: Date,
     rejectionReason: String,
     proposal: mongoose.Schema.Types.Mixed,
+    filmProposal: mongoose.Schema.Types.Mixed,
     proposalKey: { type: String, unique: true, sparse: true },
-    publishedResource: { id: String, slug: String },
+    publishedResource: { id: String, slug: String, classification: String },
     history: { type: [historySchema], default: [] },
   },
   { timestamps: true, bufferCommands: false },
@@ -87,11 +95,17 @@ export const newSubmissionInput = z.object({
     title,
     summary,
     proposal: talentProposal.optional(),
+    filmProposal: filmProposal.optional(),
   }),
 });
 export const editSubmissionInput = z.object({
   params: idParams,
-  body: z.strictObject({ title, summary, proposal: talentProposal.optional() }),
+  body: z.strictObject({
+    title,
+    summary,
+    proposal: talentProposal.optional(),
+    filmProposal: filmProposal.optional(),
+  }),
 });
 export const submissionInput = z.object({ params: idParams });
 export const moderationInput = z.object({
@@ -119,6 +133,7 @@ export function submissionView(record, detail = false) {
     updatedAt,
     history,
     proposal,
+    filmProposal,
     publishedResource,
   } = record;
   return {
@@ -135,6 +150,7 @@ export function submissionView(record, detail = false) {
       rejectionReason,
       history,
       proposal,
+      filmProposal,
       ...(publishedResource?.id && { publishedResource }),
     }),
   };
@@ -172,7 +188,7 @@ export function listSubmissions(res, query, owner) {
     filter,
     query,
     (record) => submissionView(record),
-    '-summary -history -rejectionReason -proposal -proposalKey',
+    '-summary -history -rejectionReason -proposal -filmProposal -proposalKey',
   );
 }
 
@@ -187,21 +203,18 @@ export async function getSubmission(id, owner) {
 
 export async function createSubmission(user, input) {
   assertParticipation(user, input.category);
-  if (input.proposal) {
-    assertTalentProposal(input.category);
+  const structured = proposalHandler(input.category, input, user);
+  if (structured) {
+    const { key, prepare, sync } = structured;
     return mongoose.connection
       .transaction(async (session) => {
-        const prepared = await prepareTalentProposal(
-          user.publicId,
-          input.proposal,
-          session,
-        );
+        const prepared = await prepare(user.publicId, input[key], session);
         const record = new Submission({
           ...input,
           owner: user.publicId,
-          proposal: undefined,
+          [key]: undefined,
         });
-        await setProposalReferences(record, prepared.proposal, session);
+        await sync(record, prepared[key], session);
         record.set(prepared);
         await record.save({ session });
         return submissionView(record, true);
@@ -214,21 +227,48 @@ export async function createSubmission(user, input) {
   );
 }
 
-function assertTalentProposal(category) {
-  if (category !== 'talent')
+const structuredProposals = {
+  talent: {
+    key: 'proposal',
+    prepare: prepareTalentProposal,
+    sync: setProposalReferences,
+  },
+  film: {
+    key: 'filmProposal',
+    prepare: prepareFilmProposal,
+    sync: setFilmProposalReferences,
+  },
+};
+
+function proposalHandler(category, input, user) {
+  if (!input?.proposal && !input?.filmProposal) return null;
+  const handler = structuredProposals[category];
+  if (
+    !handler ||
+    !input[handler.key] ||
+    (input.proposal && input.filmProposal)
+  ) {
     throw new AppError(
       400,
       'INVALID_PROPOSAL_CATEGORY',
-      'Structured talent details require the talent category.',
+      'Structured details must match the submission category.',
     );
+  }
+  if (category === 'film') requireFilmCreator(user);
+  return handler;
 }
 
 export async function updateOwnSubmission(user, id, input) {
   const record = await getSubmission(id, user.publicId);
   assertParticipation(user, record.category);
   if (!['draft', 'rejected'].includes(record.status)) throw invalidTransition();
-  if (input?.proposal) {
-    assertTalentProposal(record.category);
+  if (record.filmProposal) {
+    requireFilmCreator(user);
+    if (!input) requireFilmReady(record.filmProposal.film);
+  }
+  const structured = proposalHandler(record.category, input, user);
+  if (structured) {
+    const { key, prepare, sync } = structured;
     return mongoose.connection
       .transaction(async (session) => {
         const current = await Submission.findOne({
@@ -237,14 +277,14 @@ export async function updateOwnSubmission(user, id, input) {
           __v: record.__v,
         }).session(session);
         if (!current) throw invalidTransition();
-        const { proposal, ...details } = input;
-        const prepared = await prepareTalentProposal(
+        const { [key]: proposal, ...details } = input;
+        const prepared = await prepare(
           user.publicId,
           proposal,
           session,
-          current.proposal,
+          current[key],
         );
-        await setProposalReferences(current, prepared.proposal, session);
+        await sync(current, prepared[key], session);
         current.set({ ...details, ...prepared });
         current.increment();
         await current.save({ session });
@@ -285,8 +325,9 @@ export function moderateSubmission(id, input, context) {
     const changes = { status: transition.to };
     if (input.action !== 'archive') changes.reviewedAt = now;
     if (input.reason) changes.rejectionReason = input.reason;
-    if (input.action === 'archive' && record.proposal)
-      await setProposalReferences(record, null, session);
+    const handler = structuredProposals[record.category];
+    if (input.action === 'archive' && handler && record[handler.key])
+      await handler.sync(record, null, session);
     const updated = await Submission.findOneAndUpdate(
       { _id: record._id, status: record.status },
       {
@@ -322,7 +363,7 @@ export function moderateSubmission(id, input, context) {
   });
 }
 
-export async function publishSubmission(id, context, publishers = {}) {
+export async function publishSubmission(id, context, publishers = {}, release) {
   const initial = await getSubmission(id);
   const publisher = publishers[initial.category];
   if (!publisher)
@@ -342,6 +383,7 @@ export async function publishSubmission(id, context, publishers = {}) {
       actorId: context.actorId,
       requestId: context.requestId,
       session,
+      release,
     });
     if (resource) record.publishedResource = resource;
     record.proposalKey = undefined;

@@ -55,3 +55,13 @@ A Cloudinary probe uploaded a temporary image, attached it as a portrait and cov
 Chrome emulation ran the production frontend against Express and an isolated MongoDB replica set at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568×320 and 844×320 in landscape. The directory, profile detail, owner correction, administrator listing and editor, and moderation view fit without horizontal overflow. The run checked the keyboard skip link, Escape and focus return in the archive dialog, touch-oriented layouts, search URL updates, and creating an administrator draft through the UI and reading it back from MongoDB. Physical-device coverage is pending.
 
 GitHub `main` was checked at `f015093`. The Phase 2.2 runtime checks are complete. Checkpoint `3c0ef59` is local pending authorization for a fast-forward push to the default branch.
+
+## Phase 3.2 verification
+
+All 109 automated tests passed on Node.js 24.22.1, with 52 frontend and 57 backend tests. The added tests cover film schema and URL validation, Original classification, rights confirmation, slug conflicts, release filters and video embargo, shared moderation, account and media ownership, credits and filmography, archive behavior, lazy player initialization and release forms. Lint, formatting and the production build passed. The production dependency audit found zero vulnerabilities. The automated transaction suites use isolated loopback MongoDB replica sets.
+
+Chrome ran the production frontend against Express and an isolated MongoDB replica set at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920px, plus 568×320 and 844×320 in landscape. The catalogue, detail, creator, moderation and administrator views and archive dialogs had zero horizontal overflow. The trailer container fit at all nine widths, and the archive dialog returned focus on Escape. Physical-device coverage is pending.
+
+The browser used a verified creator account to upload a temporary Cloudinary poster, add a published Talent credit, save a draft and submit it. A separate administrator approved and published it, then unpublished and archived it. Public film retrieval and filmography reflected those transitions. The scheduled Original fixture exposed its approved trailer while withholding the main video. The authorized trailer's playback clock advanced in Chrome after a viewer click. The temporary Cloudinary asset was deleted and the disposable MongoDB replica set was stopped.
+
+GitHub `main` was checked at `f015093`. The Phase 2.2 and Phase 3.1 commits remain local pending authorization to update the default branch.

@@ -21,6 +21,13 @@ import { readImage, uploadRateLimit } from '../media/images.js';
 import { mountAdminTalent } from '../talent/routes.js';
 import { getProposalImages, publishTalent } from '../talent/service.js';
 import {
+  filmProposalDetails,
+  mountAdminFilms,
+  mountCreatorFilms,
+} from '../films/routes.js';
+import { releaseInput } from '../films/schemas.js';
+import { publishIndependent } from '../films/write.js';
+import {
   createSubmission,
   editSubmissionInput,
   getSubmission,
@@ -54,6 +61,9 @@ async function details(record) {
   return {
     ...submissionView(record, true),
     ...(record.proposal && { proposalImages: await getProposalImages(record) }),
+    ...(record.filmProposal && {
+      filmProposal: await filmProposalDetails(record),
+    }),
   };
 }
 const context = (req, res) => ({
@@ -62,6 +72,10 @@ const context = (req, res) => ({
 });
 const emptyBody = z.strictObject({}).optional();
 const resourceAction = z.object({ params: idParams, body: emptyBody });
+const publishInput = z.object({
+  params: idParams,
+  body: z.strictObject({ release: releaseInput.optional() }).optional(),
+});
 
 export async function initializePhase22Indexes() {
   await Promise.all(
@@ -101,6 +115,7 @@ export function mountPhase22(
   }
 
   admin.use(requireRoles('admin'));
+  mountAdminFilms(admin);
   mountAdminTalent(admin);
   admin.get('/overview', async (req, res) => {
     const [users, reviewQueue, images, auditEvents] = await Promise.all([
@@ -141,6 +156,7 @@ export function mountPhase22(
   submissions.get('/', validate(submissionListInput), (req, res) =>
     listSubmissions(res, query(res), user(req).publicId),
   );
+  mountCreatorFilms(submissions, media, upload);
   submissions.post('/talent-images', ...upload, async (req, res) =>
     sendSuccess(
       res,
@@ -187,14 +203,20 @@ export function mountPhase22(
   );
   admin.post(
     '/submissions/:id/publish',
-    validate(resourceAction),
+    validate(publishInput),
     async (req, res) =>
       sendSuccess(
         res,
-        await publishSubmission(id(res), context(req, res), {
-          talent: publishTalent,
-          ...publishers,
-        }),
+        await publishSubmission(
+          id(res),
+          context(req, res),
+          {
+            talent: publishTalent,
+            film: publishIndependent,
+            ...publishers,
+          },
+          body(res)?.release,
+        ),
       ),
   );
 

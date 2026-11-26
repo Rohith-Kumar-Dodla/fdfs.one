@@ -9,6 +9,12 @@ import {
 import { Button } from '../../components/ui/Button.jsx';
 import { TalentSubmission } from '../talent/Proposal.jsx';
 import { ProfileContent, TalentImage } from '../talent/Public.jsx';
+import { filmPath } from '../../../../shared/films.js';
+import {
+  CreatorFilmForm,
+  FilmProposalReview,
+  ReleaseForm,
+} from '../films/Manage.jsx';
 import {
   Badge,
   Card,
@@ -74,13 +80,12 @@ function SubmissionForm({ record }) {
   const navigate = useNavigate();
   const account = useOutletContext();
   const roles = {
-    film: 'creator',
     podcast: 'creator',
     live: 'organizer',
   };
   const available = categories.filter(
     ([category]) =>
-      category !== 'talent' &&
+      !['talent', 'film'].includes(category) &&
       (account.roles.includes('admin') ||
         account.roles.includes(roles[category])),
   );
@@ -178,6 +183,9 @@ export function NewSubmissionPage() {
           <DetailLink to={ownerUrl + '/new?category=talent'}>
             Suggest a talent profile
           </DetailLink>
+          <DetailLink to="/creator/films/new">
+            Submit an independent film
+          </DetailLink>
           <Card>
             <SubmissionForm />
           </Card>
@@ -189,9 +197,10 @@ export function NewSubmissionPage() {
 
 export function SubmissionList({ admin = false }) {
   const [search] = useSearchParams();
+  const category = search.get('category');
   const records = useRecords(
     admin ? adminUrl : ownerUrl,
-    search.get('category') === 'talent' ? { category: 'talent' } : {},
+    categories.some(([key]) => key === category) ? { category } : {},
   );
   const content = (
     <>
@@ -237,6 +246,9 @@ function SubmissionActions({ record, admin, url }) {
     '/admin/overview',
     '/admin/audit',
     '/admin/talent',
+    '/admin/films',
+    '/submissions/films',
+    'films',
     'talent',
   ]);
   function confirm(label, suffix, data) {
@@ -261,6 +273,8 @@ function SubmissionActions({ record, admin, url }) {
           <h2 className="text-lg font-semibold">Edit submission</h2>
           {record.category === 'talent' ? (
             <TalentSubmission key={record.id} record={record} />
+          ) : record.category === 'film' ? (
+            <CreatorFilmForm key={record.id} record={record} />
           ) : (
             <SubmissionForm key={record.id} record={record} />
           )}
@@ -332,11 +346,20 @@ function SubmissionActions({ record, admin, url }) {
               </Button>
             </div>
           )}
-          {record.status === 'approved' && !record.proposal && (
-            <p className="text-sm text-muted">
-              Publishing requires an enabled workflow for this category.
-            </p>
+          {record.status === 'approved' && record.filmProposal && (
+            <ReleaseForm
+              onRelease={(release) =>
+                confirm('Publish approved film', 'publish', { release })
+              }
+            />
           )}
+          {record.status === 'approved' &&
+            !record.proposal &&
+            !record.filmProposal && (
+              <p className="text-sm text-muted">
+                Publishing requires an enabled workflow for this category.
+              </p>
+            )}
         </Card>
       )}
       <ConfirmAction
@@ -406,16 +429,29 @@ export function SubmissionDetail({ admin = false }) {
                 <ProfileContent profile={record.proposal.profile} />
               </Card>
             )}
-            {record.publishedResource && (
+            {record.filmProposal && <FilmProposalReview record={record} />}
+            {record.publishedResource?.classification ? (
               <DetailLink
                 to={
                   admin
-                    ? '/admin/talent/' + record.publishedResource.id
-                    : '/talent/' + record.publishedResource.slug
+                    ? '/admin/films/' + record.publishedResource.id
+                    : filmPath(record.publishedResource)
                 }
               >
-                Open published profile
+                Open published film
               </DetailLink>
+            ) : (
+              record.publishedResource && (
+                <DetailLink
+                  to={
+                    admin
+                      ? '/admin/talent/' + record.publishedResource.id
+                      : '/talent/' + record.publishedResource.slug
+                  }
+                >
+                  Open published profile
+                </DetailLink>
+              )
             )}
             <SubmissionActions record={record} admin={admin} url={url} />
             <Card className="grid gap-3 wrap-anywhere">

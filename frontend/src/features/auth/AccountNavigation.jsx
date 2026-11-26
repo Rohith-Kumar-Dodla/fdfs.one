@@ -19,6 +19,15 @@ function AccountFeatureLinks({ onNavigate }) {
       >
         My submissions
       </Link>
+      {account.roles.includes('creator') && (
+        <Link
+          to="/creator/films"
+          className={buttonClasses('ghost')}
+          onClick={onNavigate}
+        >
+          My films
+        </Link>
+      )}
       {account.roles.includes('admin') && (
         <Link
           to="/admin"

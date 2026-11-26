@@ -108,6 +108,7 @@ export function MediaPage() {
                         {
                           profile: 'Account profile image',
                           talent: 'Talent proposal image',
+                          film: 'Film proposal image',
                           library: 'Library image',
                         }[image.purpose]
                       }{' '}

@@ -20,6 +20,12 @@ export const actions = [
   'talent.archive',
   'talent.associate',
   'talent.correction',
+  'film.create',
+  'film.edit',
+  'film.publish',
+  'film.unpublish',
+  'film.archive',
+  'film.correction',
 ];
 
 const schema = new mongoose.Schema(
@@ -28,7 +34,7 @@ const schema = new mongoose.Schema(
     action: { type: String, required: true, enum: actions, immutable: true },
     targetType: {
       type: String,
-      enum: ['user', 'submission', 'media', 'personality'],
+      enum: ['user', 'submission', 'media', 'personality', 'film'],
       required: true,
       immutable: true,
     },
@@ -53,6 +59,7 @@ const schema = new mongoose.Schema(
           'publication-status',
           'profile',
           'account-association',
+          'film',
         ],
       },
       from: String,

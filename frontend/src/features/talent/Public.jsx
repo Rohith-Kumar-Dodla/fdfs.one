@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { UserRound } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { professions } from '../../../../shared/talent.js';
+import { filmPath, filmLabels } from '../../../../shared/films.js';
+import { FilmImage } from '../films/FilmImage.jsx';
+import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { apiClient } from '../../api/client.js';
 import { buttonClasses } from '../../components/ui/Button.jsx';
 import { FormField, Select, TextInput } from '../../components/ui/fields.jsx';
@@ -354,35 +357,17 @@ export function usePublicTalent(slug) {
   });
 }
 
-function useTalentMetadata(profile) {
-  useEffect(() => {
-    if (!profile) return;
-    const oldTitle = document.title;
-    const meta = document.querySelector('meta[name="description"]');
-    const oldDescription = meta?.getAttribute('content');
-    const canonical = document.createElement('link');
-    canonical.rel = 'canonical';
-    canonical.href = new URL(
-      '/talent/' + profile.slug,
-      window.location.origin,
-    ).href;
-    document.head.append(canonical);
-    document.title = profile.displayName + ' | FDFS Talent Profiles';
-    meta?.setAttribute('content', profile.introduction);
-    return () => {
-      document.title = oldTitle;
-      if (oldDescription !== null && oldDescription !== undefined)
-        meta.setAttribute('content', oldDescription);
-      canonical.remove();
-    };
-  }, [profile]);
-}
-
 export function TalentProfile() {
   const { slug } = useParams();
   const query = usePublicTalent(slug);
   const profile = query.data;
-  useTalentMetadata(profile);
+  usePageMetadata(
+    profile && {
+      title: profile.displayName + ' | FDFS Talent Profiles',
+      description: profile.introduction,
+      path: '/talent/' + profile.slug,
+    },
+  );
   return (
     <Container className="grid max-w-4xl! grid-cols-1 gap-6 py-8 sm:py-12">
       <Link
@@ -419,7 +404,43 @@ export function TalentProfile() {
           <ProfileContent profile={profile} />
           <section className="grid gap-2">
             <h2 className="text-xl font-semibold">Filmography</h2>
-            <p className="text-muted">No published film credits are listed.</p>
+            {profile.filmography?.length ? (
+              <ul className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {profile.filmography.map((film) => (
+                  <Card
+                    as="li"
+                    key={film.id}
+                    className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] items-start gap-3 wrap-anywhere"
+                  >
+                    <FilmImage image={film.poster} sizes="64px" />
+                    <div>
+                      <Link
+                        to={filmPath(film)}
+                        className="inline-flex min-h-11 items-center font-semibold text-accent underline"
+                      >
+                        {film.title}
+                      </Link>
+                      <p className="text-sm text-muted">
+                        {film.releaseYear} ? {filmLabels[film.classification]}
+                      </p>
+                      <p className="text-sm">
+                        {film.credits
+                          .map(({ role, character }) =>
+                            [professions[role], character]
+                              .filter(Boolean)
+                              .join(' ? '),
+                          )
+                          .join(', ')}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted">
+                No published film credits are listed.
+              </p>
+            )}
           </section>
           <section className="grid gap-2">
             <h2 className="text-xl font-semibold">Podcast appearances</h2>

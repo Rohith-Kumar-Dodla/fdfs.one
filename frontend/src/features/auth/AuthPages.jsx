@@ -21,7 +21,9 @@ export function LoginPage() {
   const target =
     ['/account', '/account/settings'].includes(state?.from) ||
     (typeof state?.from === 'string' &&
-      /^\/submissions\/new(?:\?|$)/.test(state.from))
+      /^\/(?:submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?)(?:\?|$)/.test(
+        state.from,
+      ))
       ? state.from
       : '/account';
 

@@ -22,6 +22,7 @@ const items = [
   ['/admin/users', 'Users'],
   ['/admin/submissions', 'Submissions'],
   ['/admin/talent', 'Talent Profiles'],
+  ['/admin/films', 'Films'],
   ['/admin/media', 'Media library'],
   ['/admin/audit', 'Audit log'],
 ];

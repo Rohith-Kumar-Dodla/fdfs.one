@@ -1,6 +1,7 @@
 ﻿import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
+import { filmography } from '../films/read.js';
 import { sendList } from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
 import { User } from '../auth/models.js';
@@ -173,7 +174,7 @@ export async function getPublicTalent(slug) {
   return {
     ...projectProfile(record, true),
     achievements: record.achievements,
-    filmography: [],
+    filmography: await filmography(record._id),
     podcastAppearances: [],
   };
 }

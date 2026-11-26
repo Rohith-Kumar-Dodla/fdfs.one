@@ -3,6 +3,7 @@ import { RouteError, RouteLoading, NotFound } from '../pages/RouteStates.jsx';
 import { modules } from './modules.js';
 import { accountRoutes } from '../features/auth/routes.jsx';
 import { administrationRoutes } from '../features/admin/routes.jsx';
+import { filmPaths } from '../../../shared/films.js';
 
 async function loadModulePage() {
   return { Component: (await import('../pages/ModulePending.jsx')).default };
@@ -11,6 +12,19 @@ async function loadModulePage() {
 const talentPage = (name) => async () => ({
   Component: (await import('../features/talent/Public.jsx'))[name],
 });
+function modulePage(path, detail = false) {
+  if (path === '/talent')
+    return talentPage(detail ? 'TalentProfile' : 'TalentDirectory');
+  const classification = Object.keys(filmPaths).find(
+    (key) => filmPaths[key] === path,
+  );
+  if (!classification) return loadModulePage;
+  return async () => {
+    const views = await import('../features/films/Public.jsx');
+    const Page = detail ? views.FilmDetail : views.FilmDirectory;
+    return { Component: () => <Page classification={classification} /> };
+  };
+}
 
 export const publicRoutes = [
   {
@@ -31,18 +45,12 @@ export const publicRoutes = [
             {
               path: module.path,
               handle: { module },
-              lazy:
-                module.path === '/talent'
-                  ? talentPage('TalentDirectory')
-                  : loadModulePage,
+              lazy: modulePage(module.path),
             },
             {
               path: module.detailPath ?? `${module.path}/:slug`,
               handle: { module },
-              lazy:
-                module.path === '/talent'
-                  ? talentPage('TalentProfile')
-                  : loadModulePage,
+              lazy: modulePage(module.path, true),
             },
           ]),
           ...accountRoutes,
