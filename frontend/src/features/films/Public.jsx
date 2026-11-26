@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
@@ -26,6 +26,7 @@ import {
 } from '../../components/ui/states.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { TargetCommunity } from '../reviews/Community.jsx';
 import { FilmImage } from './FilmImage.jsx';
 
 const moduleCopy = {
@@ -464,6 +465,17 @@ function FilmDetailContent({ film }) {
             ))}
           </ul>
         </section>
+      )}
+      {film.availability === 'released' && (
+        <TargetCommunity
+          key={film.id}
+          target={{
+            type: film.classification === 'independent' ? 'cinema' : 'original',
+            slug: film.slug,
+            title: film.title,
+            path: filmPath(film),
+          }}
+        />
       )}
       {film.gallery.length > 0 && (
         <section className="grid gap-3">

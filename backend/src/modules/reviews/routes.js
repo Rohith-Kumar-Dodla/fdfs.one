@@ -16,6 +16,7 @@ import { siteFlags } from '../site/service.js';
 import { getMovie, getManagedMovie, listMovies, writeMovie } from './movies.js';
 import {
   accountRating,
+  deleteOwnedRating,
   moderateRating,
   ratingSummary,
   resolveTarget,
@@ -23,6 +24,14 @@ import {
 } from './ratings.js';
 import {
   getReview,
+  deleteOwnedReview,
+  likedReviews,
+  managedReviews,
+  managedReviewDetail,
+  moderateReview,
+  reviewAudit,
+  reviewHistory,
+  reviewPermalink,
   interact,
   listComments,
   listReports,
@@ -163,8 +172,51 @@ export function mountReviews(
     validate(s.targetInput),
     result((req, res) => saveRating(input(res).params, actor(req))),
   );
+  reviews.get('/feed', validate(s.feed), async (_req, res) => {
+    const { data, pagination } = await trendingReviews({
+      ...input(res).query,
+      summary: true,
+    });
+    return sendSuccess(res, data, { pagination });
+  });
+  reviews.get(
+    '/entry/:id',
+    validate(s.permalink),
+    result((_req, res) =>
+      reviewPermalink(input(res).params.id, input(res).query.reveal === 'true'),
+    ),
+  );
+  reviews.get('/likes', ...identity, validate(s.likes), async (req, res) =>
+    sendSuccess(res, await likedReviews(input(res).query.ids, actor(req))),
+  );
+  api.get(
+    '/account/reviews',
+    ready,
+    ...identity,
+    validate(s.history),
+    (req, res) => reviewHistory(res, input(res).query, actor(req)),
+  );
+  api.delete(
+    '/account/reviews/reviews/:id',
+    ready,
+    ...identity,
+    quota,
+    validate(z.object({ params: idParams })),
+    result((req, res) => deleteOwnedReview(input(res).params.id, actor(req))),
+  );
+  api.delete(
+    '/account/reviews/ratings/:id',
+    ready,
+    ...identity,
+    quota,
+    validate(s.historyRatingId),
+    result((req, res) => deleteOwnedRating(input(res).params.id, actor(req))),
+  );
   reviews.get('/trending', validate(listInput()), async (_req, res) => {
-    const { data, pagination } = await trendingReviews(input(res).query);
+    const { data, pagination } = await trendingReviews({
+      ...input(res).query,
+      summary: true,
+    });
     return sendSuccess(res, data, { pagination });
   });
   reviews.get(
@@ -331,6 +383,35 @@ export function mountReviews(
     ),
   );
   admin.use('/review-moderation', permit('moderation'));
+  admin.get(
+    '/review-moderation/reviews',
+    validate(s.managedReviews),
+    (_req, res) => managedReviews(res, input(res).query),
+  );
+  admin.get(
+    '/review-moderation/reviews/:id',
+    validate(listInput().extend({ params: idParams })),
+    result((_req, res) =>
+      managedReviewDetail(input(res).params.id, input(res).query),
+    ),
+  );
+  admin.get(
+    '/review-moderation/reviews/:id/audit',
+    validate(listInput().extend({ params: idParams })),
+    (_req, res) => reviewAudit(res, input(res).params.id, input(res).query),
+  );
+  for (const path of [
+    '/review-moderation/reviews/:id',
+    '/review-moderation/reviews/:id/comments/:comment',
+  ]) {
+    admin.patch(
+      path,
+      validate(s.manageContent),
+      result((req, res) =>
+        moderateReview(input(res).params, input(res).body, audit(req, res)),
+      ),
+    );
+  }
   admin.get('/review-moderation/reports', validate(s.reports), (_req, res) =>
     listReports(res, input(res).query),
   );

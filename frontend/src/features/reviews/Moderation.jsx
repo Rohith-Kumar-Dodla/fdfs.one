@@ -1,4 +1,7 @@
-﻿import { useState } from 'react';
+import { Link } from 'react-router';
+import { ManagedReviewListing } from './ReviewManagement.jsx';
+import { linkText } from './common.jsx';
+import { useState } from 'react';
 import { reviewTargets } from '../../../../shared/reviews.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card, SectionHeading } from '../../components/ui/surfaces.jsx';
@@ -39,6 +42,11 @@ function ReportCard({ row }) {
           {row.resolution && ' · ' + readable(row.resolution)}
         </p>
       </div>
+      {row.reviewId && (
+        <Link className={linkText} to={path + '/reviews/' + row.reviewId}>
+          Inspect reported discussion
+        </Link>
+      )}
       {row.details && <p className="whitespace-pre-wrap">{row.details}</p>}
       {row.subject?.body && (
         <blockquote className="rounded-control border border-line p-3 whitespace-pre-wrap">
@@ -205,6 +213,17 @@ export function ReviewsModeration() {
   return (
     <>
       <SectionHeading as="h1">Review moderation</SectionHeading>
+      <nav aria-label="Moderation views" className="flex flex-wrap gap-x-4">
+        <Link className={linkText} to="#review-reports">
+          Reports
+        </Link>
+        <Link className={linkText} to="#review-catalogue">
+          Review catalogue
+        </Link>
+      </nav>
+      <h2 tabIndex={-1} id="review-reports" className="text-xl font-semibold">
+        Reports
+      </h2>
       <div className="grid gap-2 sm:grid-cols-2">
         <Select
           label="Report status"
@@ -235,6 +254,9 @@ export function ReviewsModeration() {
           onPageChange={records.changePage}
         />
       )}
+      <section tabIndex={-1} id="review-catalogue">
+        <ManagedReviewListing />
+      </section>
       <RatingAbuse />
     </>
   );

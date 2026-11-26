@@ -162,6 +162,7 @@ export function RealtimeProvider({ children }) {
     const notice = () => {
       void client.invalidateQueries({ queryKey: ['notices'] });
       void client.invalidateQueries({ queryKey: ['support-tickets'] });
+      void client.invalidateQueries({ queryKey: ['reviews'] });
     };
     const connect = () => {
       pulse.current?.();
@@ -302,7 +303,7 @@ export function RealtimeProvider({ children }) {
     const playback = (event) => {
       if (
         !content ||
-        !['cinema', 'originals', 'podcasts', 'live'].includes(module)
+        !['cinema', 'originals', 'podcasts', 'live', 'reviews'].includes(module)
       )
         return;
       playing.current = event.detail === 1;

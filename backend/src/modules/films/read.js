@@ -1,6 +1,9 @@
 import { genres } from '../../../../shared/films.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
+import { sendSuccess } from '../../utils/responses.js';
+import { RatingTotals } from '../reviews/models.js';
+import { ratingView } from '../reviews/movies.js';
 import { imageView } from '../media/assets.js';
 import { normalizedName } from '../talent/models.js';
 import { Film, FilmCredit } from './models.js';
@@ -65,7 +68,7 @@ function cardView(film, now) {
   };
 }
 
-export function listFilms(res, query, { admin = false, creatorId } = {}) {
+export async function listFilms(res, query, { admin = false, creatorId } = {}) {
   const now = new Date();
   const filter = {};
   if (creatorId)
@@ -96,6 +99,42 @@ export function listFilms(res, query, { admin = false, creatorId } = {}) {
     query.sort === 'newest' && query.availability === 'upcoming'
       ? { releaseAt: 1, _id: 1 }
       : sorts[query.sort];
+  if (!admin && !creatorId && query.ratings === 'true') {
+    const { page, limit } = query;
+    const [rows, total] = await Promise.all([
+      populatePoster(
+        Film.find(filter)
+          .select(cardFields)
+          .sort(sort)
+          .skip((page - 1) * limit)
+          .limit(limit),
+      ).lean(),
+      Film.countDocuments(filter),
+    ]);
+    const summaries = new Map(
+      (
+        await RatingTotals.find({
+          target: { $in: rows.map((x) => x._id) },
+          targetType: { $in: ['cinema', 'original'] },
+        }).lean()
+      ).map((row) => [String(row.target), row]),
+    );
+    return sendSuccess(
+      res,
+      rows.map((row) => ({
+        ...cardView(row, now),
+        rating: ratingView(summaries.get(String(row._id))),
+      })),
+      {
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    );
+  }
   return sendList(
     res,
     Film,

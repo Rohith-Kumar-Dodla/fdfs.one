@@ -455,6 +455,11 @@ export function TalentProfile() {
                     >
                       {item.title}
                     </Link>
+                    {item.poster && (
+                      <div className="max-w-24">
+                        <FilmImage image={item.poster} sizes="96px" />
+                      </div>
+                    )}
                     {item.releaseYear && (
                       <p className="text-sm text-muted">{item.releaseYear}</p>
                     )}

@@ -18,6 +18,12 @@ export const accountRoutes = [
     children: [
       { path: '/account/notifications', element: <NotificationsPage /> },
       {
+        path: '/account/reviews',
+        lazy: async () => ({
+          Component: (await import('../reviews/History.jsx')).ReviewHistory,
+        }),
+      },
+      {
         path: '/account',
         lazy: async () => ({
           Component: (await import('./AccountPages.jsx')).AccountProfilePage,

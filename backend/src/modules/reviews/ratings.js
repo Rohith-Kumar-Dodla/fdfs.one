@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
 import { recordAudit } from '../admin/audit.js';
 import { User } from '../auth/models.js';
@@ -127,6 +127,23 @@ export function saveRating(params, account, stars) {
       session,
     );
     return { rating: stars ?? null, ...ratingView(summary) };
+  });
+}
+export function deleteOwnedRating(id, account) {
+  return mongoose.connection.transaction(async (session) => {
+    const row = await Rating.findOne({ _id: id, author: account._id }).session(
+      session,
+    );
+    if (!row) throw new AppError(404, 'RATING_NOT_FOUND', 'Rating not found.');
+    if (row.excludedAt) throw unavailable();
+    await modelFor(row.targetType).updateOne(
+      { _id: row.target },
+      { $inc: { engagementFence: 1 } },
+      { session, timestamps: false },
+    );
+    await Rating.deleteOne({ _id: row._id }).session(session);
+    await updateTotals(row, row.units, null, session);
+    return { deleted: true };
   });
 }
 export function moderateRating(params, input, audit) {

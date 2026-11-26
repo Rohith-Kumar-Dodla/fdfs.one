@@ -6,14 +6,16 @@ import { accountRoutes } from '../features/auth/routes.jsx';
 import { administrationRoutes } from '../features/admin/routes.jsx';
 import { filmPaths } from '../../../shared/films.js';
 
-async function loadModulePage() {
-  return { Component: (await import('../pages/ModulePending.jsx')).default };
-}
+const reviewsPage = (name) => async () => ({
+  Component: (await import('../features/reviews/Public.jsx'))[name],
+});
 
 const talentPage = (name) => async () => ({
   Component: (await import('../features/talent/Public.jsx'))[name],
 });
 function modulePage(path, detail = false) {
+  if (path === '/reviews')
+    return reviewsPage(detail ? 'MovieDetail' : 'ReviewsLanding');
   if (path === '/live')
     return async () => {
       const views = await import('../features/live/Public.jsx');
@@ -29,7 +31,7 @@ function modulePage(path, detail = false) {
   const classification = Object.keys(filmPaths).find(
     (key) => filmPaths[key] === path,
   );
-  if (!classification) return loadModulePage;
+  if (!classification) return async () => ({ Component: NotFound });
   return async () => {
     const views = await import('../features/films/Public.jsx');
     const Page = detail ? views.FilmDetail : views.FilmDirectory;
@@ -67,8 +69,17 @@ export const publicRoutes = [
           {
             path: '/reviews/:reviewId',
             handle: { module: modules.find(({ path }) => path === '/reviews') },
-            lazy: loadModulePage,
+            lazy: async () => ({
+              Component: (await import('../features/reviews/Community.jsx'))
+                .ReviewDetail,
+            }),
           },
+          { path: '/reviews/movies', lazy: reviewsPage('MoviesCatalogue') },
+          {
+            path: '/reviews/short-films',
+            lazy: reviewsPage('ShortFilmDiscovery'),
+          },
+          { path: '/reviews/community', lazy: reviewsPage('CommunityFeed') },
           { path: '/legal/:kind', element: <LegalPage /> },
           ...[
             ['/support', 'SupportHome'],

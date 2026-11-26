@@ -579,7 +579,7 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
     )[0];
     expect(notice).toMatchObject({
       type: 'review_comment',
-      destination: '/movies/' + movie.slug,
+      destination: '/reviews/' + first.id,
     });
     expect(notify).toHaveBeenCalledWith(viewer.user.publicId);
     await requestFor(
@@ -665,6 +665,142 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
         .count,
     ).toBe(2);
   }, 18000);
+  it('protects spoiler permalinks, owns history and keeps staff moderation scoped', async () => {
+    const base = '/reviews/movie/' + movie.slug;
+    const ownerBody = 'Another legitimate response.';
+    const mine = data(
+      await requestFor('get', base + '/mine', second).expect(200),
+    );
+    await requestFor('patch', base + '/' + mine.id, second)
+      .send({ title: 'Hidden title', body: ownerBody, spoiler: true })
+      .expect(200);
+    const feed = data(
+      await requestFor(
+        'get',
+        '/reviews/feed?type=movie&sort=recent&rating=4.5',
+      ).expect(200),
+    );
+    expect(feed).toHaveLength(1);
+    expect(feed[0]).toMatchObject({
+      id: mine.id,
+      spoiler: true,
+      target: { slug: movie.slug },
+    });
+    expect(feed[0]).not.toHaveProperty('title');
+    expect(feed[0]).not.toHaveProperty('body');
+    const permalink = '/reviews/entry/' + mine.id;
+    expect(
+      data(await requestFor('get', permalink).expect(200)),
+    ).not.toHaveProperty('body');
+    expect(
+      data(await requestFor('get', permalink + '?reveal=true').expect(200))
+        .body,
+    ).toBe(ownerBody);
+    expect(
+      data(
+        await requestFor('get', base + '?summary=true&rating=4.5').expect(200),
+      )[0],
+    ).not.toHaveProperty('title');
+    const history = '/account/reviews';
+    await requestFor('get', history).expect(401);
+    const yours = data(await requestFor('get', history, second).expect(200));
+    expect(yours.map((x) => x.id)).toEqual([mine.id]);
+    expect(
+      data(await requestFor('get', history, viewer).expect(200)).map(
+        (x) => x.id,
+      ),
+    ).not.toContain(mine.id);
+    await requestFor('delete', history + '/reviews/' + mine.id, viewer).expect(
+      404,
+    );
+    const [vote] = data(
+      await requestFor('get', history + '?kind=ratings', second).expect(200),
+    );
+    expect(vote.rating).toBe(4.5);
+    await requestFor('delete', history + '/ratings/' + vote.id, viewer).expect(
+      404,
+    );
+    const moderation = '/admin/review-moderation/reviews';
+    await requestFor('get', moderation, viewer).expect(403);
+    const filtered = data(
+      await requestFor(
+        'get',
+        moderation + '?spoiler=true&type=movie&q=Hidden',
+        reportsStaff,
+      ).expect(200),
+    );
+    expect(filtered.rows.map((row) => row.id)).toContain(mine.id);
+    const url = moderation + '/' + mine.id;
+    await requestFor('patch', url, reportsStaff)
+      .send({ action: 'hide', reason: 'Verified report fixture.' })
+      .expect(200);
+    await requestFor('get', permalink + '?reveal=true').expect(404);
+    expect(
+      data(await requestFor('get', history, second).expect(200))[0].status,
+    ).toBe('hidden');
+    expect(
+      data(await requestFor('get', url + '/audit', reportsStaff).expect(200))[0]
+        .summary.reason,
+    ).toBe('Verified report fixture.');
+    expect(
+      data(await requestFor('get', '/ratings/movie/' + movie.slug).expect(200))
+        .count,
+    ).toBe(2);
+    await requestFor('patch', url, reportsStaff)
+      .send({ action: 'restore', reason: 'Restored report fixture.' })
+      .expect(200);
+    await requestFor('put', base + '/' + mine.id + '/like', viewer).expect(200);
+    const likedPath = '/reviews/likes?ids=' + mine.id;
+    expect(
+      data(await requestFor('get', likedPath, viewer).expect(200)),
+    ).toEqual([mine.id]);
+    expect(
+      data(await requestFor('get', likedPath, second).expect(200)),
+    ).toEqual([]);
+    await requestFor('delete', history + '/reviews/' + mine.id, second).expect(
+      200,
+    );
+    await requestFor('get', permalink).expect(404);
+  }, 15000);
+  it('uses the same review and discussion workflows for released Cinema and Originals', async () => {
+    await Film.updateOne(
+      { _id: original._id },
+      { $set: { releaseAt: new Date(Date.now() - 1000) } },
+    );
+    for (const [type, film] of [
+      ['cinema', independent],
+      ['original', original],
+    ]) {
+      const path = '/reviews/' + type + '/' + film.slug;
+      const review = data(
+        await requestFor('post', path, viewer)
+          .send({ body: 'A thoughtful discussion of this short film.' })
+          .expect(201),
+      );
+      await requestFor('put', path + '/' + review.id + '/like', second).expect(
+        200,
+      );
+      await requestFor('post', path + '/' + review.id + '/comments', second)
+        .send({
+          body: 'This discussion works across the short-film catalogue.',
+        })
+        .expect(201);
+      expect(
+        data(
+          await requestFor('get', '/reviews/feed?type=' + type).expect(200),
+        )[0].id,
+      ).toBe(review.id);
+      expect(
+        data(
+          await requestFor('get', '/reviews/entry/' + review.id).expect(200),
+        ),
+      ).toMatchObject({
+        likes: 1,
+        comments: 1,
+        target: { type, slug: film.slug },
+      });
+    }
+  }, 12000);
   it('checks reviews analytics visibility, supports maintenance and removes archived targets from all public queries', async () => {
     const route = '/analytics/events';
     await requestFor('post', route, viewer)
@@ -703,7 +839,12 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
     );
     const draft = await status(latest, 'unpublish');
     expect(
-      data(await requestFor('get', '/reviews/trending').expect(200)),
+      data(
+        await requestFor(
+          'get',
+          '/reviews/feed?sort=trending&type=movie',
+        ).expect(200),
+      ),
     ).toEqual([]);
     await requestFor('get', '/movies/' + movie.slug).expect(404);
     await requestFor('get', '/reviews/movie/' + movie.slug).expect(404);

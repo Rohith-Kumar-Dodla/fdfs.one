@@ -93,9 +93,17 @@ The shared application layout creates one Socket.IO connection on the configured
 
 Verified organizers use `/organizer/live` for their event list, draft form, scoped broadcast controls and chat moderation. Drafts and protected corrections use the shared submissions review, including rejection feedback and resubmission. Administrators use `/admin/live` to manage the full lifecycle and chat. Public reminder actions read the signed-in account's subscription, subscribe and cancel using REST.
 
+## Reviews
+
+`/reviews` displays published movie shelves, recent and trending community reviews, and released short films. `/reviews/movies` uses debounced title search and URL-persisted filters, sorting and pagination. The mobile filter dialog exposes the same controls. `/reviews/short-films` uses the existing released Film catalogue. `/reviews/community` filters the shared feed by target and rating. `/movies/:slug` displays published metadata and authorized trailers. `/reviews/:reviewId` displays the public discussion, and `/account/reviews` displays the signed-in account's activity.
+
+Movie, Cinema and Originals detail pages share the half-star input, ten-bucket distribution, and review editor. Only released films expose community participation. Writes use authoritative API responses and query invalidation. Signed-in editors can remove their work with confirmation. The review form uses React Hook Form and Zod and warns before leaving an unsaved draft. Drafts stay in component state.
+
+Feed excerpts omit spoiler titles and bodies. The detail page requests spoiler text after explicit reveal. Page metadata uses the target title and a generic description. Comments use collapsed same-page spoiler disclosure. Existing notification links lead to public discussion or the owner's review history. Trailer events use the shared YouTube lifecycle and existing opt-in analytics.
+
 ## Centralized CMS
 
-Movies supports searching, filters, draft and published edits, preview, publication and archival. Artwork uses the shared library picker and upload controls. Credits select published Talent Profiles. Review moderation supports reasons, hiding, restoring and dismissing reports, and audited rating abuse decisions. The workspaces reuse the responsive drawer, dialogs and keyboard focus conventions. External import is unavailable. Public Reviews and movie routes remain placeholders for Phase 5.2.
+Movies supports searching, filters, draft and published edits, preview, publication and archival. Artwork uses the shared library picker and upload controls. Credits select published Talent Profiles. Review moderation supports reasons, hiding, restoring and dismissing reports, and audited rating abuse decisions. The workspaces reuse the responsive drawer, dialogs and keyboard focus conventions. External import is unavailable. The review catalogue adds server-paginated status, target, spoiler and text filters, plus review, comment and audit detail.
 
 The administration layout groups Overview, Content, Community, Platform and System routes. It uses the shared account session, permission-aware navigation, an accessible mobile drawer, a collapsible desktop sidebar and a breadcrumb. Listing pages reuse responsive records, pagination, filtered searches, confirmation dialogs and retry states. Quick actions open the five implemented module creation forms. Cinema and Originals have separate workspaces. The existing film detail and moderation routes remain compatible.
 

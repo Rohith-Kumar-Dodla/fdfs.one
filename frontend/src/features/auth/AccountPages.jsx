@@ -63,7 +63,10 @@ export function AccountProfilePage() {
           }}
         />
       </Card>
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <Link to="/account/reviews" className={buttonClasses('outline')}>
+          My reviews and ratings
+        </Link>
         <Link to="/account/settings" className={buttonClasses('outline')}>
           Account settings
         </Link>

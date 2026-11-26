@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { genres, languages } from '../../../../shared/films.js';
 import {
   reportReasons,
@@ -144,7 +144,10 @@ const filters = {
     .enum(['release', 'published', 'title', 'rating', 'popular'])
     .default('release'),
 };
-export const movies = listInput(filters);
+export const movies = listInput({
+  ...filters,
+  shelf: z.enum(['release', 'rating', 'popular']).optional(),
+});
 export const adminMovies = listInput({
   ...filters,
   status: z.enum(['draft', 'published', 'archived']).optional(),
@@ -182,6 +185,7 @@ export const editComment = commentInput.extend({
   body: z.strictObject(commentFields),
 });
 export const reviewList = listInput({
+  summary: z.literal('true').optional(),
   sort: z.enum(['recent', 'liked', 'trending']).default('recent'),
   rating: z.coerce.number().pipe(halfStar).optional(),
 }).extend({ params: target });
@@ -200,6 +204,43 @@ export const resolve = z.object({
   params: idParams,
   body: z.strictObject({
     action: z.enum(['hide', 'restore', 'dismiss']),
+    reason: plainText(300, 3),
+  }),
+});
+export const feed = listInput({
+  type: z.enum(reviewTargets).optional(),
+  sort: z.enum(['recent', 'liked', 'trending']).default('recent'),
+  rating: z.coerce.number().pipe(halfStar).optional(),
+});
+export const permalink = z.object({
+  params: idParams,
+  query: z.object({ reveal: z.literal('true').optional() }),
+});
+export const likes = z.object({
+  query: z.object({
+    ids: z
+      .string()
+      .max(950)
+      .transform((value) => value.split(','))
+      .pipe(z.array(publicId).min(1).max(24)),
+  }),
+});
+export const historyRatingId = z.object({
+  params: z.object({ id: z.string().regex(/^[a-f0-9]{24}$/) }),
+});
+export const history = listInput({
+  kind: z.enum(['reviews', 'ratings']).default('reviews'),
+});
+export const managedReviews = listInput({
+  q: text(80).optional(),
+  type: z.enum(reviewTargets).optional(),
+  status: z.enum(['published', 'hidden', 'deleted']).optional(),
+  spoiler: z.enum(['true', 'false']).optional(),
+});
+export const manageContent = z.object({
+  params: idParams.extend({ comment: publicId.optional() }),
+  body: z.strictObject({
+    action: z.enum(['hide', 'restore']),
     reason: plainText(300, 3),
   }),
 });

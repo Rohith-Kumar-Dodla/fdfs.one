@@ -96,6 +96,11 @@ function filters(query, admin) {
   const result = admin
     ? (query.status && { status: query.status }) || {}
     : publicMovieFilter();
+  if (!admin && query.shelf === 'rating')
+    result.ratingRank = { $type: 'number' };
+  if (!admin && query.shelf === 'popular') result.ratingCount = { $gt: 0 };
+  if (!admin && query.shelf === 'release')
+    result.releaseDate = { $lte: new Date() };
   if (query.genre) result.genres = query.genre;
   if (query.language)
     result.$or = [{ language: query.language }, { languages: query.language }];
@@ -433,7 +438,8 @@ export async function movieAppearances(personality) {
     ...publicMovieFilter(),
     'credits.personality': personality,
   })
-    .select('publicId slug title releaseDate releaseYear credits')
+    .select('publicId slug title releaseDate releaseYear credits poster')
+    .populate(populates[0])
     .sort(sortOptions.release)
     .limit(50)
     .lean();
@@ -443,6 +449,7 @@ export async function movieAppearances(personality) {
     title: row.title,
     releaseDate: row.releaseDate,
     releaseYear: row.releaseYear,
+    poster: movieImage(row.poster),
     path: moviePath(row.slug),
     credits: row.credits
       .filter((credit) => String(credit.personality) === String(personality))

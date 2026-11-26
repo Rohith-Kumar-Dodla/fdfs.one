@@ -157,6 +157,7 @@ const rating = new Schema(
 );
 rating.index({ targetType: 1, target: 1, author: 1 }, { unique: true });
 rating.index({ author: 1 });
+rating.index({ author: 1, updatedAt: -1, _id: -1 });
 const totals = new Schema(
   { ...target, count: Number, sum: Number, distribution: [Number] },
   { bufferCommands: false },
@@ -198,6 +199,8 @@ review.index(
 review.index({ targetType: 1, target: 1, status: 1, createdAt: -1, _id: -1 });
 review.index({ targetType: 1, target: 1, status: 1, likeCount: -1, _id: -1 });
 review.index({ author: 1, status: 1 });
+review.index({ author: 1, updatedAt: -1, _id: -1 });
+review.index({ status: 1, createdAt: -1, _id: -1 });
 const like = new Schema(
   { review: objectRef('Review'), author: currentAuthor },
   timestamps,

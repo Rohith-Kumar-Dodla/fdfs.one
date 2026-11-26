@@ -124,7 +124,10 @@ const filters = {
   availability: z.enum(['released', 'upcoming']).optional(),
   sort: z.enum(['newest', 'title', '-title', 'year']).default('newest'),
 };
-export const publicList = listInput(filters);
+export const publicList = listInput({
+  ...filters,
+  ratings: z.literal('true').optional(),
+});
 export const adminList = listInput({ ...filters, status: status.optional() });
 export const publicDetail = z.object({
   params: z.object({ slug }),

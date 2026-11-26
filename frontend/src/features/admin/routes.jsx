@@ -102,6 +102,20 @@ export const administrationRoutes = [
           { path: 'movies/new', lazy: moviePage('ManageMovie') },
           { path: 'movies/:id', lazy: moviePage('ManageMovie') },
           {
+            path: 'review-moderation/reviews/:id',
+            lazy: async () => {
+              const { ManageReview } =
+                await import('../reviews/ReviewManagement.jsx');
+              return {
+                Component: () => (
+                  <StaffPermission permission="moderation">
+                    <ManageReview />
+                  </StaffPermission>
+                ),
+              };
+            },
+          },
+          {
             path: 'review-moderation',
             lazy: async () => {
               const { ReviewsModeration } =

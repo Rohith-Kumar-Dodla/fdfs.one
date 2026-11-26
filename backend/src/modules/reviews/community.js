@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import { reviewTargetPath } from '../../../../shared/reviews.js';
 import { AppError } from '../../utils/app-error.js';
-import { sendList } from '../../utils/list.js';
+import { searchPattern, sendList } from '../../utils/list.js';
 import { sendSuccess } from '../../utils/responses.js';
-import { recordAudit } from '../admin/audit.js';
+import { AuditLog, recordAudit } from '../admin/audit.js';
 import { User } from '../auth/models.js';
 import { Film } from '../films/models.js';
 import { publicMovieFilter } from './movies.js';
@@ -87,6 +87,22 @@ async function decorate(rows, target, session = null) {
     displayReview(row, byAuthor.get(String(row.author?._id ?? row.author))),
   );
 }
+const destination = (row) =>
+  row.titleRecord?.slug
+    ? {
+        type: row.targetType,
+        slug: row.titleRecord.slug,
+        title: row.titleRecord.title,
+        path: reviewTargetPath(row.targetType, row.titleRecord.slug),
+      }
+    : null;
+const excerpt = (row) => ({
+  ...row,
+  title: row.spoiler ? undefined : row.title,
+  body: row.spoiler ? undefined : row.body?.slice(0, 360),
+});
+const conceal = (row) =>
+  row.spoiler ? { ...row, body: undefined, title: undefined } : row;
 export async function getReview(params, account) {
   const target = await resolveTarget(params);
   const row = account
@@ -140,7 +156,7 @@ function rankReview(now) {
     { $sort: { score: -1, createdAt: -1, _id: -1 } },
   ];
 }
-export async function trendingReviews({ page, limit }, now = new Date()) {
+function publicTargetStages(now) {
   const lookup = (model, as, visibility, type) => ({
     $lookup: {
       from: model.collection.name,
@@ -154,8 +170,7 @@ export async function trendingReviews({ page, limit }, now = new Date()) {
       as,
     },
   });
-  const [result] = await Review.aggregate([
-    { $match: { status: 'published' } },
+  return [
     lookup(Movie, 'movie', publicMovieFilter(now), {
       $eq: ['$$kind', 'movie'],
     }),
@@ -185,8 +200,23 @@ export async function trendingReviews({ page, limit }, now = new Date()) {
         titleRecord: { $ifNull: [{ $first: '$movie' }, { $first: '$film' }] },
       },
     },
-    { $match: { 'titleRecord.slug': { $type: 'string' } } },
-    ...rankReview(now),
+  ];
+}
+const publicTarget = { 'titleRecord.slug': { $type: 'string' } };
+const reviewOrder = (sort) =>
+  sort === 'liked'
+    ? { likeCount: -1, createdAt: -1, _id: -1 }
+    : { createdAt: -1, _id: -1 };
+export async function trendingReviews(
+  { page, limit, sort = 'trending', type, rating, summary = false },
+  now = new Date(),
+) {
+  const [result] = await Review.aggregate([
+    { $match: { status: 'published', ...(type && { targetType: type }) } },
+    ...publicTargetStages(now),
+    { $match: publicTarget },
+    ...(rating ? ratingFilter(rating * 2) : []),
+    ...(sort === 'trending' ? rankReview(now) : [{ $sort: reviewOrder(sort) }]),
     {
       $facet: {
         records: [
@@ -230,7 +260,7 @@ export async function trendingReviews({ page, limit }, now = new Date()) {
           return decorated.map((row) => [
             row.id,
             {
-              ...row,
+              ...(summary ? excerpt(row) : row),
               target: {
                 type: target.targetType,
                 slug: target.titleRecord.slug,
@@ -279,7 +309,7 @@ const ratingFilter = (units) => [
   { $match: { 'selectedRating.0': { $exists: true } } },
 ];
 export async function listReviews(res, target, query, now = new Date()) {
-  const { page, limit, sort, rating } = query;
+  const { page, limit, sort, rating, summary } = query;
   const order =
     sort === 'liked'
       ? { likeCount: -1, createdAt: -1, _id: -1 }
@@ -323,9 +353,13 @@ export async function listReviews(res, target, query, now = new Date()) {
     ]);
   }
   await Review.populate(rows, authorPublic);
-  return sendSuccess(res, await decorate(rows, target), {
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  });
+  return sendSuccess(
+    res,
+    (await decorate(rows, target)).map((row) => (summary ? excerpt(row) : row)),
+    {
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    },
+  );
 }
 export function writeReview(params, account, input, action) {
   return mongoose.connection
@@ -362,6 +396,14 @@ export function writeReview(params, account, input, action) {
       throw error;
     });
 }
+export async function deleteOwnedReview(id, account) {
+  const result = await Review.updateOne(
+    { publicId: id, author: account._id, status: { $ne: 'deleted' } },
+    { $set: { status: 'deleted' }, $unset: { body: 1, title: 1 } },
+  );
+  if (!result.modifiedCount) throw missingItem();
+  return { deleted: true };
+}
 export async function listComments(res, params, query) {
   const target = await resolveTarget(params);
   const review = await content(target, params.id);
@@ -376,7 +418,7 @@ export async function listComments(res, params, query) {
     (read) => read.populate(authorPublic),
   );
 }
-async function notice(row, target, account, type, key, session) {
+async function notice(row, account, type, key, session) {
   const receiver = await User.findOne({
     _id: row.author,
     status: 'active',
@@ -393,7 +435,10 @@ async function notice(row, target, account, type, key, session) {
         owner: receiver.publicId,
         key,
         type,
-        path: reviewTargetPath(target.targetType, target.slug),
+        path:
+          type === 'review_comment'
+            ? '/reviews/' + row.publicId
+            : '/account/reviews',
       },
     },
     { upsert: true, session },
@@ -441,7 +486,6 @@ export function interact(params, account, input, action) {
       const bucket = Math.floor(Date.now() / 86400000);
       const noticeOwner = await notice(
         row,
-        target,
         account.publicId,
         'review_comment',
         'review:comment:' +
@@ -515,10 +559,6 @@ export function submitReport(params, account, input) {
     return { filed: true, duplicate: result.upsertedCount === 0 };
   });
 }
-const targetFilter = (type, row) =>
-  type === 'movie'
-    ? { model: 'Movie', id: row.target }
-    : { model: 'Film', id: row.target };
 export async function listReports(res, query) {
   const { page, limit, status, type } = query;
   const where = { status, ...(type && { subjectType: type }) };
@@ -552,6 +592,7 @@ export async function listReports(res, query) {
       return {
         id: row.publicId,
         type: row.subjectType,
+        reviewId: row.review?.publicId,
         reason: row.reason,
         details: row.details,
         status: row.status,
@@ -579,68 +620,23 @@ export function resolveReport(id, input, audit) {
     if (!report) throw missingItem();
     const row = await Review.findById(report.review).session(session);
     const comment = report.subjectType === 'comment';
-    const model = comment ? ReviewComment : Review;
     const subject = comment
-      ? await model.findById(report.subject).session(session)
+      ? await ReviewComment.findById(report.subject).session(session)
       : row;
     if (!row) throw missingItem();
     if (report.status === 'resolved' && input.action === 'dismiss')
       return { resolved: true };
     if (report.status === 'resolved' && input.action === 'hide') throw hidden();
-    const to = input.action === 'hide' ? 'hidden' : 'published';
     let noticeOwner;
     if (input.action !== 'dismiss') {
-      if (
-        !subject ||
-        subject.status === 'deleted' ||
-        (input.action === 'restore' && subject.status !== 'hidden')
-      )
-        throw hidden();
-      const from = subject.status;
-      if (from !== to) {
-        await model.updateOne(
-          { _id: subject._id },
-          {
-            $set: {
-              status: to,
-              moderatedBy: audit.actorId,
-              moderatedAt: new Date(),
-              moderationReason: input.reason,
-            },
-          },
-          { session },
-        );
-        if (comment)
-          await Review.updateOne(
-            { _id: row._id },
-            { $inc: { commentCount: to === 'published' ? 1 : -1 } },
-            { session, timestamps: false },
-          );
-        const ref = targetFilter(row.targetType, row);
-        const target = await mongoose
-          .model(ref.model)
-          .findById(ref.id)
-          .select('slug')
-          .session(session)
-          .lean();
-        if (target)
-          noticeOwner = await notice(
-            subject,
-            { targetType: row.targetType, slug: target.slug },
-            audit.actorId,
-            'review_moderation',
-            'review:moderation:' + report.publicId + ':' + to,
-            session,
-          );
-        await recordAudit(
-          session,
-          audit,
-          'review.' + input.action,
-          report.subjectType === 'review' ? 'review' : 'review-comment',
-          subject.publicId,
-          { field: 'review', from, to, reason: input.reason },
-        );
-      }
+      noticeOwner = await changeVisibility(
+        row,
+        subject,
+        comment,
+        input,
+        audit,
+        session,
+      );
     }
     report.set({
       status: 'resolved',
@@ -659,4 +655,267 @@ export function resolveReport(id, input, audit) {
     );
     return { resolved: true, noticeOwner };
   });
+}
+
+async function changeVisibility(row, subject, comment, input, audit, session) {
+  if (!subject || subject.status === 'deleted') throw missingItem();
+  const to = input.action === 'hide' ? 'hidden' : 'published';
+  const from = subject.status;
+  if (from === to) return undefined;
+  const model = comment ? ReviewComment : Review;
+  const moderatedAt = new Date();
+  await model.updateOne(
+    { _id: subject._id },
+    {
+      $set: {
+        status: to,
+        moderatedBy: audit.actorId,
+        moderatedAt,
+        moderationReason: input.reason,
+      },
+    },
+    { session },
+  );
+  if (comment)
+    await Review.updateOne(
+      { _id: row._id },
+      { $inc: { commentCount: to === 'published' ? 1 : -1 } },
+      { session, timestamps: false },
+    );
+  await recordAudit(
+    session,
+    audit,
+    'review.' + input.action,
+    comment ? 'review-comment' : 'review',
+    subject.publicId,
+    { field: 'review', from, to, reason: input.reason },
+  );
+  return notice(
+    subject,
+    audit.actorId,
+    'review_moderation',
+    'review:moderation:' + subject.publicId + ':' + audit.requestId,
+    session,
+  );
+}
+export function moderateReview({ id, comment }, input, audit) {
+  return mongoose.connection.transaction(async (session) => {
+    const row = await Review.findOne({ publicId: id }).session(session);
+    if (!row || row.status === 'deleted') throw missingItem();
+    const subject = comment
+      ? await ReviewComment.findOne({
+          review: row._id,
+          publicId: comment,
+        }).session(session)
+      : row;
+    return {
+      noticeOwner: await changeVisibility(
+        row,
+        subject,
+        Boolean(comment),
+        input,
+        audit,
+        session,
+      ),
+      status: input.action === 'hide' ? 'hidden' : 'published',
+    };
+  });
+}
+export async function reviewPermalink(id, reveal = false) {
+  const [row] = await Review.aggregate([
+    { $match: { publicId: id, status: 'published' } },
+    ...publicTargetStages(new Date()),
+    { $match: publicTarget },
+  ]);
+  if (!row) throw missingItem();
+  await Review.populate(row, authorPublic);
+  const [view] = await decorate([row], row);
+  return { ...(reveal ? view : conceal(view)), target: destination(row) };
+}
+export async function likedReviews(ids, account) {
+  const visible = await Review.aggregate([
+    { $match: { publicId: { $in: ids }, status: 'published' } },
+    ...publicTargetStages(new Date()),
+    { $match: publicTarget },
+    { $project: { publicId: 1 } },
+  ]);
+  const likes = await ReviewLike.distinct('review', {
+    author: account._id,
+    review: { $in: visible.map((row) => row._id) },
+  });
+  const byId = new Set(likes.map(String));
+  return visible
+    .filter((row) => byId.has(String(row._id)))
+    .map((row) => row.publicId);
+}
+export async function reviewHistory(res, query, account) {
+  const { page, limit, kind } = query;
+  const ratings = kind === 'ratings';
+  const model = ratings ? Rating : Review;
+  const [result] = await model.aggregate([
+    {
+      $match: {
+        author: account._id,
+        ...(!ratings && { status: { $ne: 'deleted' } }),
+      },
+    },
+    { $sort: { updatedAt: -1, _id: -1 } },
+    {
+      $facet: {
+        records: [
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          ...publicTargetStages(new Date()),
+        ],
+        totals: [{ $count: 'total' }],
+      },
+    },
+  ]);
+  const rows = result?.records ?? [];
+  const total = result?.totals[0]?.total ?? 0;
+  return sendSuccess(
+    res,
+    rows.map((row) => ({
+      id: ratings ? String(row._id) : row.publicId,
+      target: destination(row),
+      type: row.targetType,
+      updatedAt: row.updatedAt,
+      ...(ratings
+        ? { rating: row.units / 2, restricted: Boolean(row.excludedAt) }
+        : {
+            title: row.title,
+            body: row.body,
+            spoiler: row.spoiler,
+            status: row.status,
+          }),
+    })),
+    {
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    },
+  );
+}
+function managedReview(row) {
+  return {
+    id: row.publicId,
+    title: row.title,
+    body: row.body,
+    spoiler: row.spoiler,
+    status: row.status,
+    target: destination(row),
+    type: row.targetType,
+    author: authors(row),
+    createdAt: row.createdAt,
+    editedAt: row.editedAt,
+    moderationReason: row.moderationReason,
+    likes: row.likeCount,
+    comments: row.commentCount,
+  };
+}
+export async function managedReviews(
+  res,
+  { page, limit, status, type, spoiler, q },
+) {
+  const filter = {
+    ...(status ? { status } : { status: { $ne: 'deleted' } }),
+    ...(type && { targetType: type }),
+    ...(spoiler !== undefined && { spoiler: spoiler === 'true' }),
+  };
+  const patterns = q
+    ? [
+        {
+          $match: {
+            $or: [
+              { title: searchPattern(q) },
+              { body: searchPattern(q) },
+              { 'titleRecord.title': searchPattern(q) },
+            ],
+          },
+        },
+      ]
+    : [];
+  const [result, totalReviews, openReports] = await Promise.all([
+    Review.aggregate([
+      { $match: filter },
+      ...publicTargetStages(new Date()),
+      ...patterns,
+      { $sort: { createdAt: -1, _id: -1 } },
+      {
+        $facet: {
+          records: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+          totals: [{ $count: 'total' }],
+        },
+      },
+    ]),
+    Review.countDocuments({ status: { $ne: 'deleted' } }),
+    ReviewReport.countDocuments({ status: 'open' }),
+  ]);
+  const rows = result[0]?.records ?? [];
+  const total = result[0]?.totals[0]?.total ?? 0;
+  await Review.populate(rows, authorPublic);
+  return sendSuccess(
+    res,
+    { rows: rows.map(managedReview), totalReviews, openReports },
+    {
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    },
+  );
+}
+export async function managedReviewDetail(id, { page, limit }) {
+  const [row] = await Review.aggregate([
+    { $match: { publicId: id } },
+    ...publicTargetStages(new Date()),
+  ]);
+  if (!row) throw missingItem();
+  await Review.populate(row, authorPublic);
+  const filter = { review: row._id };
+  const [comments, total, reports] = await Promise.all([
+    ReviewComment.find(filter)
+      .select('+moderationReason')
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate(authorPublic)
+      .lean(),
+    ReviewComment.countDocuments(filter),
+    ReviewReport.countDocuments({ ...filter, status: 'open' }),
+  ]);
+  return {
+    review: managedReview(row),
+    comments: comments.map((comment) => ({
+      ...displayComment(comment),
+      status: comment.status,
+      moderationReason: comment.moderationReason,
+    })),
+    openReports: reports,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+export async function reviewAudit(res, id, query) {
+  const row = await Review.findOne({ publicId: id }).select('_id').lean();
+  if (!row) throw missingItem();
+  const commentIds = await ReviewComment.distinct('publicId', {
+    review: row._id,
+  });
+  const reportIds = await ReviewReport.distinct('publicId', {
+    review: row._id,
+  });
+  return sendList(
+    res,
+    AuditLog,
+    {
+      $or: [
+        { targetType: 'review', targetId: id },
+        { targetType: 'review-comment', targetId: { $in: commentIds } },
+        { targetType: 'review-report', targetId: { $in: reportIds } },
+      ],
+    },
+    query,
+    (x) => ({
+      id: String(x._id),
+      action: x.action,
+      summary: x.summary,
+      createdAt: x.createdAt,
+    }),
+    'action summary createdAt',
+  );
 }

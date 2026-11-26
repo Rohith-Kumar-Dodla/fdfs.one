@@ -145,6 +145,13 @@ export function AccountNavigation({
         >
           My support tickets
         </Link>
+        <Link
+          to="/account/reviews"
+          onClick={close}
+          className={buttonClasses('ghost')}
+        >
+          My reviews and ratings
+        </Link>
         <AccountFeatureLinks onNavigate={close} />
         <Button variant="ghost" onClick={logout} loading={working}>
           Sign out

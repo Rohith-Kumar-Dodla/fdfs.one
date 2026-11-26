@@ -53,7 +53,9 @@ Production setup uses a named MongoDB replica-set database with transactions, in
 
 Phase 5.1 implementation and isolated verification passed. Production account provisioning remains pending hidden password entry. This phase adds the administrator movie catalogue, the public catalogue API, and shared ratings, reviews, likes, comments and moderation. Open `/admin` to sign in. Use Movies to manage catalogue entries and Review moderation to act on reports. The Phase 4A.2 checkpoint `65bb559` is on GitHub `main`. [Phase 5.1 verification](TESTING.md#phase-51-verification)
 
-The requested permanent Super Administrator uses `admin@fdfs.one`. Run the owner bootstrap from a local terminal with hidden password entry. Manual catalogue management is available. External import requires licensed provider access. The public Reviews experience remains Phase 5.2. [Owner bootstrap](BACKEND.md#centralized-administration)
+Phase 5.2 and overall Phase 5 are PASS in the isolated environment. The public Reviews catalogue, movie details, ratings, discussions and account history complete the sixth entertainment module in the centralized CMS. Production setup still includes owner bootstrap and approved content onboarding. Licensed provider access is required for external import. [Verification](TESTING.md#phase-52-verification)
+
+The permanent Super Administrator uses `admin@fdfs.one`. Run the documented command in a local terminal and enter a fresh password at the hidden prompts. [Owner bootstrap](BACKEND.md#centralized-administration)
 
 The roadmap has 11 main phases and 22 subphases.
 
@@ -71,7 +73,7 @@ The roadmap has 11 main phases and 22 subphases.
 - 5.2 Movie discovery and community frontend
 - 6.1 Homepage and global discovery
 - 6.2 Personalization and platform integration
-- 7.1 Functional testing and security
+- 7.1 Functional testing and security, including mandatory cross-module account erasure and retention
 - 7.2 Performance and release optimization
 - 8.1 Production infrastructure
 - 8.2 Real content onboarding and Web V1 release

@@ -9,14 +9,24 @@ import { publicRoutes } from '../src/routes/public-routes.jsx';
 
 const defaultAdapter = apiClient.defaults.adapter;
 beforeEach(() => {
-  apiClient.defaults.adapter = async () => ({
+  apiClient.defaults.adapter = async (config) => ({
     status: 200,
     headers: {},
     data: {
       success: true,
       message: 'OK',
-      data: [],
-      pagination: { totalPages: 0 },
+      data:
+        config.url === '/movies/movie'
+          ? {
+              id: 'test',
+              title: 'Published movie',
+              slug: 'movie',
+              path: '/movies/movie',
+              genres: [],
+              languages: [],
+            }
+          : [],
+      pagination: { page: 1, total: 0, totalPages: 0 },
     },
   });
 });
@@ -75,20 +85,22 @@ describe('public routes', () => {
   });
 
   it.each([
-    ['/reviews', 'Reviews'],
-    ['/movies/movie', 'Reviews'],
+    ['/reviews', 'FDFS Reviews'],
+    ['/reviews/movies', 'Movie catalogue'],
+    ['/movies/movie', 'Published movie'],
   ])('resolves %s and highlights its module', async (path, title) => {
     renderRoute(path);
     expect(
       await screen.findByRole('heading', { name: title, level: 1 }),
     ).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Content is not available yet' }),
-    ).toBeVisible();
+    if (path === '/reviews/movies')
+      expect(
+        await screen.findByText('No movies match these filters'),
+      ).toBeVisible();
     expect(
       within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
         'link',
-        { name: title },
+        { name: 'Reviews' },
       ),
     ).toHaveAttribute('aria-current', 'page');
   });
