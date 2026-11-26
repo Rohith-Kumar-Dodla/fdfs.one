@@ -83,6 +83,7 @@ function localTime(value) {
 export function ReleaseForm({
   onRelease,
   current,
+  publicationSchedule = false,
   label = 'Review publication',
 }) {
   return (
@@ -92,10 +93,14 @@ export function ReleaseForm({
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const release = data.get('releaseAt');
+        const publication = data.get('publicationAt');
         onRelease({
           playbackChecked: true,
           releaseAt: release ? new Date(release).toISOString() : undefined,
           announce: data.has('announce'),
+          ...(publication && {
+            publicationAt: new Date(publication).toISOString(),
+          }),
         });
       }}
     >
@@ -112,6 +117,21 @@ export function ReleaseForm({
           )}
         />
       </label>
+      {publicationSchedule && (
+        <label className="grid min-w-0 gap-1 text-sm">
+          Scheduled publication (local time, optional)
+          <TextInput
+            type="datetime-local"
+            className="min-w-0"
+            name="publicationAt"
+            defaultValue={localTime(
+              current?.publicationAt > new Date().toISOString()
+                ? current.publicationAt
+                : null,
+            )}
+          />
+        </label>
+      )}
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <Checkbox name="announce" defaultChecked={Boolean(current?.announce)} />{' '}
         Show the announcement before release

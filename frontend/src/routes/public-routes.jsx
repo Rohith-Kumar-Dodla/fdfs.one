@@ -13,6 +13,11 @@ const talentPage = (name) => async () => ({
   Component: (await import('../features/talent/Public.jsx'))[name],
 });
 function modulePage(path, detail = false) {
+  if (path === '/podcasts')
+    return async () => {
+      const views = await import('../features/podcasts/Public.jsx');
+      return { Component: detail ? views.EpisodeDetail : views.PodcastLanding };
+    };
   if (path === '/talent')
     return talentPage(detail ? 'TalentProfile' : 'TalentDirectory');
   const classification = Object.keys(filmPaths).find(

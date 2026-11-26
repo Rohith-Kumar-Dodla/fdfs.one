@@ -1,5 +1,6 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
+import { mountPodcastManagement } from '../podcasts/routes.js';
 import { validate } from '../../middlewares/validate.js';
 import { idParams } from '../../utils/list.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
@@ -115,6 +116,7 @@ export function mountPhase22(
   }
 
   admin.use(requireRoles('admin'));
+  mountPodcastManagement(api, admin, authenticate);
   mountAdminFilms(admin);
   mountAdminTalent(admin);
   admin.get('/overview', async (req, res) => {

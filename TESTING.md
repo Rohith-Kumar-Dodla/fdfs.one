@@ -64,4 +64,14 @@ Chrome ran the production frontend against Express and an isolated MongoDB repli
 
 The browser used a verified creator account to upload a temporary Cloudinary poster, add a published Talent credit, save a draft and submit it. A separate administrator approved and published it, then unpublished and archived it. Public film retrieval and filmography reflected those transitions. The scheduled Original fixture exposed its approved trailer while withholding the main video. The authorized trailer's playback clock advanced in Chrome after a viewer click. The temporary Cloudinary asset was deleted and the disposable MongoDB replica set was stopped.
 
-GitHub `main` was checked at `f015093`. The Phase 2.2 and Phase 3.1 commits remain local pending authorization to update the default branch.
+The Phase 4.1 carry-forward check verified GitHub `main` at `061af97`, with the preceding Phase 2.2 and Phase 3.1 commits in its history.
+
+Chrome played the authorized YouTube video through the published main-film action during an isolated Phase 4.1 carry-forward run. The film's video clock advanced. The scheduled film response withheld the main video identifier before release, and unpublication returned HTTP 404. Overall Phase 2 and Phase 3 are PASS.
+
+## Phase 4.1 verification
+
+All 121 automated tests passed on Node.js 24.22.1, with 58 frontend and 63 backend tests. Lint, formatting and the production build passed. The production dependency audit found zero vulnerabilities. The added tests cover published visibility, numbering, chapter validation and seeking, participant relationships, media references, account eligibility, comment ownership, duplicate reporting and administrator moderation.
+
+Chrome used the production build with Express and a disposable MongoDB replica set at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920px, plus 568×320 and 844×320 in landscape. The show, episode, chapter, comment, Talent and administrator views fit with zero horizontal overflow. The run also checked existing routes, dialog Escape and focus return, mobile layouts and responsive iframe sizing. Physical-device coverage is pending.
+
+The isolated run configured and published a show, attached temporary Cloudinary artwork, saved an episode draft with host and guest references and authored chapters, and published the episode. Public retrieval and Talent appearances reflected those records. The scheduled episode exposed a distinct teaser and withheld its main video and chapters. Chrome played the authorized podcast video, clicked a chapter, and observed playback travel to 25 seconds with the chapter highlighted. A verified account posted a comment in the browser, an administrator hid it, and archival removed public episode access. The temporary Cloudinary artwork was deleted.

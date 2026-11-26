@@ -1,9 +1,19 @@
 ﻿import { useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 
-export function FilmImage({ image, landscape = false, eager = false, sizes }) {
+export function FilmImage({
+  image,
+  landscape = false,
+  square = false,
+  eager = false,
+  sizes,
+}) {
   const [broken, setBroken] = useState(null);
-  const shape = landscape ? 'aspect-video' : 'aspect-[2/3]';
+  const shape = landscape
+    ? 'aspect-video'
+    : square
+      ? 'aspect-square'
+      : 'aspect-[2/3]';
   const style = 'w-full rounded-panel bg-nav object-cover ' + shape;
   if (!image?.url || image.url === broken) {
     return (

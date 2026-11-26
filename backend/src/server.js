@@ -7,6 +7,7 @@ import { initializeAuthIndexes } from './modules/auth/models.js';
 import { initializePhase22Indexes } from './modules/admin/routes.js';
 import { initializeTalentIndexes } from './modules/talent/models.js';
 import { initializeFilmIndexes } from './modules/films/models.js';
+import { initializePodcastIndexes } from './modules/podcasts/routes.js';
 import {
   createCloudinaryProvider,
   loadMediaConfig,
@@ -94,6 +95,7 @@ async function start() {
           initializePhase22Indexes(),
           initializeTalentIndexes(),
           initializeFilmIndexes(),
+          initializePodcastIndexes(),
         ]);
         indexesReady = true;
       },

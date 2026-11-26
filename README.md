@@ -32,11 +32,13 @@ Support small mobile (320–374px), medium mobile (375–424px), large mobile (4
 
 Phase 1 is PASS. Atlas selected `fdfs`, health and readiness returned HTTP 200, and graceful shutdown disconnected MongoDB.
 
-Phase 2.1 is PASS. Gmail authenticated using the saved hostname, and earlier delivery tests confirmed both messages in the authorized inbox. Phase 2.2 runtime verification includes live Cloudinary upload and deletion and playback of the authorized YouTube embed. The Phase 2 GitHub checkpoint is pending authorization for the default branch.
+Phase 2 is PASS. Gmail authenticated using the saved hostname, both transactional messages reached the authorized inbox, and Cloudinary and YouTube runtime checks passed. GitHub `main` includes the Phase 2 and Phase 3 checkpoints through `061af97`.
 
 Phase 3.1 passed automated checks and browser verification against the Express API and an isolated MongoDB replica set. It adds the published Talent directory and profile pages, an administrator Talent Profiles section, and talent proposals and corrections through the shared moderation workflow. Real profile onboarding requires authorized profile information and media. See [testing](TESTING.md) for verification results.
 
-Phase 3.2 passed automated checks and an isolated browser-to-database workflow. It adds independent films in Cinema and FDFS productions in Originals, including creator proposals, administrator publishing, scheduled announcements and released credits on Talent Profiles. Production onboarding requires a verified creator or an administrator, rights to publish the supplied media, and embeddable video URLs. Overall Phase 3 GitHub synchronization awaits authorization for the default branch.
+Overall Phase 3 is PASS. Phase 3.2 adds independent films in Cinema and FDFS productions in Originals, including creator proposals, administrator publishing, scheduled announcements and released credits on Talent Profiles. The carry-forward browser check confirmed released main-film playback, scheduled identifier protection and removal from public access after unpublication. Production onboarding requires a verified creator or an administrator, rights to publish the supplied media, and embeddable video URLs.
+
+Phase 4.1 adds 404 Reality Not Found show and episode management, scheduled release, chapters, Talent appearances, and episode comments and reports. An administrator configures the actual show and supplies authorized artwork, video URLs, guest and host profiles, and any real chapter timestamps. See [testing](TESTING.md) for verification and remaining work.
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

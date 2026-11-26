@@ -2,6 +2,7 @@
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
 import { filmography } from '../films/read.js';
+import { appearances } from '../podcasts/read.js';
 import { sendList } from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
 import { User } from '../auth/models.js';
@@ -167,15 +168,19 @@ export async function getPublicTalent(slug) {
     },
   ]);
   if (!record) throw notFound();
-  await Personality.populate(
-    record,
-    imageFields.map(([path]) => ({ path, select: mediaFields })),
-  );
+  const [, films, episodes] = await Promise.all([
+    Personality.populate(
+      record,
+      imageFields.map(([path]) => ({ path, select: mediaFields })),
+    ),
+    filmography(record._id),
+    appearances(record._id),
+  ]);
   return {
     ...projectProfile(record, true),
     achievements: record.achievements,
-    filmography: await filmography(record._id),
-    podcastAppearances: [],
+    filmography: films,
+    podcastAppearances: episodes,
   };
 }
 

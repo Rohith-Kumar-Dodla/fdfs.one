@@ -75,8 +75,6 @@ describe('public routes', () => {
   });
 
   it.each([
-    ['/podcasts', '404 Podcasts'],
-    ['/podcasts/episode', '404 Podcasts'],
     ['/live', 'Live'],
     ['/live/event', 'Live'],
     ['/reviews', 'Reviews'],
@@ -97,6 +95,48 @@ describe('public routes', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 
+  it.each([
+    ['/podcasts', '404 Reality Not Found', false],
+    ['/podcasts/episode', 'Episode unavailable', true],
+  ])('resolves %s with the podcast routes', async (path, heading, detail) => {
+    apiClient.defaults.adapter = async (config) => {
+      if (detail)
+        throw new AxiosError(
+          'Episode not found',
+          'ERR_BAD_REQUEST',
+          config,
+          undefined,
+          {
+            status: 404,
+            headers: {},
+            data: {
+              success: false,
+              message: 'Episode not found',
+              error: { code: 'EPISODE_NOT_FOUND' },
+            },
+          },
+        );
+      return {
+        status: 200,
+        headers: {},
+        data: { success: true, message: 'OK', data: null },
+      };
+    };
+    renderRoute(path);
+    expect(
+      await screen.findByRole(
+        'heading',
+        { name: heading, level: 1 },
+        { timeout: 5000 },
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+        'link',
+        { name: '404 Podcasts' },
+      ),
+    ).toHaveAttribute('aria-current', 'page');
+  });
   it.each([
     ['/cinema', 'Cinema', 'Cinema', false],
     ['/cinema/short-film', 'Film unavailable', 'Cinema', true],

@@ -4,6 +4,7 @@ import { UserRound } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { professions } from '../../../../shared/talent.js';
 import { filmPath, filmLabels } from '../../../../shared/films.js';
+import { participantRoles } from '../../../../shared/podcasts.js';
 import { FilmImage } from '../films/FilmImage.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { apiClient } from '../../api/client.js';
@@ -444,9 +445,40 @@ export function TalentProfile() {
           </section>
           <section className="grid gap-2">
             <h2 className="text-xl font-semibold">Podcast appearances</h2>
-            <p className="text-muted">
-              No published podcast appearances are listed.
-            </p>
+            {profile.podcastAppearances?.length ? (
+              <ul className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {profile.podcastAppearances.map((entry) => (
+                  <Card
+                    as="li"
+                    key={entry.id}
+                    className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 wrap-anywhere"
+                  >
+                    <FilmImage image={entry.thumbnail} landscape sizes="80px" />
+                    <div>
+                      <Link
+                        to={'/podcasts/' + entry.slug}
+                        className="inline-flex min-h-11 items-center font-semibold text-accent underline"
+                      >
+                        {entry.title}
+                      </Link>
+                      <p className="text-sm text-muted">
+                        {entry.show.name} · Episode {entry.number}
+                      </p>
+                      <p className="text-sm">
+                        {entry.roles
+                          .map((role) => participantRoles[role])
+                          .join(', ')}{' '}
+                        · {new Date(entry.releaseAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted">
+                No published podcast appearances are listed.
+              </p>
+            )}
           </section>
           <Link
             className={buttonClasses('outline', 'justify-self-start')}

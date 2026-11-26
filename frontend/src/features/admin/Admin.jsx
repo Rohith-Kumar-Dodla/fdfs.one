@@ -23,6 +23,7 @@ const items = [
   ['/admin/submissions', 'Submissions'],
   ['/admin/talent', 'Talent Profiles'],
   ['/admin/films', 'Films'],
+  ['/admin/podcasts', 'Podcasts'],
   ['/admin/media', 'Media library'],
   ['/admin/audit', 'Audit log'],
 ];

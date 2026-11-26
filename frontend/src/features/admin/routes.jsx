@@ -13,6 +13,13 @@ const adminTalentPage = (name) => async () => ({
 const filmPage = (name) => async () => ({
   Component: (await import('../films/Manage.jsx'))[name],
 });
+const podcastPage = (name) => async () => ({
+  Component: (await import('../podcasts/Admin.jsx'))[name],
+});
+const podcastModeration = (reports) => async () => {
+  const { PodcastModeration } = await import('../podcasts/Moderation.jsx');
+  return { Component: () => <PodcastModeration reports={reports} /> };
+};
 
 export const administrationRoutes = [
   {
@@ -49,6 +56,12 @@ export const administrationRoutes = [
           { path: 'films', lazy: filmPage('AdminFilms') },
           { path: 'films/new', lazy: filmPage('NewOriginal') },
           { path: 'films/:id', lazy: filmPage('AdminFilmDetail') },
+          { path: 'podcasts', lazy: podcastPage('AdminPodcasts') },
+          { path: 'podcasts/show', lazy: podcastPage('AdminShow') },
+          { path: 'podcasts/episodes/new', lazy: podcastPage('NewEpisode') },
+          { path: 'podcasts/episodes/:id', lazy: podcastPage('ManageEpisode') },
+          { path: 'podcasts/comments', lazy: podcastModeration(false) },
+          { path: 'podcasts/reports', lazy: podcastModeration(true) },
           {
             path: 'submissions/:id',
             lazy: adminSubmissionPage('SubmissionDetail'),
