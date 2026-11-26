@@ -33,6 +33,18 @@ const envSchema = z.object({
     .min(1)
     .max(2147483647)
     .default(900000),
+  LIVE_REMINDER_LEAD_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1440)
+    .default(15),
+  LIVE_REMINDER_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(3600000)
+    .default(60000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
 });
 

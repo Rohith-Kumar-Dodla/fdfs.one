@@ -13,6 +13,11 @@ const talentPage = (name) => async () => ({
   Component: (await import('../features/talent/Public.jsx'))[name],
 });
 function modulePage(path, detail = false) {
+  if (path === '/live')
+    return async () => {
+      const views = await import('../features/live/Public.jsx');
+      return { Component: detail ? views.LiveDetail : views.LiveDirectory };
+    };
   if (path === '/podcasts')
     return async () => {
       const views = await import('../features/podcasts/Public.jsx');

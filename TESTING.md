@@ -75,3 +75,19 @@ All 121 automated tests passed on Node.js 24.22.1, with 58 frontend and 63 backe
 Chrome used the production build with Express and a disposable MongoDB replica set at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920px, plus 568×320 and 844×320 in landscape. The show, episode, chapter, comment, Talent and administrator views fit with zero horizontal overflow. The run also checked existing routes, dialog Escape and focus return, mobile layouts and responsive iframe sizing. Physical-device coverage is pending.
 
 The isolated run configured and published a show, attached temporary Cloudinary artwork, saved an episode draft with host and guest references and authored chapters, and published the episode. Public retrieval and Talent appearances reflected those records. The scheduled episode exposed a distinct teaser and withheld its main video and chapters. Chrome played the authorized podcast video, clicked a chapter, and observed playback travel to 25 seconds with the chapter highlighted. A verified account posted a comment in the browser, an administrator hid it, and archival removed public episode access. The temporary Cloudinary artwork was deleted.
+
+## Phase 4.2 verification
+
+All 130 automated tests passed on Node.js 24.22.1, with 61 frontend and 69 backend tests. Lint, formatting and the production build passed. The production dependency audit found zero vulnerabilities.
+
+The Phase 4.2 automated suites use disposable local MongoDB replica sets and mock email transports. They cover UTC and IANA timezone validation, submitted and corrected event review, public discovery and video visibility, organizer ownership, authorized state transitions, Socket.IO origin and session checks, room isolation, reconnect recovery, chat limits, moderation and mute expiry, and persistent reminder cancellation, scheduling and lease recovery.
+
+The configured SMTP sender accepted one authorized test reminder. Gmail inbox search found one copy under its unique test subject. The worker stored the delivery as sent after one attempt. Only the disposable test database held the reminder subscription and fixture event.
+
+Chrome ran the production frontend against Express and a disposable MongoDB replica set. A verified organizer uploaded temporary Cloudinary artwork, created and submitted a draft, and started the approved event. A separate administrator approved and published it. The public countdown and reminder subscription worked, and a referenced artwork deletion returned HTTP 409. Two independent Chrome profiles exchanged live chat. One session disconnected, missed a message and recovered it through persisted history. A moderation action removed the message in the other session. The administrator ended the event, published its replay and archived the event. The public route returned HTTP 404 after archival. Temporary Cloudinary assets and isolated databases were removed.
+
+The discovery, event detail, video, live chat, organizer forms and administrator controls fit at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920px, plus 568×320 and 844×390 in landscape. An existing-route smoke check covered home, Cinema, Originals, Podcasts, Talent, Reviews and account. Chrome also submitted chat using a keyboard-sized viewport. Physical-device checks remain pending.
+
+The backend entry point returned HTTP 200 for health and readiness, accepted a Socket.IO client, and drained socket and database connections on graceful shutdown.
+
+The supplied YouTube link initialized paused in the shared player. A viewer click started the video and advanced its clock in the published replay view. YouTube reported the content as originating from a live broadcast, with no active live indicator during the check. Active YouTube Live playback is PENDING an authorized and currently active broadcast.

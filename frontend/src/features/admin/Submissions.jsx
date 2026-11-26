@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   useNavigate,
@@ -7,6 +7,8 @@ import {
   useSearchParams,
 } from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
+import { EventForm, EventProposalReview } from '../live/Form.jsx';
+import { useAccount } from '../auth/guards.jsx';
 import { TalentSubmission } from '../talent/Proposal.jsx';
 import { ProfileContent, TalentImage } from '../talent/Public.jsx';
 import { filmPath } from '../../../../shared/films.js';
@@ -169,6 +171,7 @@ function SubmissionForm({ record }) {
 export function NewSubmissionPage() {
   const [search] = useSearchParams();
   const talent = search.get('category') === 'talent';
+  const { data: account } = useAccount();
   return (
     <OwnerShell>
       <DetailLink to={ownerUrl}>Back to submissions</DetailLink>
@@ -186,6 +189,11 @@ export function NewSubmissionPage() {
           <DetailLink to="/creator/films/new">
             Submit an independent film
           </DetailLink>
+          {account?.roles?.includes('organizer') && (
+            <DetailLink to="/organizer/live/new">
+              Submit a live event
+            </DetailLink>
+          )}
           <Card>
             <SubmissionForm />
           </Card>
@@ -250,6 +258,9 @@ function SubmissionActions({ record, admin, url }) {
     '/submissions/films',
     'films',
     'talent',
+    '/admin/live',
+    '/organizer/live',
+    'live',
   ]);
   function confirm(label, suffix, data) {
     change.reset();
@@ -273,6 +284,8 @@ function SubmissionActions({ record, admin, url }) {
           <h2 className="text-lg font-semibold">Edit submission</h2>
           {record.category === 'talent' ? (
             <TalentSubmission key={record.id} record={record} />
+          ) : record.eventProposal ? (
+            <EventForm key={record.id} record={record} />
           ) : record.category === 'film' ? (
             <CreatorFilmForm key={record.id} record={record} />
           ) : (
@@ -346,6 +359,17 @@ function SubmissionActions({ record, admin, url }) {
               </Button>
             </div>
           )}
+          {record.status === 'approved' && record.eventProposal && (
+            <div>
+              <Button
+                onClick={() =>
+                  confirm('Publish approved live event', 'publish')
+                }
+              >
+                Publish live event
+              </Button>
+            </div>
+          )}
           {record.status === 'approved' && record.filmProposal && (
             <ReleaseForm
               onRelease={(release) =>
@@ -355,7 +379,8 @@ function SubmissionActions({ record, admin, url }) {
           )}
           {record.status === 'approved' &&
             !record.proposal &&
-            !record.filmProposal && (
+            !record.filmProposal &&
+            !record.eventProposal && (
               <p className="text-sm text-muted">
                 Publishing requires an enabled workflow for this category.
               </p>
@@ -430,7 +455,19 @@ export function SubmissionDetail({ admin = false }) {
               </Card>
             )}
             {record.filmProposal && <FilmProposalReview record={record} />}
-            {record.publishedResource?.classification ? (
+            {record.eventProposal && (
+              <EventProposalReview record={record} admin={admin} />
+            )}
+            {record.publishedResource && record.category === 'live' ? (
+              <DetailLink
+                to={
+                  (admin ? '/admin/live/' : '/organizer/live/') +
+                  record.publishedResource.id
+                }
+              >
+                Open published event
+              </DetailLink>
+            ) : record.publishedResource?.classification ? (
               <DetailLink
                 to={
                   admin

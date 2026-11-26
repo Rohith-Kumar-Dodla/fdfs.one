@@ -21,20 +21,24 @@ const templates = {
   },
 };
 
+export function createMailTransport(config) {
+  return (
+    config.smtp &&
+    nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.secure,
+      requireTLS: !config.smtp.secure,
+      auth: config.smtp.auth,
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 8000,
+    })
+  );
+}
+
 export function createEmailService(config, logger, transport) {
-  const mail =
-    transport ??
-    (config.smtp &&
-      nodemailer.createTransport({
-        host: config.smtp.host,
-        port: config.smtp.port,
-        secure: config.smtp.secure,
-        requireTLS: !config.smtp.secure,
-        auth: config.smtp.auth,
-        connectionTimeout: 4000,
-        greetingTimeout: 4000,
-        socketTimeout: 8000,
-      }));
+  const mail = transport ?? createMailTransport(config);
 
   if (!mail)
     logger.warn('SMTP is unconfigured. Transactional delivery is unavailable.');

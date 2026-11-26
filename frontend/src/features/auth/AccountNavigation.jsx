@@ -28,6 +28,15 @@ function AccountFeatureLinks({ onNavigate }) {
           My films
         </Link>
       )}
+      {account.roles.includes('organizer') && (
+        <Link
+          to="/organizer/live"
+          className={buttonClasses('ghost')}
+          onClick={onNavigate}
+        >
+          My live events
+        </Link>
+      )}
       {account.roles.includes('admin') && (
         <Link
           to="/admin"

@@ -21,7 +21,7 @@ export function LoginPage() {
   const target =
     ['/account', '/account/settings'].includes(state?.from) ||
     (typeof state?.from === 'string' &&
-      /^\/(?:submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|podcasts\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?|$)/.test(
+      /^\/(?:submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|organizer\/live(?:\/new|\/[a-f0-9-]{36}(?:\/correction)?)?|(?:podcasts|live)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?|$)/.test(
         state.from,
       ))
       ? state.from

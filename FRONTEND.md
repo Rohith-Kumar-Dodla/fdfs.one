@@ -27,7 +27,7 @@ Tailwind v4 and `styles/index.css` define the color, type, spacing and motion fo
 
 Use native semantic controls with visible focus, a named icon button for icon-only actions and `FormField` for labels, hints and validation errors. `useValidatedForm(schema)` connects React Hook Form to Zod. Dialogs use the browser's modal behavior. Use the shared container, section heading, feedback states and pagination before creating local equivalents.
 
-The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Cinema, Originals, Podcasts and Talent load their public views. The remaining modules lazy-load a shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
+The shared layout provides desktop and mobile navigation, a skip link, route focus and scroll restoration. The landing page links to all six modules. Cinema, Originals, Podcasts, Live and Talent use their module paths plus `/:slug`. Reviews uses `/reviews` and `/movies/:slug`. Cinema, Originals, Podcasts, Live and Talent load their public views. Reviews lazy-loads the shared unavailable state. The router handles loading, route errors and unknown URLs. Production hosting should serve `index.html` for direct public route requests.
 
 ## API and state
 
@@ -82,3 +82,11 @@ Verified creators manage independent films at `/creator/films`, draft proposals 
 Selecting Watch episode or Watch teaser mounts a single YouTube iframe. A chapter selected before initialization supplies its starting position to the player. Later selections use the player seek command, and the active chapter follows playback position. The shared player samples position while playing and releases its timer on pause, failure or unmount. [YouTube IFrame Player reference](https://developers.google.com/youtube/iframe_api_reference)
 
 Released episodes show paginated plain-text comments. Verified accounts can post, edit or delete their own comments and report other comments. Admin routes under `/admin/podcasts` configure the show, edit episodes, verify playback and schedule publication, hide or restore comments, and resolve reports. The chapter editor accepts hours, minutes and seconds. Moving a chapter exchanges its time slot with its neighbor.
+
+## FDFS Live
+
+`/live` queries Live Now, Upcoming Events and Replays separately, with independent pagination and shared title, category and UTC day filters in the URL. `/live/:slug` displays event artwork, local time and IANA timezone, and a countdown initialized from server time. The waiting state lasts until a verified operator starts the event. During a live or replay session, the shared YouTube player uses the event's released provider ID and starts paused.
+
+Event detail creates a Socket.IO connection on the configured API origin. Public visitors join one event room. Eligible signed-in viewers attach their current access token, and the client reconnects after refresh. Event notifications invalidate TanStack Query data. After reconnect, the detail and chat history refetch and combine persisted messages with bounded realtime updates. Chat history has explicit page controls and new messages leave the user's scroll position alone. Video and chat stack on mobile and sit side by side at the laptop breakpoint. The composer stays in the document flow so it can scroll above the keyboard.
+
+Verified organizers use `/organizer/live` for their event list, draft form, scoped broadcast controls and chat moderation. Drafts and protected corrections use the shared submissions review, including rejection feedback and resubmission. Administrators use `/admin/live` to manage the full lifecycle and chat. Public reminder actions read the signed-in account's subscription, subscribe and cancel using REST.

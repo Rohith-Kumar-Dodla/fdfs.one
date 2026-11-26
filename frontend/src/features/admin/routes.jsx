@@ -1,4 +1,4 @@
-﻿import { AccountGuard } from '../auth/guards.jsx';
+import { AccountGuard } from '../auth/guards.jsx';
 
 const submissionPage = (name) => async () => ({
   Component: (await import('./Submissions.jsx'))[name],
@@ -19,6 +19,11 @@ const podcastPage = (name) => async () => ({
 const podcastModeration = (reports) => async () => {
   const { PodcastModeration } = await import('../podcasts/Moderation.jsx');
   return { Component: () => <PodcastModeration reports={reports} /> };
+};
+
+const livePage = (name, props) => async () => {
+  const Page = (await import('../live/Manage.jsx'))[name];
+  return { Component: () => <Page {...props} /> };
 };
 
 export const administrationRoutes = [
@@ -56,6 +61,12 @@ export const administrationRoutes = [
           { path: 'films', lazy: filmPage('AdminFilms') },
           { path: 'films/new', lazy: filmPage('NewOriginal') },
           { path: 'films/:id', lazy: filmPage('AdminFilmDetail') },
+          { path: 'live', lazy: livePage('LiveManagement', { admin: true }) },
+          { path: 'live/new', lazy: livePage('NewLiveEvent', { admin: true }) },
+          {
+            path: 'live/:id',
+            lazy: livePage('ManageLiveEvent', { admin: true }),
+          },
           { path: 'podcasts', lazy: podcastPage('AdminPodcasts') },
           { path: 'podcasts/show', lazy: podcastPage('AdminShow') },
           { path: 'podcasts/episodes/new', lazy: podcastPage('NewEpisode') },
@@ -79,6 +90,18 @@ export const administrationRoutes = [
             }),
           },
         ],
+      },
+    ],
+  },
+  {
+    element: <AccountGuard verified roles={['organizer']} />,
+    children: [
+      { path: '/organizer/live', lazy: livePage('LiveManagement') },
+      { path: '/organizer/live/new', lazy: livePage('NewLiveEvent') },
+      { path: '/organizer/live/:id', lazy: livePage('ManageLiveEvent') },
+      {
+        path: '/organizer/live/:id/correction',
+        lazy: livePage('ManageLiveEvent', { correction: true }),
       },
     ],
   },

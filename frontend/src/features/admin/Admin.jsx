@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
@@ -24,6 +24,7 @@ const items = [
   ['/admin/talent', 'Talent Profiles'],
   ['/admin/films', 'Films'],
   ['/admin/podcasts', 'Podcasts'],
+  ['/admin/live', 'Live events'],
   ['/admin/media', 'Media library'],
   ['/admin/audit', 'Audit log'],
 ];

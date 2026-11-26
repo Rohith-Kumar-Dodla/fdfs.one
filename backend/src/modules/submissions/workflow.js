@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import { idParams, listInput, sendList } from '../../utils/list.js';
 import { recordAudit } from '../admin/audit.js';
+import { eventProposal } from '../live/schemas.js';
+import {
+  prepareEventProposal,
+  requireOrganizer,
+  requireReady,
+  setEventProposalReferences,
+} from '../live/events.js';
 import { filmProposal } from '../films/schemas.js';
 import {
   prepareFilmProposal,
@@ -73,6 +80,7 @@ const schema = new mongoose.Schema(
     rejectionReason: String,
     proposal: mongoose.Schema.Types.Mixed,
     filmProposal: mongoose.Schema.Types.Mixed,
+    eventProposal: mongoose.Schema.Types.Mixed,
     proposalKey: { type: String, unique: true, sparse: true },
     publishedResource: { id: String, slug: String, classification: String },
     history: { type: [historySchema], default: [] },
@@ -96,6 +104,7 @@ export const newSubmissionInput = z.object({
     summary,
     proposal: talentProposal.optional(),
     filmProposal: filmProposal.optional(),
+    eventProposal: eventProposal.optional(),
   }),
 });
 export const editSubmissionInput = z.object({
@@ -105,6 +114,7 @@ export const editSubmissionInput = z.object({
     summary,
     proposal: talentProposal.optional(),
     filmProposal: filmProposal.optional(),
+    eventProposal: eventProposal.optional(),
   }),
 });
 export const submissionInput = z.object({ params: idParams });
@@ -134,6 +144,7 @@ export function submissionView(record, detail = false) {
     history,
     proposal,
     filmProposal,
+    eventProposal,
     publishedResource,
   } = record;
   return {
@@ -151,6 +162,7 @@ export function submissionView(record, detail = false) {
       history,
       proposal,
       filmProposal,
+      eventProposal,
       ...(publishedResource?.id && { publishedResource }),
     }),
   };
@@ -188,7 +200,7 @@ export function listSubmissions(res, query, owner) {
     filter,
     query,
     (record) => submissionView(record),
-    '-summary -history -rejectionReason -proposal -filmProposal -proposalKey',
+    '-summary -history -rejectionReason -proposal -filmProposal -eventProposal -proposalKey',
   );
 }
 
@@ -216,6 +228,11 @@ export async function createSubmission(user, input) {
         });
         await sync(record, prepared[key], session);
         record.set(prepared);
+        if (key === 'eventProposal')
+          record.set({
+            title: prepared.eventProposal.event.title,
+            summary: prepared.eventProposal.event.summary,
+          });
         await record.save({ session });
         return submissionView(record, true);
       })
@@ -233,6 +250,11 @@ const structuredProposals = {
     prepare: prepareTalentProposal,
     sync: setProposalReferences,
   },
+  live: {
+    key: 'eventProposal',
+    prepare: prepareEventProposal,
+    sync: setEventProposalReferences,
+  },
   film: {
     key: 'filmProposal',
     prepare: prepareFilmProposal,
@@ -241,13 +263,14 @@ const structuredProposals = {
 };
 
 function proposalHandler(category, input, user) {
-  if (!input?.proposal && !input?.filmProposal) return null;
+  const count = [
+    input?.proposal,
+    input?.filmProposal,
+    input?.eventProposal,
+  ].filter(Boolean).length;
+  if (!count) return null;
   const handler = structuredProposals[category];
-  if (
-    !handler ||
-    !input[handler.key] ||
-    (input.proposal && input.filmProposal)
-  ) {
+  if (!handler || !input[handler.key] || count !== 1) {
     throw new AppError(
       400,
       'INVALID_PROPOSAL_CATEGORY',
@@ -255,6 +278,7 @@ function proposalHandler(category, input, user) {
     );
   }
   if (category === 'film') requireFilmCreator(user);
+  if (category === 'live') requireOrganizer(user);
   return handler;
 }
 
@@ -262,6 +286,16 @@ export async function updateOwnSubmission(user, id, input) {
   const record = await getSubmission(id, user.publicId);
   assertParticipation(user, record.category);
   if (!['draft', 'rejected'].includes(record.status)) throw invalidTransition();
+  if (record.eventProposal) {
+    requireOrganizer(user);
+    if (!input) requireReady(record.eventProposal.event);
+    else if (!input.eventProposal)
+      throw new AppError(
+        400,
+        'LIVE_DETAILS_REQUIRED',
+        'Edit the structured event details.',
+      );
+  }
   if (record.filmProposal) {
     requireFilmCreator(user);
     if (!input) requireFilmReady(record.filmProposal.film);
@@ -286,6 +320,11 @@ export async function updateOwnSubmission(user, id, input) {
         );
         await sync(current, prepared[key], session);
         current.set({ ...details, ...prepared });
+        if (key === 'eventProposal')
+          current.set({
+            title: prepared.eventProposal.event.title,
+            summary: prepared.eventProposal.event.summary,
+          });
         current.increment();
         await current.save({ session });
         return submissionView(current, true);

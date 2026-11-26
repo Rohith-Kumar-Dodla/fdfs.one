@@ -13,3 +13,11 @@ Talent Profiles use `GET /api/v1/talent` for paginated published records and `GE
 Cinema and Originals use the shared `/api/v1/films` directory and slug detail contract. Set the classification for the corresponding native section and follow server-provided release availability. Released videos use the YouTube provider identifier and official embeddable playback, with provider controls and a user-initiated start. Upcoming announcements may expose a trailer. The API provides responsive Cloudinary images, public talent identifiers and the correct classification for detail and filmography links.
 
 The podcast API returns the published show, paginated episodes and a slug detail under `/api/v1/podcasts`. Use server release status to determine whether a teaser or full video is available. Chapters use ascending integer seconds, and the native YouTube embed should support a user-initiated seek and playback-position updates. Episode participants link to the same Talent IDs and slugs as film credits, and artwork includes shared HTTPS image variants. Episode comments use bearer credentials for verified-account writes and ownership controls. Guests can read released comments.
+
+## FDFS Live
+
+Use `GET /api/v1/live` and `GET /api/v1/live/:slug` for discovery and detail. Display UTC timestamps in the event's original IANA timezone and use `serverNow` for the countdown. Read the current broadcast state before showing playback. When the backend releases a live or replay provider ID, use a supported YouTube embed with provider controls and viewer-initiated playback.
+
+Connect to the shared Socket.IO server with a current access token in `auth.token` for protected actions, or omit it for guest reads. Join by slug, pass a stable client UUID when retrying a chat message, and rejoin and reload REST state and paginated history after reconnecting. Replace the socket credential after access-token refresh.
+
+The reminder endpoint exposes per-account subscription and delivery state, separate from the transport. This phase delivers reminders by email. Later platform integration can reuse event and subscription identifiers with Expo notification preferences and device delivery registration.

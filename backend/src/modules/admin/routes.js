@@ -1,5 +1,10 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
+import { mountLiveManagement } from '../live/routes.js';
+import {
+  eventProposalDetails,
+  publishEventSubmission,
+} from '../live/events.js';
 import { mountPodcastManagement } from '../podcasts/routes.js';
 import { validate } from '../../middlewares/validate.js';
 import { idParams } from '../../utils/list.js';
@@ -61,6 +66,8 @@ const user = (req) => req.auth.user;
 async function details(record) {
   return {
     ...submissionView(record, true),
+    ...(record.eventProposal &&
+      (await eventProposalDetails(record.eventProposal))),
     ...(record.proposal && { proposalImages: await getProposalImages(record) }),
     ...(record.filmProposal && {
       filmProposal: await filmProposalDetails(record),
@@ -88,7 +95,7 @@ export function mountPhase22(
   api,
   authConfig,
   logger,
-  { available, mediaProvider, publishers } = {},
+  { available, mediaProvider, publishers, liveNotify, reminderLead = 15 } = {},
 ) {
   const admin = Router();
   const submissions = Router();
@@ -117,6 +124,11 @@ export function mountPhase22(
 
   admin.use(requireRoles('admin'));
   mountPodcastManagement(api, admin, authenticate);
+  mountLiveManagement(api, admin, authenticate, {
+    available,
+    liveNotify,
+    reminderLead,
+  });
   mountAdminFilms(admin);
   mountAdminTalent(admin);
   admin.get('/overview', async (req, res) => {
@@ -159,6 +171,22 @@ export function mountPhase22(
     listSubmissions(res, query(res), user(req).publicId),
   );
   mountCreatorFilms(submissions, media, upload);
+  submissions.post(
+    '/live-images',
+    requireRoles('organizer'),
+    ...upload,
+    async (req, res) =>
+      sendSuccess(
+        res,
+        await media.uploadLibrary(
+          user(req),
+          req.body,
+          req.get('Content-Type'),
+          'live',
+        ),
+        { status: 201 },
+      ),
+  );
   submissions.post('/talent-images', ...upload, async (req, res) =>
     sendSuccess(
       res,
@@ -206,20 +234,22 @@ export function mountPhase22(
   admin.post(
     '/submissions/:id/publish',
     validate(publishInput),
-    async (req, res) =>
-      sendSuccess(
-        res,
-        await publishSubmission(
-          id(res),
-          context(req, res),
-          {
-            talent: publishTalent,
-            film: publishIndependent,
-            ...publishers,
-          },
-          body(res)?.release,
-        ),
-      ),
+    async (req, res) => {
+      const result = await publishSubmission(
+        id(res),
+        context(req, res),
+        {
+          talent: publishTalent,
+          film: publishIndependent,
+          live: publishEventSubmission(reminderLead),
+          ...publishers,
+        },
+        body(res)?.release,
+      );
+      if (result.category === 'live' && result.publishedResource?.slug)
+        liveNotify?.({ slug: result.publishedResource.slug });
+      return sendSuccess(res, result);
+    },
   );
 
   admin.get('/media', validate(mediaListInput), (req, res) =>

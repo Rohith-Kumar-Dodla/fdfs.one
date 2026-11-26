@@ -19,6 +19,7 @@ Use Node.js 24 LTS and npm. From the repository root, run `npm ci` and create `.
 - `npm run dev:frontend` starts the frontend independently.
 - `npm run dev:backend` starts the backend independently.
 - `npm run build`, `npm run lint`, `npm run format:check`, and `npm test` run the local checks.
+- FDFS Live uses `/socket.io/` on the same HTTP server as the API. Forward HTTPS polling and WebSocket upgrades to a single running backend. The email reminder worker runs in that backend and uses the configured SMTP account.
 
 ## Engineering constraints
 
@@ -39,6 +40,8 @@ Phase 3.1 passed automated checks and browser verification against the Express A
 Overall Phase 3 is PASS. Phase 3.2 adds independent films in Cinema and FDFS productions in Originals, including creator proposals, administrator publishing, scheduled announcements and released credits on Talent Profiles. The carry-forward browser check confirmed released main-film playback, scheduled identifier protection and removal from public access after unpublication. Production onboarding requires a verified creator or an administrator, rights to publish the supplied media, and embeddable video URLs.
 
 Phase 4.1 adds 404 Reality Not Found show and episode management, scheduled release, chapters, Talent appearances, and episode comments and reports. An administrator configures the actual show and supplies authorized artwork, video URLs, guest and host profiles, and any real chapter timestamps. See [testing](TESTING.md) for verification and remaining work.
+
+Phase 4.2 adds FDFS Live discovery, organizer submissions and approvals, manual broadcast management, replays, chat moderation and email reminders. Authorized broadcasters configure their stream in YouTube Studio and OBS. A verified organizer or administrator starts the FDFS event after the YouTube stream is ready. Phase 4.1 is PASS. Phase 4.2 implementation and isolated checks are complete, and Phase 4.2 and overall Phase 4 are PENDING active YouTube Live playback verification. The supplied link played as a replay. Physical-device testing and production content onboarding remain open. See [backend operations](BACKEND.md#fdfs-live) and [Phase 4.2 verification](TESTING.md#phase-42-verification).
 
 - 1.1 Repository and backend foundation
 - 1.2 Frontend foundation and design system

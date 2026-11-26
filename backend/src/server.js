@@ -7,6 +7,10 @@ import { initializeAuthIndexes } from './modules/auth/models.js';
 import { initializePhase22Indexes } from './modules/admin/routes.js';
 import { initializeTalentIndexes } from './modules/talent/models.js';
 import { initializeFilmIndexes } from './modules/films/models.js';
+import { initializeLiveIndexes } from './modules/live/routes.js';
+import { attachLiveSockets } from './modules/live/socket.js';
+import { startReminderWorker } from './modules/live/reminders.js';
+import { createReminderDelivery } from './modules/live/email.js';
 import { initializePodcastIndexes } from './modules/podcasts/routes.js';
 import {
   createCloudinaryProvider,
@@ -27,6 +31,7 @@ async function start() {
   let indexesReady = false;
   let databaseStartup;
   const available = () => !stopping && indexesReady && isDatabaseConnected();
+  let realtime;
   const app = createApp({
     config,
     logger,
@@ -34,10 +39,24 @@ async function start() {
     authConfig,
     authOptions: { available },
     phase22Options: {
+      liveNotify: (event) => realtime.notify(event),
+      reminderLead: config.LIVE_REMINDER_LEAD_MINUTES,
       mediaProvider: createCloudinaryProvider(loadMediaConfig()),
     },
   });
   const server = createServer(app);
+  realtime = attachLiveSockets(server, {
+    authConfig,
+    origins: config.CORS_ORIGINS,
+    available,
+    logger,
+  });
+  const stopReminders = startReminderWorker({
+    deliver: createReminderDelivery(authConfig, logger),
+    intervalMs: config.LIVE_REMINDER_INTERVAL_MS,
+    available: () => Boolean(authConfig.smtp && available()),
+    logger,
+  });
 
   async function shutdown(reason, exitCode = 0) {
     if (stopping) return;
@@ -50,6 +69,8 @@ async function start() {
     }, 20000).unref();
 
     try {
+      realtime.close();
+      const reminderDrain = stopReminders();
       if (server.listening) {
         const drainDeadline = setTimeout(() => {
           logger.warn(
@@ -66,6 +87,7 @@ async function start() {
           clearTimeout(drainDeadline);
         }
       }
+      await reminderDrain;
       await databaseStartup?.catch(() => {});
       await disconnectDatabase();
       logger.info('Shutdown complete');
@@ -96,6 +118,7 @@ async function start() {
           initializeTalentIndexes(),
           initializeFilmIndexes(),
           initializePodcastIndexes(),
+          initializeLiveIndexes(),
         ]);
         indexesReady = true;
       },

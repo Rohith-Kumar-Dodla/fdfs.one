@@ -75,8 +75,6 @@ describe('public routes', () => {
   });
 
   it.each([
-    ['/live', 'Live'],
-    ['/live/event', 'Live'],
     ['/reviews', 'Reviews'],
     ['/movies/movie', 'Reviews'],
   ])('resolves %s and highlights its module', async (path, title) => {
@@ -91,6 +89,38 @@ describe('public routes', () => {
       within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
         'link',
         { name: title },
+      ),
+    ).toHaveAttribute('aria-current', 'page');
+  });
+
+  it.each([
+    ['/live', 'FDFS Live'],
+    ['/live/event', 'Event not found'],
+  ])('resolves %s with the live routes', async (path, heading) => {
+    if (path === '/live/event')
+      apiClient.defaults.adapter = async (config) => {
+        throw new AxiosError(
+          'Event not found',
+          'ERR_BAD_REQUEST',
+          config,
+          undefined,
+          {
+            status: 404,
+            headers: {},
+            data: {
+              success: false,
+              message: 'Event not found',
+              error: { code: 'LIVE_NOT_FOUND' },
+            },
+          },
+        );
+      };
+    renderRoute(path);
+    expect(await screen.findByRole('heading', { name: heading })).toBeVisible();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+        'link',
+        { name: 'Live' },
       ),
     ).toHaveAttribute('aria-current', 'page');
   });
