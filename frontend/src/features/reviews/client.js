@@ -33,7 +33,14 @@ export function useReviewAction() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: protectedRequest,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['reviews'] }),
+    onSuccess: () =>
+      Promise.all(
+        [
+          ['reviews'],
+          ['homepage-discovery'],
+          ['public-catalogue', '/films'],
+        ].map((queryKey) => client.invalidateQueries({ queryKey })),
+      ),
   });
 }
 export function useParticipation() {

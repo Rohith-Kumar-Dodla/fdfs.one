@@ -1,9 +1,15 @@
-﻿import { useRef, useState } from 'react';
+﻿import { FilmImage } from '../films/FilmImage.jsx';
+import { useRef, useState } from 'react';
 import { timestamp } from '../../../../shared/podcasts.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { ProgressPlayer } from '../personal/Playback.jsx';
 
-export function EpisodePlayer({ episode, openMain = false }) {
+export function EpisodePlayer({
+  episode,
+  openMain = false,
+  artwork,
+  information,
+}) {
   const [selection, choose] = useState(() =>
     openMain && episode.mainVideo
       ? { kind: 'main', start: 0, attempt: 1 }
@@ -40,9 +46,12 @@ export function EpisodePlayer({ episode, openMain = false }) {
     setPosition(seconds);
   }
   if (!main && !episode.teaser)
-    return episode.mainVideo ? (
-      <p role="status">Episode video unavailable.</p>
-    ) : null;
+    return (
+      <>
+        {episode.mainVideo && <p role="status">Episode video unavailable.</p>}
+        {information}
+      </>
+    );
   return (
     <section
       id="playback"
@@ -50,6 +59,7 @@ export function EpisodePlayer({ episode, openMain = false }) {
       className="grid min-w-0 scroll-mt-24 gap-4"
       aria-label="Episode playback"
     >
+      {!selection && artwork && <FilmImage image={artwork} landscape eager />}
       <div className="flex flex-wrap gap-2">
         {main && (
           <Button
@@ -98,6 +108,7 @@ export function EpisodePlayer({ episode, openMain = false }) {
           onUnavailable={() => setUnavailable(true)}
         />
       )}
+      {information}
       {main && chapters.length > 0 && (
         <section className="grid gap-3" aria-label="Episode chapters">
           <h2 className="text-xl font-semibold">Chapters</h2>

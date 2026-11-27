@@ -52,7 +52,7 @@ describe('public routes', () => {
     renderRoute('/');
     expect(
       await screen.findByRole('heading', {
-        name: 'For the love of the screen.',
+        name: 'FDFS.ONE',
       }),
     ).toBeVisible();
     expect(
@@ -67,10 +67,27 @@ describe('public routes', () => {
     );
     expect(navigation.getAllByRole('link')).toHaveLength(7);
     expect(
-      within(screen.getByRole('region', { name: 'Explore FDFS' })).getAllByRole(
-        'link',
-      ),
-    ).toHaveLength(6);
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .slice(0, 5)
+        .map((node) => node.textContent),
+    ).toEqual([
+      'FDFS Cinema',
+      'FDFS Originals',
+      '404 Reality Not Found',
+      'Reviews',
+      'Top Picked Profiles',
+    ]);
+    expect(screen.queryByRole('region', { name: 'Explore FDFS' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open search' })).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Show More Top Picked Profiles' }),
+    ).toHaveAttribute('href', '/talent?category=short-films');
+    expect(
+      within(
+        screen.getByRole('navigation', { name: 'Quick Links' }),
+      ).getAllByRole('link'),
+    ).toHaveLength(7);
     expect(screen.getByRole('contentinfo')).toBeVisible();
   });
 
@@ -78,8 +95,7 @@ describe('public routes', () => {
     const user = userEvent.setup();
     renderRoute('/');
     await screen.findByRole('heading', { level: 1 });
-    await user.click(screen.getByRole('link', { name: 'Explore FDFS' }));
-    expect(screen.getByRole('region', { name: 'Explore FDFS' })).toHaveFocus();
+
     await user.click(screen.getByRole('link', { name: 'Skip to content' }));
     expect(screen.getByRole('main')).toHaveFocus();
   });
@@ -95,7 +111,7 @@ describe('public routes', () => {
     ).toBeVisible();
     if (path === '/reviews/movies')
       expect(
-        await screen.findByText('No movies match these filters'),
+        await screen.findByText('No movies have been published yet.'),
       ).toBeVisible();
     expect(
       within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
@@ -180,7 +196,7 @@ describe('public routes', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
   it.each([
-    ['/cinema', 'Cinema', 'Cinema', false],
+    ['/cinema', 'FDFS Cinema', 'Cinema', false],
     ['/cinema/short-film', 'Film unavailable', 'Cinema', true],
     ['/originals', 'FDFS Originals', 'Originals', false],
     ['/originals/original-film', 'Film unavailable', 'Originals', true],
@@ -189,9 +205,10 @@ describe('public routes', () => {
     async (path, title, nav, detail) => {
       const original = apiClient.defaults.adapter;
       apiClient.defaults.adapter = async (config) => {
-        expect(config.params.classification).toBe(
-          nav === 'Cinema' ? 'independent' : 'original',
-        );
+        if (config.url.startsWith('/films'))
+          expect(config.params.classification).toBe(
+            nav === 'Cinema' ? 'independent' : 'original',
+          );
         if (detail)
           throw new AxiosError(
             'Fixture not found',
@@ -246,7 +263,7 @@ describe('public routes', () => {
     },
   );
   it.each([
-    ['/talent', 'Talent', 'No talent profiles published yet'],
+    ['/talent', 'FDFS Talent', 'No Talent Profiles have been published yet.'],
     ['/talent/profile', 'Talent profile unavailable', null],
   ])(
     'resolves %s and highlights the Talent module',
@@ -323,7 +340,7 @@ describe('public routes', () => {
     await user.click(toggle);
     await user.click(links.getByRole('link', { name: 'Cinema' }));
     expect(
-      await screen.findByRole('heading', { name: 'Cinema', level: 1 }),
+      await screen.findByRole('heading', { name: 'FDFS Cinema', level: 1 }),
     ).toBeVisible();
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
@@ -338,7 +355,7 @@ describe('public routes', () => {
     await user.click(screen.getByRole('link', { name: 'Back to home' }));
     expect(
       await screen.findByRole('heading', {
-        name: 'For the love of the screen.',
+        name: 'FDFS.ONE',
       }),
     ).toBeVisible();
   });

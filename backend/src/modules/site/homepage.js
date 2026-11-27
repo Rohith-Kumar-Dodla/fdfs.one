@@ -5,6 +5,8 @@ import {
   placementKey,
   sources,
 } from '../../../../shared/homepage.js';
+import { publicHeroLimit } from '../../../../shared/public-home.js';
+import { refinedSections } from './public-home.js';
 import { genres } from '../../../../shared/films.js';
 import { reviewGenres } from '../../../../shared/reviews.js';
 import { trendingReviews } from '../reviews/community.js';
@@ -112,6 +114,7 @@ async function rowsForSections(modules, mode, options, allow, logger) {
 
 export async function assembledHomepage({
   preview = false,
+  refined = false,
   now = new Date(),
   logger,
 } = {}) {
@@ -174,10 +177,22 @@ export async function assembledHomepage({
       );
     return cache.get(key);
   };
-  const upcoming = ['live', 'independent', 'original', 'podcasts', 'movies'];
-  const released = ['independent', 'original', 'podcasts', 'movies'];
+  const released = [
+    'independent',
+    'original',
+    'podcasts',
+    ...(!refined ? ['movies'] : []),
+  ];
+  const upcoming = ['live', ...released];
+  const canSlide = (item) =>
+    !refined ||
+    (item?.module === 'live' && (item.live || item.upcoming)) ||
+    released.includes(item?.module);
   const slides = config.heroSlides
-    .filter((slide) => open(slide, now) && get(slide.target))
+    .filter(
+      (slide) =>
+        open(slide, now) && get(slide.target) && canSlide(get(slide.target)),
+    )
     .map((slide) =>
       featureSlide(get(slide.target), {
         title: slide.title,
@@ -189,7 +204,7 @@ export async function assembledHomepage({
     );
   if (config.hero && open(config.hero, now)) {
     const legacy = get(config.hero.featured);
-    if (legacy)
+    if (legacy && canSlide(legacy))
       slides.unshift(
         featureSlide(legacy, {
           title: config.hero.title,
@@ -197,7 +212,7 @@ export async function assembledHomepage({
           image: media(config.hero.imageId),
         }),
       );
-    else if (!config.hero.featured)
+    else if (!refined && !config.hero.featured)
       slides.unshift({
         id: 'editorial',
         title: config.hero.title,
@@ -207,7 +222,10 @@ export async function assembledHomepage({
       });
   }
   slides.unshift(...campaigns(promotions.items, 'hero', undefined, 3));
-  if (!slides.length) {
+  if (
+    !slides.length &&
+    (!refined || (!config.heroSlides.length && !config.hero?.featured))
+  ) {
     const four = await Promise.all([
       rows(['live'], 'live', { limit: 1 }),
       rows(released, 'released', { limit: 2 }),
@@ -220,115 +238,142 @@ export async function assembledHomepage({
     ];
     slides.push(...selectedDefault.map((item) => featureSlide(item)));
   }
-  const sections = (
-    await Promise.all(
-      visible.map((section) =>
-        safe(async () => {
-          const limit = section.limit ?? 8;
-          let items = [];
-          let more = section.module ? sources[section.module].path : undefined;
-          switch (section.type) {
-            case 'explore':
-              break;
-            case 'promotion':
-              break;
-            case 'featured':
-              items = section.items.map(get).filter(Boolean).slice(0, limit);
-              break;
-            case 'latest':
-              items = await rows([section.module], 'released', { limit });
-              break;
-            case 'live':
-              items = await rows(['live'], 'live', { limit });
-              more = '/live';
-              break;
-            case 'upcoming':
-              items = orderByDate(
-                await rows(upcoming, 'upcoming', { limit }),
-                true,
-              ).slice(0, limit);
-              more = '/live';
-              break;
-            case 'releases':
-              items = orderByDate(
-                await rows(released, 'released', {
-                  limit,
-                  releaseDays: config.releaseDays,
-                }),
-              ).slice(0, limit);
-              more = '/reviews/movies';
-              break;
-            case 'popular':
-              items = await rows(['movies'], 'popular', { limit });
-              more = '/reviews/movies?sort=popular';
-              break;
-            case 'trending':
-              if (allow('reviews'))
-                items = (
-                  await trendingReviews({ page: 1, limit, summary: true }, now)
-                ).data
-                  .filter((row) =>
-                    allow(
-                      {
-                        cinema: 'independent',
-                        original: 'original',
-                        movie: 'movies',
-                      }[row.target.type],
-                    ),
-                  )
-                  .map(trendProjection);
-              more = '/reviews/community?sort=trending';
-              break;
-            case 'genres': {
-              const totals = await genresForHomepage(now, hidden);
-              const configured = config.genres.length
-                ? config.genres
-                : [...totals]
-                    .sort(([a, m], [b, n]) => n - m || a.localeCompare(b))
-                    .map(([genre]) => ({ genre }));
-              items = configured
-                .filter((row) => totals.has(row.genre))
-                .slice(0, limit)
-                .map(({ genre, imageId }) => ({
-                  id: genre,
-                  title: genreNames[genre],
-                  count: totals.get(genre),
-                  group: 'genre',
-                  image: media(imageId),
-                  path: '/search?genre=' + genre,
-                }))
-                .filter((row) => row.title);
-              break;
-            }
-          }
-          if (more && hidden.includes('/' + more.split('/')[1]?.split('?')[0]))
-            more = undefined;
-          const sponsored = permittedRail(section.type)
-            ? campaigns(promotions.items, 'rail', section.id, 1)
-            : [];
-          const between = campaigns(promotions.items, 'between', section.id, 2);
-          if (
-            section.type !== 'explore' &&
-            !items.length &&
-            !sponsored.length &&
-            !between.length
-          )
-            return null;
-          return {
-            id: section.id,
-            type: section.type,
-            heading: section.heading,
-            description: section.description,
-            layout: section.layout ?? 'auto',
-            items,
-            more,
-            sponsored,
-            between,
-          };
-        }, null),
-      ),
-    )
-  ).filter(Boolean);
+  const sections = refined
+    ? await refinedSections({
+        visible,
+        selected: get,
+        promotions: promotions.items,
+        hidden,
+        allow,
+        now,
+        safe,
+        campaigns,
+      })
+    : (
+        await Promise.all(
+          visible.map((section) =>
+            safe(async () => {
+              const limit = section.limit ?? 8;
+              let items = [];
+              let more = section.module
+                ? sources[section.module].path
+                : undefined;
+              switch (section.type) {
+                case 'explore':
+                  break;
+                case 'promotion':
+                  break;
+                case 'featured':
+                  items = section.items
+                    .map(get)
+                    .filter(Boolean)
+                    .slice(0, limit);
+                  break;
+                case 'latest':
+                  items = await rows([section.module], 'released', { limit });
+                  break;
+                case 'live':
+                  items = await rows(['live'], 'live', { limit });
+                  more = '/live';
+                  break;
+                case 'upcoming':
+                  items = orderByDate(
+                    await rows(upcoming, 'upcoming', { limit }),
+                    true,
+                  ).slice(0, limit);
+                  more = '/live';
+                  break;
+                case 'releases':
+                  items = orderByDate(
+                    await rows(released, 'released', {
+                      limit,
+                      releaseDays: config.releaseDays,
+                    }),
+                  ).slice(0, limit);
+                  more = '/reviews/movies';
+                  break;
+                case 'popular':
+                  items = await rows(['movies'], 'popular', { limit });
+                  more = '/reviews/movies?sort=popular';
+                  break;
+                case 'trending':
+                  if (allow('reviews'))
+                    items = (
+                      await trendingReviews(
+                        { page: 1, limit, summary: true },
+                        now,
+                      )
+                    ).data
+                      .filter((row) =>
+                        allow(
+                          {
+                            cinema: 'independent',
+                            original: 'original',
+                            movie: 'movies',
+                          }[row.target.type],
+                        ),
+                      )
+                      .map(trendProjection);
+                  more = '/reviews/community?sort=trending';
+                  break;
+                case 'genres': {
+                  const totals = await genresForHomepage(now, hidden);
+                  const configured = config.genres.length
+                    ? config.genres
+                    : [...totals]
+                        .sort(([a, m], [b, n]) => n - m || a.localeCompare(b))
+                        .map(([genre]) => ({ genre }));
+                  items = configured
+                    .filter((row) => totals.has(row.genre))
+                    .slice(0, limit)
+                    .map(({ genre, imageId }) => ({
+                      id: genre,
+                      title: genreNames[genre],
+                      count: totals.get(genre),
+                      group: 'genre',
+                      image: media(imageId),
+                      path: '/search?genre=' + genre,
+                    }))
+                    .filter((row) => row.title);
+                  break;
+                }
+              }
+              if (
+                more &&
+                hidden.includes('/' + more.split('/')[1]?.split('?')[0])
+              )
+                more = undefined;
+              const sponsored = permittedRail(section.type)
+                ? campaigns(promotions.items, 'rail', section.id, 1)
+                : [];
+              const between = campaigns(
+                promotions.items,
+                'between',
+                section.id,
+                2,
+              );
+              if (
+                section.type !== 'explore' &&
+                !items.length &&
+                !sponsored.length &&
+                !between.length
+              )
+                return null;
+              return {
+                id: section.id,
+                type: section.type,
+                heading: section.heading,
+                description: section.description,
+                layout: section.layout ?? 'auto',
+                items,
+                more,
+                sponsored,
+                between,
+              };
+            }, null),
+          ),
+        )
+      ).filter(Boolean);
   const next = [
     promotions.nextAt,
     ...[config.hero, ...config.heroSlides, ...config.sections]
@@ -342,7 +387,7 @@ export async function assembledHomepage({
     serverNow: now,
     nextChangeAt: next,
     rotationSeconds: config.rotationSeconds,
-    slides: slides.slice(0, 8),
+    slides: slides.slice(0, refined ? publicHeroLimit : 8),
     sections,
     footer: campaigns(promotions.items, 'footer', undefined, 2),
   };

@@ -174,3 +174,13 @@ Isolated checks cover concurrent saves, account isolation, restricted targets, o
 Lint, formatting and the production build passed. The default test command passed all 173 tests against a disposable MongoDB replica set, including 69 frontend and 104 backend tests. The production dependency audit found zero known vulnerabilities. The scan found no configured secrets or private files in Git candidates and no configured secrets in the build artifacts.
 
 Phase 4 stays PENDING an authorized active broadcast. The tested video was on demand. Phase 7 retains physical-device verification, comprehensive performance testing, and cross-module account erasure.
+
+## Phase 6 Public UI Refinement 1
+
+The screenshot reference attachment contained the written brief only. Direct image comparison remains pending. Representative desktop and mobile screenshots were captured from isolated Chrome using disposable public content. The homepage, both short-film modules, Podcast, Live, Reviews and Talent were exercised at the nine standard widths and two landscape sizes, with representative detail pages, native modal filters and the review composer.
+
+Automated coverage includes the five requested shelves, empty and capped carousel states, Show More destinations, filter apply and reset, mainstream review spoiler protection, multiple published Talent categories, measured rating filters and Live schedule eligibility. The refinement retains the existing three-worker backend test default. Physical-device verification remains in Phase 7. The active YouTube Live check still requires an authorized active broadcast.
+
+Chrome verified homepage loading, empty and API error states, CMS publication, scheduled and active sponsored promotions, keyboard and touch navigation, podcast chapters, watchlist persistence and all three review submission paths at 3.5 stars. The authorized on-demand film advanced after a viewer click, saved progress and resumed at 10 seconds in an independent signed-in session. Fixtures used disposable databases.
+
+Lint, Prettier and the production build passed. All 182 automated tests passed against a disposable MongoDB replica set, including 74 frontend and 108 backend tests. The production dependency audit found zero known vulnerabilities. The configured-secret scan found zero matches in Git candidates and build assets, and no private files in Git candidates.

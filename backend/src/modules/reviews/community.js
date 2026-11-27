@@ -208,7 +208,15 @@ const reviewOrder = (sort) =>
     ? { likeCount: -1, createdAt: -1, _id: -1 }
     : { createdAt: -1, _id: -1 };
 export async function trendingReviews(
-  { page, limit, sort = 'trending', type, rating, summary = false },
+  {
+    page,
+    limit,
+    sort = 'trending',
+    type,
+    rating,
+    summary = false,
+    preferredIds = [],
+  },
   now = new Date(),
 ) {
   const [result] = await Review.aggregate([
@@ -216,7 +224,34 @@ export async function trendingReviews(
     ...publicTargetStages(now),
     { $match: publicTarget },
     ...(rating ? ratingFilter(rating * 2) : []),
-    ...(sort === 'trending' ? rankReview(now) : [{ $sort: reviewOrder(sort) }]),
+    ...(preferredIds.length
+      ? [
+          {
+            $set: { preferred: { $indexOfArray: [preferredIds, '$publicId'] } },
+          },
+          {
+            $set: {
+              preferred: {
+                $cond: [
+                  { $lt: ['$preferred', 0] },
+                  preferredIds.length,
+                  '$preferred',
+                ],
+              },
+            },
+          },
+        ]
+      : []),
+    ...(sort === 'trending'
+      ? rankReview(now)
+      : [
+          {
+            $sort: {
+              ...(preferredIds.length && { preferred: 1 }),
+              ...reviewOrder(sort),
+            },
+          },
+        ]),
     {
       $facet: {
         records: [

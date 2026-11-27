@@ -161,7 +161,8 @@ export async function liveDetails(selector, managed = false) {
 }
 
 export async function listEvents(res, query, scope) {
-  const filter = scope ? { ...scope } : visibility();
+  const now = new Date();
+  const filter = scope ? { ...scope } : visibility(now);
   const {
     category,
     q,
@@ -186,8 +187,9 @@ export async function listEvents(res, query, scope) {
   if (availability === 'upcoming') filter.broadcast = 'scheduled';
   if (availability === 'replay')
     Object.assign(filter, { broadcast: 'ended', replay: { $exists: true } });
-  if (from || to)
+  if (from || to || (!scope && availability === 'upcoming'))
     filter.startAt = {
+      ...(!scope && availability === 'upcoming' && { $gt: now }),
       ...(from && { $gte: new Date(from) }),
       ...(to && { $lt: new Date(Date.parse(to) + 86400000) }),
     };

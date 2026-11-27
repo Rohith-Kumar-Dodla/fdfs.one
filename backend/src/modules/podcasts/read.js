@@ -1,4 +1,5 @@
 import { podcastBrand } from '../../../../shared/podcasts.js';
+import { sendSuccess } from '../../utils/responses.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
 import { imageView } from '../media/assets.js';
@@ -127,6 +128,35 @@ function card(episode, now, show, admin = false) {
   };
 }
 
+export async function guestNames(ids) {
+  if (!ids.length) return new Map();
+  const rows = await EpisodeParticipant.find({
+    episode: { $in: ids },
+    role: 'guest',
+  })
+    .sort({ position: 1, _id: 1 })
+    .select('episode personality')
+    .limit(ids.length * 40)
+    .populate({
+      path: 'personality',
+      match: { status: 'published' },
+      select: 'displayName',
+    })
+    .lean();
+  return new Map(
+    [...Map.groupBy(rows, (row) => String(row.episode))].map(([id, guests]) => [
+      id,
+      [
+        ...new Set(
+          guests.flatMap((row) =>
+            row.personality?.displayName ? [row.personality.displayName] : [],
+          ),
+        ),
+      ].slice(0, 4),
+    ]),
+  );
+}
+
 export async function listEpisodes(res, query, admin = false) {
   const show = await findShow(!admin).select('name slug').lean();
   const now = new Date();
@@ -150,6 +180,39 @@ export async function listEpisodes(res, query, admin = false) {
     oldest: { releaseAt: 1, _id: 1 },
     number: { season: -1, number: -1, _id: -1 },
   };
+  const sort =
+    query.sort === 'newest' && query.availability === 'upcoming'
+      ? order.oldest
+      : order[query.sort];
+  if (!admin) {
+    const { page, limit } = query;
+    const [rows, total] = await Promise.all([
+      addPoster(
+        PodcastEpisode.find(filter)
+          .select(cardFields)
+          .sort(sort)
+          .skip((page - 1) * limit)
+          .limit(limit),
+      ).lean(),
+      PodcastEpisode.countDocuments(filter),
+    ]);
+    const guests = await guestNames(rows.map((row) => row._id));
+    return sendSuccess(
+      res,
+      rows.map((row) => ({
+        ...card(row, now, show),
+        guests: guests.get(String(row._id)) ?? [],
+      })),
+      {
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    );
+  }
   return sendList(
     res,
     PodcastEpisode,

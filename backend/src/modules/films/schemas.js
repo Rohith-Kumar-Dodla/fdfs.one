@@ -126,6 +126,7 @@ const filters = {
 };
 export const publicList = listInput({
   ...filters,
+  minimumRating: z.coerce.number().min(0.5).max(5).multipleOf(0.5).optional(),
   ratings: z.literal('true').optional(),
 });
 export const adminList = listInput({ ...filters, status: status.optional() });

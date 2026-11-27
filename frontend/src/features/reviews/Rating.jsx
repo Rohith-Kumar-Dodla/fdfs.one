@@ -10,7 +10,7 @@ import {
 } from './common.jsx';
 import { rateApi, stars, useRead, useReviewAction } from './client.js';
 
-function StarInput({ value, change, disabled }) {
+export function StarInput({ value, change, disabled }) {
   return (
     <fieldset disabled={disabled} className="min-w-0">
       <legend className="mb-2 text-sm font-semibold">Your star rating</legend>

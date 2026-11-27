@@ -19,6 +19,24 @@ Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
   configurable: true,
 });
 
+// JSDOM has the dialog element but lacks the native modal methods.
+if (!HTMLDialogElement.prototype.showModal) {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value() {
+        this.setAttribute('open', '');
+      },
+    },
+    close: {
+      configurable: true,
+      value() {
+        this.removeAttribute('open');
+      },
+    },
+  });
+}
+
 afterEach(() => {
   cleanup();
   useUiStore.setState(useUiStore.getInitialState());

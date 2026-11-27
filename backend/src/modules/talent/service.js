@@ -1,3 +1,6 @@
+import { categoryStages } from './categories.js';
+import { sendSuccess } from '../../utils/responses.js';
+import { readConfig } from '../site/service.js';
 import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
@@ -104,7 +107,7 @@ function projectProfile(record, detail = false, admin = false) {
   };
 }
 
-export function listTalent(res, query, admin = false) {
+export async function listTalent(res, query, admin = false) {
   const filter = {};
   if (!admin || query.status)
     filter.status = admin ? query.status : 'published';
@@ -125,6 +128,46 @@ export function listTalent(res, query, admin = false) {
     '-name': { sortName: -1, _id: -1 },
     newest: admin ? { updatedAt: -1, _id: -1 } : { publishedAt: -1, _id: -1 },
   };
+  if (!admin && query.category) {
+    const { page, limit, category } = query;
+    const { value } = await readConfig('settings');
+    const [result] = await Personality.aggregate([
+      { $match: filter },
+      ...(await categoryStages(category, new Date(), value.hiddenModules)),
+      {
+        $facet: {
+          rows: [
+            { $sort: sorts[query.sort] },
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            {
+              $project: Object.fromEntries(
+                cardFields.split(' ').map((key) => [key, 1]),
+              ),
+            },
+          ],
+          count: [{ $count: 'total' }],
+        },
+      },
+    ]);
+    await Personality.populate(result.rows, {
+      path: 'profileImage',
+      select: mediaFields,
+    });
+    const total = result.count[0]?.total ?? 0;
+    return sendSuccess(
+      res,
+      result.rows.map((row) => projectProfile(row)),
+      {
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    );
+  }
   return sendList(
     res,
     Personality,

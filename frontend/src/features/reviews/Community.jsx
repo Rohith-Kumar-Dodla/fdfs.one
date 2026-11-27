@@ -88,6 +88,9 @@ export function TextEditor({
   kind = 'review',
   current,
   rating,
+  ratingWrite,
+  showRating = true,
+  submitLabel,
   url,
   method = 'post',
   cancel,
@@ -108,6 +111,8 @@ export function TextEditor({
     },
   });
   const action = useReviewAction();
+  const saveRating = useReviewAction();
+  const pending = action.isPending || saveRating.isPending;
   const heading = useId();
   const length = watch('body')?.length ?? 0;
   const maximum = isReview ? 6000 : 2000;
@@ -116,7 +121,14 @@ export function TextEditor({
     <form
       aria-labelledby={heading}
       className="grid min-w-0 gap-3"
-      onSubmit={handleSubmit((fields) => {
+      onSubmit={handleSubmit(async (fields) => {
+        if (ratingWrite) {
+          try {
+            await saveRating.mutateAsync(ratingWrite);
+          } catch {
+            return;
+          }
+        }
         const data = {
           ...fields,
           ...(isReview && { title: fields.title || undefined }),
@@ -136,7 +148,7 @@ export function TextEditor({
       <h3 className="font-semibold" id={heading}>
         {title}
       </h3>
-      {isReview && (
+      {isReview && showRating && (
         <p className="text-sm text-muted">
           {rating == null
             ? 'A rating is optional.'
@@ -180,21 +192,18 @@ export function TextEditor({
       </label>
       <CheckboxText {...register('spoiler')}>Contains spoilers</CheckboxText>
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" loading={action.isPending}>
-          {isReview
-            ? current
-              ? 'Save review'
-              : 'Post review'
-            : current
-              ? 'Save comment'
-              : 'Post comment'}
+        <Button type="submit" loading={pending}>
+          {submitLabel ??
+            (isReview
+              ? current
+                ? 'Save review'
+                : 'Post review'
+              : current
+                ? 'Save comment'
+                : 'Post comment')}
         </Button>
         {cancel && (
-          <Button
-            variant="outline"
-            disabled={action.isPending}
-            onClick={cancel}
-          >
+          <Button variant="outline" disabled={pending} onClick={cancel}>
             Cancel
           </Button>
         )}
@@ -204,6 +213,7 @@ export function TextEditor({
           Saved.
         </p>
       )}
+      <MutationError action={saveRating} />
       <MutationError action={action} />
     </form>
   );
@@ -634,7 +644,12 @@ export function TargetCommunity({ target }) {
   return (
     <div className="grid min-w-0 gap-6">
       <RatingPanel target={target} access={access} />
-      <section aria-label="Community reviews" className="grid min-w-0 gap-4">
+      <section
+        id="film-community"
+        tabIndex={-1}
+        aria-label="Community reviews"
+        className="grid min-w-0 scroll-mt-24 gap-4"
+      >
         <h2 className="text-xl font-semibold">Community reviews</h2>
         <Participation access={access} action="write a review" />
         {access.allowed && (

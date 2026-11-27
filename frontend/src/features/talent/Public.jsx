@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FollowAction } from '../personal/Actions.jsx';
 import { Related } from '../personal/Related.jsx';
+import { talentCategories } from '../../../../shared/public-home.js';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound } from 'lucide-react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { professions } from '../../../../shared/talent.js';
 import { filmPath, filmLabels } from '../../../../shared/films.js';
 import { participantRoles } from '../../../../shared/podcasts.js';
@@ -11,19 +12,13 @@ import { FilmImage } from '../films/FilmImage.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { apiClient } from '../../api/client.js';
 import { buttonClasses } from '../../components/ui/Button.jsx';
-import { FormField, Select, TextInput } from '../../components/ui/fields.jsx';
-import { Pagination } from '../../components/ui/Pagination.jsx';
 import {
   Badge,
   Card,
   Container,
   SectionHeading,
 } from '../../components/ui/surfaces.jsx';
-import {
-  EmptyState,
-  ErrorState,
-  Skeleton,
-} from '../../components/ui/states.jsx';
+import { ErrorState, Skeleton } from '../../components/ui/states.jsx';
 
 export const talentListKey = ['talent'];
 export const professionOptions = Object.entries(professions);
@@ -157,196 +152,7 @@ export function ProfileContent({ profile }) {
   );
 }
 
-function TalentCard({ profile }) {
-  return (
-    <Card
-      as="article"
-      className="grid h-full min-w-0 content-start gap-3 wrap-anywhere"
-    >
-      <TalentImage image={profile.profileImage} />
-      <h2 className="text-lg font-semibold">
-        <Link
-          className="inline-flex min-h-11 items-center text-accent underline"
-          to={'/talent/' + profile.slug}
-        >
-          {profile.displayName}
-        </Link>
-      </h2>
-      <Roles values={profile.professions} />
-      <p className="text-sm text-muted">{profile.introduction}</p>
-    </Card>
-  );
-}
-
-function TalentSearch({ value, change }) {
-  const [input, setInput] = useState({ base: value, text: value });
-  const text = input.base === value ? input.text : value;
-  useEffect(() => {
-    const next = text.trim();
-    if (next === value) return;
-    const timer = setTimeout(() => change('q', next, { replace: true }), 350);
-    return () => clearTimeout(timer);
-  }, [text, value, change]);
-  return (
-    <FormField id="talent-search" label="Search by name">
-      {(props) => (
-        <TextInput
-          {...props}
-          type="search"
-          maxLength={80}
-          value={text}
-          onChange={(event) =>
-            setInput({ base: value, text: event.target.value })
-          }
-        />
-      )}
-    </FormField>
-  );
-}
-
-export function TalentDirectory() {
-  const [search, setSearch] = useSearchParams();
-  const q = (search.get('q') ?? '').trim().slice(0, 80);
-  const choice = search.get('profession');
-  const profession = Object.hasOwn(professions, choice) ? choice : '';
-  const sort = ['name', '-name', 'newest'].includes(search.get('sort'))
-    ? search.get('sort')
-    : 'name';
-  const requestedPage = Number(search.get('page'));
-  const page =
-    Number.isInteger(requestedPage) &&
-    requestedPage > 0 &&
-    requestedPage <= 10000
-      ? requestedPage
-      : 1;
-  function change(key, value, options) {
-    const next = new URLSearchParams(search);
-    if (
-      value &&
-      !(key === 'page' && value === '1') &&
-      !(key === 'sort' && value === 'name')
-    )
-      next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setSearch(next, options);
-  }
-  const directory = useQuery({
-    queryKey: [...talentListKey, { q, profession, sort, page }],
-    meta: { public: true },
-    queryFn: ({ signal }) =>
-      apiClient.get('/talent', {
-        params: {
-          q: q || undefined,
-          profession: profession || undefined,
-          sort,
-          page,
-          limit: 12,
-        },
-        signal,
-      }),
-  });
-  return (
-    <Container className="grid min-w-0 gap-6 py-8 sm:py-12">
-      <SectionHeading
-        as="h1"
-        description="Discover the filmmakers, cast, crew and voices behind the stories."
-      >
-        Talent
-      </SectionHeading>
-      <Link
-        className={buttonClasses('outline', 'justify-self-start')}
-        to="/submissions/new?category=talent"
-      >
-        Suggest a talent profile
-      </Link>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-        <TalentSearch value={q} change={change} />
-        <FormField id="talent-profession" label="Profession">
-          {(props) => (
-            <Select
-              {...props}
-              value={profession}
-              onChange={(event) => change('profession', event.target.value)}
-            >
-              <option value="">All professions</option>
-              {professionOptions.map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField id="talent-sort" label="Sort by">
-          {(props) => (
-            <Select
-              {...props}
-              value={sort}
-              onChange={(event) => change('sort', event.target.value)}
-            >
-              <option value="name">Name A–Z</option>
-              <option value="-name">Name Z–A</option>
-              <option value="newest">Recently published</option>
-            </Select>
-          )}
-        </FormField>
-      </div>
-      {directory.isPending && (
-        <div role="status" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <span className="sr-only">Loading talent profiles</span>
-          {[0, 1, 2].map((item) => (
-            <Skeleton className="min-h-48" key={item} />
-          ))}
-        </div>
-      )}
-      {directory.isError && (
-        <ErrorState
-          title="Could not load talent profiles"
-          description={directory.error.message}
-          onRetry={() => void directory.refetch()}
-        />
-      )}
-      {directory.data && (
-        <>
-          {directory.data.data.length ? (
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {directory.data.data.map((profile) => (
-                <TalentCard key={profile.id} profile={profile} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title={
-                q || profession || page > 1
-                  ? 'No profiles match this search'
-                  : 'No talent profiles published yet'
-              }
-              description={
-                q || profession
-                  ? 'Try a different name or profession.'
-                  : undefined
-              }
-            />
-          )}
-          <Pagination
-            page={page}
-            totalPages={directory.data.pagination.totalPages}
-            onPageChange={(next) => change('page', String(next))}
-          />
-          {page > 1 && directory.data.data.length === 0 && (
-            <Link
-              className={buttonClasses('outline', 'justify-self-start')}
-              to="/talent"
-            >
-              Back to the directory
-            </Link>
-          )}
-        </>
-      )}
-    </Container>
-  );
-}
+export { TalentDirectory } from '../public-ui/Directories.jsx';
 
 export function usePublicTalent(slug) {
   return useQuery({
@@ -397,16 +203,42 @@ export function TalentProfile() {
         ))}
       {profile && (
         <>
-          <TalentImage image={profile.coverImage} cover />
-          <header className="flex min-w-0 flex-col items-start gap-4 wrap-anywhere sm:flex-row sm:items-center">
+          {profile.coverImage && (
+            <TalentImage image={profile.coverImage} cover />
+          )}
+          <header className="flex min-w-0 flex-col items-start gap-5 wrap-anywhere sm:flex-row sm:items-center">
             <TalentImage image={profile.profileImage} />
-            <SectionHeading as="h1" description={profile.introduction}>
-              {profile.displayName}
-            </SectionHeading>
+            <div className="grid min-w-0 gap-3">
+              <SectionHeading as="h1" description={profile.introduction}>
+                {profile.displayName}
+              </SectionHeading>
+              <div className="flex flex-wrap gap-x-4">
+                {[
+                  ['movies', profile.movieAppearances?.length],
+                  ['short-films', profile.filmography?.length],
+                  [
+                    'podcast-guests',
+                    profile.podcastAppearances?.some((episode) =>
+                      episode.roles?.includes('guest'),
+                    ),
+                  ],
+                ]
+                  .filter(([, available]) => available)
+                  .map(([key]) => (
+                    <Link
+                      key={key}
+                      to={'/talent?category=' + key}
+                      className="inline-flex min-h-11 items-center text-sm font-semibold text-accent underline"
+                    >
+                      {talentCategories[key]}
+                    </Link>
+                  ))}
+              </div>
+              <div>
+                <FollowAction profile={profile} />
+              </div>
+            </div>
           </header>
-          <div>
-            <FollowAction profile={profile} />
-          </div>
           <ProfileContent profile={profile} />
           <Related module="talent" id={profile.id} />
           <section className="grid gap-2">

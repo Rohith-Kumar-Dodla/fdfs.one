@@ -1,4 +1,5 @@
-﻿import { useState } from 'react';
+﻿import { Bell } from 'lucide-react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { apiClient } from '../../api/client.js';
@@ -64,7 +65,7 @@ export function AnnouncementBanners() {
   );
 }
 
-export function NotificationsLink({ onNavigate, className }) {
+export function NotificationsLink({ onNavigate, className, icon = false }) {
   const query = useQuery({
     queryKey: ['notices', 'unread'],
     refetchInterval: 60000,
@@ -78,8 +79,28 @@ export function NotificationsLink({ onNavigate, className }) {
       to="/account/notifications"
       onClick={onNavigate}
       className={className}
+      aria-label={
+        icon
+          ? 'Notifications' +
+            (query.data?.count > 0 ? ' (' + query.data.count + ' unread)' : '')
+          : undefined
+      }
     >
-      Notifications{query.data?.count > 0 && ' (' + query.data.count + ')'}
+      {icon ? (
+        <>
+          <Bell aria-hidden="true" className="size-5" />
+          {query.data?.count > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute top-1 right-1 size-2 rounded-full bg-accent"
+            />
+          )}
+        </>
+      ) : (
+        <>
+          Notifications{query.data?.count > 0 && ' (' + query.data.count + ')'}
+        </>
+      )}
     </Link>
   );
 }

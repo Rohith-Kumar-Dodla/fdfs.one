@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { eventCategories, formatEventTime } from '../../../../shared/live.js';
 import { languages } from '../../../../shared/films.js';
 import { apiClient } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.jsx';
-import { Pagination } from '../../components/ui/Pagination.jsx';
 import {
   Badge,
-  Card,
   Container,
   SectionHeading,
 } from '../../components/ui/surfaces.jsx';
@@ -18,7 +16,7 @@ import {
   Skeleton,
 } from '../../components/ui/states.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
-import { control, DetailLink } from '../admin/common.jsx';
+import { DetailLink } from '../admin/common.jsx';
 import { protectedRequest } from '../auth/api.js';
 import { useAccount } from '../auth/guards.jsx';
 import { useSiteSettings } from '../site/public.jsx';
@@ -28,16 +26,6 @@ import { SaveAction } from '../personal/Actions.jsx';
 import { Related } from '../personal/Related.jsx';
 import { LiveChat, useLiveConnection } from './Chat.jsx';
 
-const views = [
-  ['live', 'Live now', 'There are no live broadcasts right now.'],
-  [
-    'upcoming',
-    'Upcoming events',
-    'There are no upcoming events for these filters.',
-  ],
-  ['replay', 'Replays', 'There are no published replays for these filters.'],
-];
-const field = 'grid min-w-0 gap-1 text-sm';
 const wrapper = 'grid gap-6 py-8 sm:gap-8 sm:py-12';
 const eventPath = (slug) => '/live/' + encodeURIComponent(slug);
 
@@ -77,218 +65,7 @@ function Schedule({ event }) {
   );
 }
 
-function EventSection({
-  availability,
-  heading,
-  empty,
-  filters,
-  page,
-  changePage,
-}) {
-  const query = useQuery({
-    queryKey: ['live', 'directory', availability, filters, page],
-    meta: { public: true },
-    queryFn: ({ signal }) =>
-      apiClient.get('/live', {
-        signal,
-        params: {
-          ...filters,
-          availability,
-          page,
-          limit: 6,
-          sort: availability === 'replay' ? 'latest' : 'soonest',
-        },
-      }),
-    refetchInterval: 60000,
-  });
-  return (
-    <section className="grid gap-4">
-      <SectionHeading>{heading}</SectionHeading>
-      {query.isPending && (
-        <div
-          role="status"
-          aria-label={'Loading ' + heading}
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="aspect-video" />
-          ))}
-        </div>
-      )}
-      {query.isError && (
-        <ErrorState
-          title={'Could not load ' + heading.toLowerCase()}
-          description={query.error.message}
-          onRetry={() => void query.refetch()}
-        />
-      )}
-      {query.isSuccess && query.data.data.length === 0 && (
-        <EmptyState title={empty} />
-      )}
-      {query.isSuccess && (
-        <>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {query.data.data.map((event) => (
-              <Card
-                key={event.id}
-                as="article"
-                className="grid min-w-0 content-start gap-2 wrap-anywhere"
-              >
-                <FilmImage
-                  landscape
-                  image={
-                    (event.hasReplay && event.replayThumbnail) ||
-                    event.banner ||
-                    event.poster
-                  }
-                  sizes="(min-width: 1024px) 380px, (min-width: 640px) 45vw, 90vw"
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <Status event={event} />
-                  <span className="text-sm text-muted">
-                    {eventCategories[event.category]}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold">
-                  <DetailLink to={eventPath(event.slug)}>
-                    {event.title}
-                  </DetailLink>
-                </h3>
-                {event.organizer && (
-                  <p className="text-sm">Organized by {event.organizer}</p>
-                )}
-                <Schedule event={event} />
-                <SaveAction item={event} module="live" />
-              </Card>
-            ))}
-          </div>
-          <Pagination
-            page={page}
-            totalPages={query.data.pagination.totalPages}
-            onPageChange={changePage}
-          />
-          {page > 1 && query.data.data.length === 0 && (
-            <div>
-              <Button variant="outline" onClick={() => changePage(1)}>
-                Return to first page
-              </Button>
-            </div>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
-
-export function LiveDirectory() {
-  const [params, setParams] = useSearchParams();
-  const category = params.get('category');
-  const filterDate = (name) =>
-    /^\d{4}-\d{2}-\d{2}$/.test(params.get(name) ?? '')
-      ? params.get(name)
-      : undefined;
-  const filters = {
-    q: params.get('q')?.trim().slice(0, 80) || undefined,
-    category: Object.hasOwn(eventCategories, category) ? category : undefined,
-    from: filterDate('from'),
-    to: filterDate('to'),
-  };
-  usePageMetadata({
-    title: 'FDFS Live | FDFS.ONE',
-    description:
-      'Watch community events, find upcoming broadcasts and catch up with replays.',
-    path: '/live',
-  });
-  return (
-    <Container className={wrapper}>
-      <header className="grid gap-3">
-        <SectionHeading as="h1">FDFS Live</SectionHeading>
-        <p className="text-muted">
-          Watch live events, find upcoming broadcasts and catch up with replays.
-        </p>
-      </header>
-      <form
-        key={JSON.stringify(filters)}
-        className="grid min-w-0 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const next = new URLSearchParams();
-          for (const [key, value] of new FormData(e.currentTarget))
-            if (value.trim()) next.set(key, value.trim());
-          setParams(next);
-        }}
-      >
-        <label className={field}>
-          Search events
-          <input
-            className={control}
-            type="search"
-            name="q"
-            maxLength={80}
-            defaultValue={filters.q}
-          />
-        </label>
-        <label className={field}>
-          Category
-          <select
-            className={control}
-            name="category"
-            defaultValue={filters.category ?? ''}
-          >
-            <option value="">All categories</option>
-            {Object.entries(eventCategories).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={field}>
-          From date (UTC)
-          <input
-            className={control}
-            type="date"
-            name="from"
-            defaultValue={filters.from}
-          />
-        </label>
-        <label className={field}>
-          To date (UTC)
-          <input
-            className={control}
-            type="date"
-            name="to"
-            defaultValue={filters.to}
-          />
-        </label>
-        <Button type="submit">Apply filters</Button>
-      </form>
-      {views.map(([key, heading, empty]) => {
-        const page = Math.min(
-          10000,
-          Math.max(1, Math.trunc(Number(params.get(key)) || 1)),
-        );
-        return (
-          <EventSection
-            key={key}
-            availability={key}
-            heading={heading}
-            empty={empty}
-            filters={filters}
-            page={page}
-            changePage={(next) =>
-              setParams((current) => {
-                const search = new URLSearchParams(current);
-                search.set(key, String(next));
-                return search;
-              })
-            }
-          />
-        );
-      })}
-    </Container>
-  );
-}
+export { LiveDirectory } from '../public-ui/Directories.jsx';
 
 export function Countdown({ startAt, serverNow }) {
   const [elapsed, setElapsed] = useState(0);
@@ -402,7 +179,7 @@ function EventContent({ event, slug }) {
   const video = event.video ?? event.replay;
   return (
     <>
-      <header className="grid min-w-0 gap-3 wrap-anywhere">
+      <header className="grid min-w-0 gap-3 rounded-panel bg-surface/45 p-4 wrap-anywhere sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
           <Status event={event} />
           <span>{eventCategories[event.category]}</span>
@@ -415,11 +192,13 @@ function EventContent({ event, slug }) {
             .filter(Boolean)
             .join(' · ')}
         </p>
-        {!['cancelled', 'postponed'].includes(event.broadcast) && (
-          <SaveAction item={event} module="live" />
-        )}
-        <div tabIndex={-1} id="live-reminder">
-          <ReminderControl event={event} account={account} />
+        <div className="flex flex-wrap items-start gap-3">
+          {!['cancelled', 'postponed'].includes(event.broadcast) && (
+            <SaveAction item={event} module="live" />
+          )}
+          <div tabIndex={-1} id="live-reminder">
+            <ReminderControl event={event} account={account} />
+          </div>
         </div>
       </header>
       <div

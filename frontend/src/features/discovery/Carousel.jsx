@@ -2,6 +2,7 @@ import { SaveAction } from '../personal/Actions.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { Link } from 'react-router';
+import { genres } from '../../../../shared/films.js';
 import { sources } from '../../../../shared/homepage.js';
 import projector from '../../assets/projector.webp';
 import { Button, IconButton } from '../../components/ui/Button.jsx';
@@ -39,6 +40,7 @@ export function HeroCarousel({
   preview = false,
   previewSize,
   loading = false,
+  editorial = false,
 }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -130,11 +132,23 @@ export function HeroCarousel({
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-[#111827] to-transparent"
       />
-      <Container className="relative grid min-h-[26rem] content-end gap-6 pt-28 pb-8 sm:min-h-[32rem] sm:pt-36 sm:pb-10">
+      <Container
+        className={
+          editorial
+            ? 'relative grid min-h-[25rem] max-w-[112rem]! content-end gap-5 pt-24 pb-5 sm:min-h-[clamp(30rem,47vw,38rem)] sm:px-16! sm:pt-28 sm:pb-8 lg:px-24!'
+            : 'relative grid min-h-[26rem] content-end gap-6 pt-28 pb-8 sm:min-h-[32rem] sm:pt-36 sm:pb-10'
+        }
+      >
         <div
-          role="group"
-          aria-roledescription="slide"
-          aria-label={current + 1 + ' of ' + list.length}
+          role={slides.length || !editorial ? 'group' : undefined}
+          aria-roledescription={
+            slides.length || !editorial ? 'slide' : undefined
+          }
+          aria-label={
+            slides.length || !editorial
+              ? current + 1 + ' of ' + list.length
+              : undefined
+          }
           className="grid max-w-[42rem] min-w-0 gap-3 wrap-anywhere"
         >
           <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-accent">
@@ -156,6 +170,20 @@ export function HeroCarousel({
                 {date}
               </time>
             )}
+            {editorial && item.genres?.length > 0 && (
+              <span className="text-gray-300">
+                {item.genres
+                  .map((key) => genres[key])
+                  .filter(Boolean)
+                  .slice(0, 3)
+                  .join(', ')}
+              </span>
+            )}
+            {editorial && item.duration > 0 && (
+              <span className="text-gray-300">
+                {Math.max(1, Math.round(item.duration / 60))} min
+              </span>
+            )}
             {item.runtime && (
               <span className="text-gray-300">{item.runtime} min</span>
             )}
@@ -165,7 +193,7 @@ export function HeroCarousel({
               {item.title}
             </h2>
           ) : (
-            <h1 className="text-[clamp(2.5rem,8vw,5rem)] leading-[1.02] font-extrabold tracking-[-.055em]">
+            <h1 className="text-[clamp(2.2rem,7vw,4.5rem)] leading-[1.02] font-extrabold tracking-[-.055em]">
               {item.title}
             </h1>
           )}
@@ -175,7 +203,15 @@ export function HeroCarousel({
             </p>
           )}
           <div className="flex flex-wrap gap-3">
-            <Destination action={item.primary} click={track.click} />
+            <Destination
+              action={
+                editorial &&
+                ['Watch Film', 'Watch Episode'].includes(item.primary?.label)
+                  ? { ...item.primary, label: 'Watch Now' }
+                  : item.primary
+              }
+              click={track.click}
+            />
             <Destination
               action={item.secondary}
               click={track.click}
@@ -183,15 +219,27 @@ export function HeroCarousel({
             />
           </div>
         </div>
-        {list.length > 1 && (
-          <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-panel">
-            <IconButton
-              label="Previous slide"
-              variant="outline"
-              onClick={() => jump(-1)}
-            >
-              <ArrowLeft aria-hidden="true" className="size-5" />
-            </IconButton>
+        {(list.length > 1 || (editorial && slides.length === 1)) && (
+          <div
+            className={
+              'flex min-w-0 flex-wrap items-center gap-1 rounded-panel ' +
+              (editorial ? 'justify-center' : '')
+            }
+          >
+            {list.length > 1 && (
+              <IconButton
+                label="Previous slide"
+                variant="outline"
+                onClick={() => jump(-1)}
+                className={
+                  editorial
+                    ? 'sm:absolute sm:top-1/2 sm:left-3 sm:-translate-y-1/2 sm:rounded-full sm:bg-nav/80'
+                    : ''
+                }
+              >
+                <ArrowLeft aria-hidden="true" className="size-5" />
+              </IconButton>
+            )}
             {list.map((slide, i) => (
               <Button
                 variant="ghost"
@@ -209,14 +257,21 @@ export function HeroCarousel({
                 />
               </Button>
             ))}
-            <IconButton
-              label="Next slide"
-              variant="outline"
-              onClick={() => jump(1)}
-            >
-              <ArrowRight aria-hidden="true" className="size-5" />
-            </IconButton>
-            {rotationSeconds > 0 && !preview && (
+            {list.length > 1 && (
+              <IconButton
+                label="Next slide"
+                variant="outline"
+                onClick={() => jump(1)}
+                className={
+                  editorial
+                    ? 'sm:absolute sm:top-1/2 sm:right-3 sm:-translate-y-1/2 sm:rounded-full sm:bg-nav/80'
+                    : ''
+                }
+              >
+                <ArrowRight aria-hidden="true" className="size-5" />
+              </IconButton>
+            )}
+            {rotationSeconds > 0 && list.length > 1 && !preview && (
               <IconButton
                 label={paused ? 'Resume slideshow' : 'Pause slideshow'}
                 variant="outline"

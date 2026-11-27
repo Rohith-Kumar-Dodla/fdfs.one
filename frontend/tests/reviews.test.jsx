@@ -72,9 +72,9 @@ it('filters the catalogue on the server, exposes progress and can reset URL filt
     <MoviesCatalogue />,
     '/reviews/movies?q=No+movie&genre=drama&sort=title',
   );
-  expect(screen.getByRole('status').textContent).toContain(
-    'Loading reviews data',
-  );
+  expect(
+    screen.getByRole('status', { name: 'Loading catalogue' }),
+  ).toBeVisible();
   expect(read.mock.calls[0]).toMatchObject([
     '/movies',
     {
@@ -83,7 +83,9 @@ it('filters the catalogue on the server, exposes progress and can reset URL filt
     },
   ]);
   finish();
-  expect(await screen.findByText('No movies match these filters')).toBeTruthy();
+  expect(
+    await screen.findByText('No results match your filters.'),
+  ).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Reset search' }));
   expect(router.state.location.search).toBe('');
 });

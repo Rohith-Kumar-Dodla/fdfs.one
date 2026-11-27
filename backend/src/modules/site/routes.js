@@ -77,7 +77,13 @@ export function mountPublicSite(api, available, { config, authConfig } = {}) {
     next();
   };
   api.get('/homepage', anywhere, ready, async (req, res) =>
-    sendSuccess(res, await assembledHomepage({ logger: req.log })),
+    sendSuccess(
+      res,
+      await assembledHomepage({
+        logger: req.log,
+        refined: req.query.view === 'entertainment',
+      }),
+    ),
   );
   for (const [path, schema, suggest] of [
     ['/search', searchInput, false],

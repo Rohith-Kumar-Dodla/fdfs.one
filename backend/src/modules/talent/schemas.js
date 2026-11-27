@@ -1,4 +1,5 @@
-﻿import { z } from 'zod';
+﻿import { talentCategories } from '../../../../shared/public-home.js';
+import { z } from 'zod';
 import { linkKinds, professions } from '../../../../shared/talent.js';
 import { idParams, listInput, publicId } from '../../utils/list.js';
 
@@ -74,7 +75,10 @@ const filters = {
   profession: profession.optional(),
   sort: z.enum(['name', '-name', 'newest']).default('name'),
 };
-export const directoryInput = listInput(filters);
+export const directoryInput = listInput({
+  ...filters,
+  category: z.enum(Object.keys(talentCategories)).optional(),
+});
 export const adminListInput = listInput({
   ...filters,
   status: profileStatus.optional(),

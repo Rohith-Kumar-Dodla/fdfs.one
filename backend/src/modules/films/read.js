@@ -1,3 +1,4 @@
+import { ratedPage } from '../reviews/rated-page.js';
 import { genres } from '../../../../shared/films.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
@@ -9,7 +10,7 @@ import { normalizedName } from '../talent/models.js';
 import { Film, FilmCredit } from './models.js';
 
 const cardFields =
-  'publicId slug classification title synopsis genres language runtimeMinutes releaseYear poster releaseAt trailer.provider';
+  'publicId slug classification title synopsis genres language runtimeMinutes releaseYear poster banner releaseAt trailer.provider';
 const images =
   'publicId purpose url width height bytes references createdAt alt';
 export const missingFilm = () =>
@@ -22,7 +23,8 @@ const viewImage = (asset) => {
   const { url, variants, width, height, alt } = imageView(asset);
   return { url, variants, width, height, ...(alt && { alt }) };
 };
-const populatePoster = (query) => query.populate('poster', images);
+const artwork = ['poster', 'banner'].map((path) => ({ path, select: images }));
+const populatePoster = (query) => query.populate(artwork);
 const nameFilter = (q) => {
   const text = normalizedName(q);
   return text
@@ -62,6 +64,7 @@ function cardView(film, now) {
     runtimeMinutes,
     releaseYear,
     poster: viewImage(poster),
+    banner: viewImage(film.banner),
     releaseAt,
     availability: existsNow(film, now) ? 'released' : 'upcoming',
     hasTrailer: Boolean(trailer?.provider),
@@ -99,18 +102,32 @@ export async function listFilms(res, query, { admin = false, creatorId } = {}) {
     query.sort === 'newest' && query.availability === 'upcoming'
       ? { releaseAt: 1, _id: 1 }
       : sorts[query.sort];
-  if (!admin && !creatorId && query.ratings === 'true') {
+  if (
+    !admin &&
+    !creatorId &&
+    (query.ratings === 'true' || query.minimumRating)
+  ) {
     const { page, limit } = query;
-    const [rows, total] = await Promise.all([
-      populatePoster(
-        Film.find(filter)
-          .select(cardFields)
-          .sort(sort)
-          .skip((page - 1) * limit)
-          .limit(limit),
-      ).lean(),
-      Film.countDocuments(filter),
-    ]);
+    const [rows, total] = query.minimumRating
+      ? await ratedPage(
+          Film,
+          filter,
+          sort,
+          query,
+          ['cinema', 'original'],
+          cardFields,
+          artwork,
+        )
+      : await Promise.all([
+          populatePoster(
+            Film.find(filter)
+              .select(cardFields)
+              .sort(sort)
+              .skip((page - 1) * limit)
+              .limit(limit),
+          ).lean(),
+          Film.countDocuments(filter),
+        ]);
     const summaries = new Map(
       (
         await RatingTotals.find({

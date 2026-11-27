@@ -1,4 +1,5 @@
-﻿import { act, render, screen, within } from '@testing-library/react';
+﻿import userEvent from '@testing-library/user-event';
+import { act, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -70,12 +71,18 @@ describe('FDFS Live', () => {
         await screen.findByRole('link', { name: 'Festival discussion' }),
       ).toHaveAttribute('href', '/live/feature-event');
       expect(screen.getByText('LIVE', { exact: true })).toBeVisible();
+      expect(screen.queryByRole('region', { name: 'Replays' })).toBeNull();
+      expect(screen.getByRole('link', { name: 'Replays' })).toHaveAttribute(
+        'href',
+        '/live?view=replays',
+      );
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Filters' }));
       expect(screen.getByLabelText('From date (UTC)')).toBeVisible();
       expect(screen.getByLabelText('Category')).toBeVisible();
       expect(
-        await screen.findByText(
-          'There are no published replays for these filters.',
-        ),
+        await screen.findByText('No upcoming events are scheduled.'),
       ).toBeVisible();
     } finally {
       api.mockRestore();

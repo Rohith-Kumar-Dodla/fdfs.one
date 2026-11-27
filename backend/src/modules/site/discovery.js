@@ -22,7 +22,7 @@ const models = {
 };
 const mediaFields = 'publicId status url alt width height';
 const summaryFields =
-  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount';
+  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration number professions startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount';
 const fieldsByModule = {
   independent: ['poster', 'banner'],
   original: ['poster', 'banner'],
@@ -87,6 +87,9 @@ function feature(row, module, now) {
     summary: row.synopsis ?? row.summary ?? row.introduction,
     date: module === 'live' ? row.startAt : (releasedAt ?? row.publishedAt),
     runtime: row.runtimeMinutes,
+    duration: row.duration,
+    number: row.number,
+    professions: row.professions,
     language: row.language,
     genres: row.genres,
     upcoming,
@@ -219,6 +222,7 @@ export async function discover(
     mode = 'released',
     releaseDays,
     ids,
+    slugs,
     q,
     genre,
     limit = 8,
@@ -244,6 +248,7 @@ export async function discover(
       ...(ids && { $in: ids }),
       ...(exclude.length && { $nin: exclude }),
     };
+  if (slugs) filter.slug = { $in: slugs };
   if (genre) filter.genres = genre;
   const titleField = module === 'talent' ? 'displayName' : 'title';
   if (q) {

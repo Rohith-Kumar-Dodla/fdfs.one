@@ -51,7 +51,8 @@ export const publicRoutes = [
           {
             index: true,
             lazy: async () => ({
-              Component: (await import('../pages/Home.jsx')).default,
+              Component: (await import('../features/public-ui/Home.jsx'))
+                .default,
             }),
           },
           ...modules.flatMap((module) => [

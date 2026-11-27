@@ -61,6 +61,8 @@ Phase 6.1 adds a unified cinematic homepage with ordered CMS sections, scheduled
 
 Phase 6.2 completes the planned web feature work with a private dashboard, persistent watchlists, playback progress and history, followed talent, deterministic recommendations, related content, and personal homepage sections. Open `/dashboard` and use Account Settings to opt in to playback sync, recommendations, or followed-talent notices. Comprehensive testing and release optimization remain in Phase 7. Production onboarding and deployment remain in Phase 8.
 
+Phase 6 Public UI Refinement 1 updates the public homepage, entertainment catalogues, streaming details, Reviews, Talent and shared navigation. The homepage uses a five-slide maximum and the five requested discovery shelves. Personal activity stays available through `/dashboard`. This is a Phase 6 checkpoint. The 22-subphase roadmap continues unchanged.
+
 The roadmap has 11 main phases and 22 subphases.
 
 - 1.1 Repository and backend foundation

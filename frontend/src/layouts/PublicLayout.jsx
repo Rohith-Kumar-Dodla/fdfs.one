@@ -1,3 +1,4 @@
+import { PublicFooter } from '../components/common/PublicFooter.jsx';
 import { useEffect, useRef } from 'react';
 import {
   Link,
@@ -77,73 +78,77 @@ export function PublicLayout() {
             <Outlet />
           )}
         </main>
-        <footer className="border-t border-line bg-nav">
-          <Container className="flex flex-wrap items-center justify-between gap-3 py-7">
-            <Link to="/" className="font-bold tracking-tight">
-              {settings.name === 'FDFS.ONE' ? (
-                <>
-                  FDFS<span className="text-accent">.ONE</span>
-                </>
-              ) : (
-                settings.name
-              )}
-            </Link>
-            <Link
-              to="/support"
-              className="inline-flex min-h-11 items-center text-accent underline"
-            >
-              Support
-            </Link>
-            <AnalyticsPreferences />
-            <small className="text-sm text-muted">
-              {settings.footer ?? settings.description}
-            </small>
-            {(settings.contact ||
-              settings.supportEmail ||
-              settings.links.length > 0 ||
-              settings.socials.length > 0 ||
-              Object.keys(settings.legal).length > 0) && (
-              <div className="grid w-full gap-2 wrap-anywhere text-sm">
-                {settings.contact && <p>{settings.contact}</p>}
-                {settings.supportEmail && (
-                  <a
-                    className="text-accent underline"
-                    href={'mailto:' + settings.supportEmail}
-                  >
-                    {settings.supportEmail}
-                  </a>
+        {admin ? (
+          <footer className="border-t border-line bg-nav">
+            <Container className="flex flex-wrap items-center justify-between gap-3 py-7">
+              <Link to="/" className="font-bold tracking-tight">
+                {settings.name === 'FDFS.ONE' ? (
+                  <>
+                    FDFS<span className="text-accent">.ONE</span>
+                  </>
+                ) : (
+                  settings.name
                 )}
-                <nav
-                  className="flex flex-wrap gap-x-4 gap-y-2"
-                  aria-label="Footer"
-                >
-                  {[...settings.links, ...settings.socials].map(
-                    ({ url, label }, index) => (
-                      <a
-                        className="inline-flex min-h-11 items-center text-accent underline"
-                        key={url + index}
-                        href={url}
-                      >
-                        {label}
-                      </a>
-                    ),
+              </Link>
+              <Link
+                to="/support"
+                className="inline-flex min-h-11 items-center text-accent underline"
+              >
+                Support
+              </Link>
+              <AnalyticsPreferences />
+              <small className="text-sm text-muted">
+                {settings.footer ?? settings.description}
+              </small>
+              {(settings.contact ||
+                settings.supportEmail ||
+                settings.links.length > 0 ||
+                settings.socials.length > 0 ||
+                Object.keys(settings.legal).length > 0) && (
+                <div className="grid w-full gap-2 wrap-anywhere text-sm">
+                  {settings.contact && <p>{settings.contact}</p>}
+                  {settings.supportEmail && (
+                    <a
+                      className="text-accent underline"
+                      href={'mailto:' + settings.supportEmail}
+                    >
+                      {settings.supportEmail}
+                    </a>
                   )}
-                  {Object.keys(legalSections)
-                    .filter((key) => settings.legal[key])
-                    .map((key) => (
-                      <Link
-                        className="inline-flex min-h-11 items-center text-accent underline"
-                        key={key}
-                        to={'/legal/' + key}
-                      >
-                        {legalSections[key]}
-                      </Link>
-                    ))}
-                </nav>
-              </div>
-            )}
-          </Container>
-        </footer>
+                  <nav
+                    className="flex flex-wrap gap-x-4 gap-y-2"
+                    aria-label="Footer"
+                  >
+                    {[...settings.links, ...settings.socials].map(
+                      ({ url, label }, index) => (
+                        <a
+                          className="inline-flex min-h-11 items-center text-accent underline"
+                          key={url + index}
+                          href={url}
+                        >
+                          {label}
+                        </a>
+                      ),
+                    )}
+                    {Object.keys(legalSections)
+                      .filter((key) => settings.legal[key])
+                      .map((key) => (
+                        <Link
+                          className="inline-flex min-h-11 items-center text-accent underline"
+                          key={key}
+                          to={'/legal/' + key}
+                        >
+                          {legalSections[key]}
+                        </Link>
+                      ))}
+                  </nav>
+                </div>
+              )}
+            </Container>
+          </footer>
+        ) : (
+          <PublicFooter settings={settings} />
+        )}
         <ToastViewport />
         <ScrollRestoration />
       </div>

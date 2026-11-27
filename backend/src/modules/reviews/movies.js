@@ -1,3 +1,4 @@
+import { ratedPage } from './rated-page.js';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { moviePath } from '../../../../shared/reviews.js';
@@ -140,16 +141,26 @@ export async function listMovies(res, query, admin = false) {
       sortOptions[query.sort],
     );
   const { page, limit } = query;
-  const [rows, total] = await Promise.all([
-    Movie.find(where)
-      .select(projection)
-      .sort(sortOptions[query.sort])
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate(populates[0])
-      .lean(),
-    Movie.countDocuments(where),
-  ]);
+  const [rows, total] = query.minimumRating
+    ? await ratedPage(
+        Movie,
+        where,
+        sortOptions[query.sort],
+        query,
+        ['movie'],
+        projection,
+        populates[0],
+      )
+    : await Promise.all([
+        Movie.find(where)
+          .select(projection)
+          .sort(sortOptions[query.sort])
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .populate(populates[0])
+          .lean(),
+        Movie.countDocuments(where),
+      ]);
   const totals = new Map(
     (
       await RatingTotals.find({

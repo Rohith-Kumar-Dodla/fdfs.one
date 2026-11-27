@@ -56,19 +56,19 @@ it('shows directory loading skeletons followed by an honest empty state', async 
       complete = resolve;
     });
   route('/talent', <TalentDirectory />);
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'Loading talent profiles',
-  );
+  expect(
+    screen.getByRole('status', { name: 'Loading catalogue' }),
+  ).toBeVisible();
   await waitFor(() => expect(complete).toBeTypeOf('function'));
   complete(response([], { ...pagination, total: 0, totalPages: 0 }));
   expect(
     await screen.findByRole('heading', {
-      name: 'No talent profiles published yet',
+      name: 'No Talent Profiles have been published yet.',
     }),
   ).toBeVisible();
 });
 
-it('keeps the debounced search, filter, and pagination synchronized with the URL', async () => {
+it('keeps applied search, filters, and pagination synchronized with the URL', async () => {
   apiClient.defaults.adapter = vi.fn(async () =>
     response([profile], { ...pagination, totalPages: 2 }),
   );
@@ -77,14 +77,13 @@ it('keeps the debounced search, filter, and pagination synchronized with the URL
   expect(
     await screen.findByRole('link', { name: profile.displayName }),
   ).toHaveAttribute('href', '/talent/' + profile.slug);
+  await events.click(screen.getByRole('button', { name: 'Filters' }));
   const search = screen.getByRole('searchbox', { name: 'Search by name' });
   await events.type(search, 'Fixture');
-  await waitFor(
-    () => expect(router.state.location.search).toContain('q=Fixture'),
-    { timeout: 4000 },
-  );
   expect(search).toHaveFocus();
   await events.selectOptions(screen.getByLabelText('Profession'), 'editor');
+  await events.click(screen.getByRole('button', { name: 'Apply Filters' }));
+  expect(router.state.location.search).toContain('q=Fixture');
   expect(router.state.location.search).toContain('profession=editor');
   await events.click(await screen.findByRole('button', { name: 'Next' }));
   expect(router.state.location.search).toContain('page=2');

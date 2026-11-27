@@ -80,22 +80,24 @@ afterEach(() => {
   delete window.YT;
 });
 
-it('renders the configured brand, latest episode and URL-driven discovery', async () => {
+it('renders the episode catalogue and URL-driven discovery', async () => {
   apiClient.defaults.adapter = async (config) =>
     config.url === '/podcasts' ? response(show) : response([episode], page);
   const user = userEvent.setup();
   const router = route('/podcasts', <PodcastLanding />);
   expect(await screen.findByRole('heading', { name: show.name })).toBeVisible();
   expect(
-    await screen.findByRole('heading', { name: 'Latest episode' }),
+    await screen.findByRole('heading', { name: episode.title }),
   ).toBeVisible();
   expect(
     screen.getAllByRole('link', { name: episode.title })[0],
   ).toHaveAttribute('href', '/podcasts/' + episode.slug);
+  await user.click(screen.getByRole('button', { name: 'Filters' }));
   await user.selectOptions(
     screen.getByLabelText('Release availability'),
     'upcoming',
   );
+  await user.click(screen.getByRole('button', { name: 'Apply Filters' }));
   expect(router.state.location.search).toContain('availability=upcoming');
 });
 
@@ -111,7 +113,7 @@ it('renders honest unconfigured and loading states', async () => {
   resolve(response(null));
   expect(
     await screen.findByRole('heading', {
-      name: 'The show has yet to be published',
+      name: 'No podcast episodes have been published yet.',
     }),
   ).toBeVisible();
 });

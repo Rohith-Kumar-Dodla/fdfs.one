@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { GlobalSearchButton } from '../../features/discovery/SearchButton.jsx';
 import { Menu, X } from 'lucide-react';
 import { Link, matchPath, useLocation } from 'react-router';
+import { NotificationsLink } from '../../features/operations/Notices.jsx';
+import { useAuthStore } from '../../features/auth/state.js';
 import { AccountNavigation } from '../../features/auth/AccountNavigation.jsx';
 import { modules } from '../../routes/modules.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -27,7 +29,7 @@ function NavigationLinks({ pathname, onNavigate, mobile, hiddenModules }) {
                 to={path}
                 aria-current={active ? 'page' : undefined}
                 onClick={onNavigate}
-                className={`flex min-h-11 items-center rounded-control px-3 text-sm font-semibold transition-colors hover:bg-surface hover:text-foreground ${active ? 'bg-accent/10 text-accent' : 'text-muted'}`}
+                className={`flex min-h-11 items-center rounded-control px-2.5 text-sm font-semibold transition-colors hover:bg-surface hover:text-foreground ${active ? 'bg-accent/10 text-accent' : 'text-muted'}`}
               >
                 {label}
               </Link>
@@ -42,6 +44,7 @@ export function SiteHeader({
   settings = { name: 'FDFS.ONE', hiddenModules: [] },
 }) {
   const { pathname, key } = useLocation();
+  const signedIn = useAuthStore((state) => state.status === 'authenticated');
   const open = useUiStore((state) => state.mobileMenuOpen);
   const setOpen = useUiStore((state) => state.setMobileMenuOpen);
   const toggle = useRef(null);
@@ -69,10 +72,10 @@ export function SiteHeader({
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-line bg-nav/95 backdrop-blur-sm"
+      className="sticky top-0 z-30 border-b border-line/70 bg-nav"
       onKeyDown={handleEscape}
     >
-      <Container className="flex min-h-[4.5rem] items-center justify-between gap-4">
+      <Container className="flex min-h-16 max-w-[112rem]! items-center justify-between gap-2 lg:gap-3">
         <Link
           to="/"
           aria-label={settings.name + ' home'}
@@ -99,15 +102,21 @@ export function SiteHeader({
             hiddenModules={settings.hiddenModules}
           />
         </nav>
-        <div className="hidden lg:block">
-          <AccountNavigation
-            allowRegistration={
-              settings.registrationOpen !== false && !settings.maintenance
-            }
-          />
-        </div>
-        <div className="flex shrink-0 gap-1">
-          {!settings.maintenance && <GlobalSearchButton />}
+        <div className="flex shrink-0 items-center gap-1">
+          <div className="hidden lg:block">
+            <AccountNavigation
+              allowRegistration={
+                settings.registrationOpen !== false && !settings.maintenance
+              }
+            />
+          </div>
+          {pathname !== '/' && !settings.maintenance && <GlobalSearchButton />}
+          {signedIn && (
+            <NotificationsLink
+              className="relative grid size-11 shrink-0 place-items-center rounded-control text-foreground hover:bg-surface"
+              icon
+            />
+          )}
           <IconButton
             ref={toggle}
             className="lg:hidden"

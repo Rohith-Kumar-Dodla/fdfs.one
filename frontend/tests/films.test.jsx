@@ -74,7 +74,9 @@ it('shows catalogue loading and honest empty states', async () => {
       complete = resolve;
     });
   route('/cinema', <FilmDirectory classification="independent" />);
-  expect(screen.getByRole('status')).toHaveTextContent('Loading films');
+  expect(
+    screen.getByRole('status', { name: 'Loading catalogue' }),
+  ).toBeVisible();
   await waitFor(() => expect(complete).toBeTypeOf('function'));
   complete(response([], { ...pagination, total: 0, totalPages: 0 }));
   expect(
@@ -93,12 +95,19 @@ it('requests the selected classification and keeps filters and pagination in the
   expect(
     await screen.findByRole('link', { name: fixture.title }),
   ).toHaveAttribute('href', '/cinema/example-film');
+  await events.click(screen.getByRole('button', { name: 'Filters' }));
   await events.selectOptions(screen.getByLabelText('Genre'), 'drama');
+  expect(router.state.location.search).toBe('');
+  await events.click(screen.getByRole('button', { name: 'Apply Filters' }));
   expect(router.state.location.search).toContain('genre=drama');
+  await events.click(
+    screen.getByRole('button', { name: 'Filters (1 active)' }),
+  );
   await events.selectOptions(
     screen.getByLabelText('Release availability'),
     'upcoming',
   );
+  await events.click(screen.getByRole('button', { name: 'Apply Filters' }));
   expect(router.state.location.search).toContain('availability=upcoming');
   await events.click(await screen.findByRole('button', { name: 'Next' }));
   expect(router.state.location.search).toContain('page=2');

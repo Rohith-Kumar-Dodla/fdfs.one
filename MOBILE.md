@@ -49,3 +49,7 @@ Use the same private `/api/v1/personal` contracts for dashboard, watchlist, hist
 Playback starts with a GET of the current source digest, revision, history epoch and eligible progress. Only submit progress for released full videos and recorded replays with the matching public video ID. Send position and player duration in seconds, use approximately 15-second synchronization plus safe flush events, and stop stale writes after a 409 until the viewer reopens with fresh state. A history epoch change supersedes queued writes across devices. Respect the explicit history and recommendation preferences independently of analytics. Preserve user-initiated playback and display Continue Watching only for eligible synchronized records.
 
 Notifications use existing owned REST pagination and the private Socket.IO notice signal. Re-fetch after reconnect. Native push delivery remains in the mobile phases.
+
+## Public discovery layout reference
+
+The web discovery order is cinematic hero, Cinema, Originals, 404 Reality Not Found, Reviews and Top Picked Profiles. Keep empty shelves and catalogue links in the native reference design. Reuse landscape artwork for short films, podcasts and live events, and portrait artwork for movies and people. Use the optional entertainment homepage projection and the public talent category filter. The review composer selects published records and keeps rating and review ownership on the existing API. Playback stays explicitly viewer-initiated.
