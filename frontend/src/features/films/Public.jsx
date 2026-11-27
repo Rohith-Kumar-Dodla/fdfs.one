@@ -25,7 +25,9 @@ import {
   Skeleton,
 } from '../../components/ui/states.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
-import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { ProgressPlayer } from '../personal/Playback.jsx';
+import { SaveAction } from '../personal/Actions.jsx';
+import { Related } from '../personal/Related.jsx';
 import { TargetCommunity } from '../reviews/Community.jsx';
 import { FilmImage } from './FilmImage.jsx';
 
@@ -113,6 +115,7 @@ function FilmCard({ film }) {
         {languages[film.language]} · {film.runtimeMinutes} min ·{' '}
         {film.releaseYear}
       </p>
+      <SaveAction item={film} module={film.classification} />
       {film.availability === 'upcoming' && (
         <p className="text-sm text-muted">
           Upcoming{film.hasTrailer ? ' · Trailer available' : ''}
@@ -298,7 +301,12 @@ export function FilmDirectory({ classification }) {
 }
 
 export function VideoSection({ film }) {
-  const [selected, setSelected] = useState(null);
+  const [params] = useSearchParams();
+  const [selected, setSelected] = useState(() =>
+    (params.has('resume') || params.has('start')) && film.mainVideo
+      ? 'main'
+      : null,
+  );
   const choices = [
     ...(film.mainVideo
       ? [
@@ -331,7 +339,12 @@ export function VideoSection({ film }) {
   if (!choices.length) return null;
   const active = choices.find(({ key }) => key === selected);
   return (
-    <section className="grid min-w-0 gap-3" aria-labelledby="film-playback">
+    <section
+      id="playback"
+      tabIndex={-1}
+      className="grid min-w-0 scroll-mt-24 gap-3"
+      aria-labelledby="film-playback"
+    >
       <h2 id="film-playback" className="text-xl font-semibold">
         {film.availability === 'upcoming' ? 'Trailer' : 'Playback'}
       </h2>
@@ -355,7 +368,12 @@ export function VideoSection({ film }) {
         ))}
       </div>
       {active && (
-        <YouTubePlayer
+        <ProgressPlayer
+          item={
+            active.key === 'main'
+              ? { id: film.id, module: film.classification }
+              : undefined
+          }
           key={active.key}
           video={active.video}
           title={active.title}
@@ -395,7 +413,11 @@ function FilmDetailContent({ film }) {
           )}
         </div>
       </header>
+      <div>
+        <SaveAction item={film} module={film.classification} />
+      </div>
       <VideoSection key={film.id} film={film} />
+      <Related module={film.classification} id={film.id} />
       {film.description && (
         <section className="grid min-w-0 gap-2 wrap-anywhere">
           <h2 className="text-xl font-semibold">About the film</h2>

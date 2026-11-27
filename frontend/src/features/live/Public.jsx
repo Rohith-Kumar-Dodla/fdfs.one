@@ -23,7 +23,9 @@ import { protectedRequest } from '../auth/api.js';
 import { useAccount } from '../auth/guards.jsx';
 import { useSiteSettings } from '../site/public.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
-import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { ProgressPlayer } from '../personal/Playback.jsx';
+import { SaveAction } from '../personal/Actions.jsx';
+import { Related } from '../personal/Related.jsx';
 import { LiveChat, useLiveConnection } from './Chat.jsx';
 
 const views = [
@@ -156,6 +158,7 @@ function EventSection({
                   <p className="text-sm">Organized by {event.organizer}</p>
                 )}
                 <Schedule event={event} />
+                <SaveAction item={event} module="live" />
               </Card>
             ))}
           </div>
@@ -412,6 +415,9 @@ function EventContent({ event, slug }) {
             .filter(Boolean)
             .join(' · ')}
         </p>
+        {!['cancelled', 'postponed'].includes(event.broadcast) && (
+          <SaveAction item={event} module="live" />
+        )}
         <div tabIndex={-1} id="live-reminder">
           <ReminderControl event={event} account={account} />
         </div>
@@ -422,9 +428,18 @@ function EventContent({ event, slug }) {
           (chat ? ' lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]' : '')
         }
       >
-        <div className="grid min-w-0 gap-4 wrap-anywhere">
+        <div
+          id="playback"
+          tabIndex={-1}
+          className="grid min-w-0 scroll-mt-24 gap-4 wrap-anywhere"
+        >
           {video ? (
-            <YouTubePlayer
+            <ProgressPlayer
+              item={
+                event.broadcast === 'ended' && event.replay
+                  ? { id: event.id, module: 'live' }
+                  : undefined
+              }
               key={video.playbackType}
               video={video}
               title={
@@ -470,6 +485,7 @@ function EventContent({ event, slug }) {
           <LiveChat event={event} account={account} realtime={realtime} />
         )}
       </div>
+      <Related module="live" id={event.id} />
     </>
   );
 }

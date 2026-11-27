@@ -1,3 +1,4 @@
+import { SaveAction } from '../personal/Actions.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { sources } from '../../../../shared/homepage.js';
 import { genres } from '../../../../shared/films.js';
@@ -32,6 +33,9 @@ function ResultRow({ item }) {
           </span>
         </div>
       </Link>
+      <div className="mt-1">
+        <SaveAction item={item} />
+      </div>
     </li>
   );
 }

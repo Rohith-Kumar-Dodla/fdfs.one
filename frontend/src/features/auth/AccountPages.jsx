@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PersonalSettings } from '../personal/Settings.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useOutletContext } from 'react-router';
 import { Button, buttonClasses } from '../../components/ui/Button.jsx';
@@ -210,6 +211,7 @@ export function AccountSettingsPage() {
   return (
     <Container className="grid max-w-copy! grid-cols-1 gap-6 py-12">
       <SectionHeading as="h1">Account settings</SectionHeading>
+      <PersonalSettings />
       <Card
         as="section"
         aria-labelledby="profile-image-heading"

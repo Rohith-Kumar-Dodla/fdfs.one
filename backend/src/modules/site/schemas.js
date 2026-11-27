@@ -1,3 +1,4 @@
+import { personalConfigSchema } from '../personal/preferences.js';
 import { supportCategories } from '../../../../shared/operations.js';
 import { z } from 'zod';
 import {
@@ -61,6 +62,7 @@ export const settings = z.strictObject({
       .max(Object.keys(supportCategories).length),
   ).optional(),
   analyticsOpen: z.boolean().optional(),
+  personalization: personalConfigSchema.optional(),
 });
 const reference = z.strictObject({
   module: z.enum(discoveryModules),

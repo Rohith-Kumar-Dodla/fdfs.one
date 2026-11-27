@@ -16,6 +16,18 @@ export const accountRoutes = [
   {
     element: <AccountGuard />,
     children: [
+      {
+        path: '/dashboard',
+        lazy: async () => ({
+          Component: (await import('../personal/Dashboard.jsx')).Dashboard,
+        }),
+      },
+      {
+        path: '/dashboard/:tab',
+        lazy: async () => ({
+          Component: (await import('../personal/Dashboard.jsx')).Dashboard,
+        }),
+      },
       { path: '/account/notifications', element: <NotificationsPage /> },
       {
         path: '/account/reviews',

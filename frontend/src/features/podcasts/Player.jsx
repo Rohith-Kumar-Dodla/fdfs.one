@@ -1,10 +1,14 @@
 ﻿import { useRef, useState } from 'react';
 import { timestamp } from '../../../../shared/podcasts.js';
 import { Button } from '../../components/ui/Button.jsx';
-import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { ProgressPlayer } from '../personal/Playback.jsx';
 
-export function EpisodePlayer({ episode }) {
-  const [selection, choose] = useState(null);
+export function EpisodePlayer({ episode, openMain = false }) {
+  const [selection, choose] = useState(() =>
+    openMain && episode.mainVideo
+      ? { kind: 'main', start: 0, attempt: 1 }
+      : null,
+  );
   const [position, setPosition] = useState(0);
   const [unavailable, setUnavailable] = useState(false);
   const pending = useRef(null);
@@ -40,7 +44,12 @@ export function EpisodePlayer({ episode }) {
       <p role="status">Episode video unavailable.</p>
     ) : null;
   return (
-    <section className="grid min-w-0 gap-4" aria-label="Episode playback">
+    <section
+      id="playback"
+      tabIndex={-1}
+      className="grid min-w-0 scroll-mt-24 gap-4"
+      aria-label="Episode playback"
+    >
       <div className="flex flex-wrap gap-2">
         {main && (
           <Button
@@ -66,7 +75,12 @@ export function EpisodePlayer({ episode }) {
         )}
       </div>
       {selection && (
-        <YouTubePlayer
+        <ProgressPlayer
+          item={
+            selection.kind === 'main'
+              ? { id: episode.id, module: 'podcasts' }
+              : undefined
+          }
           key={selection.attempt}
           ref={player}
           video={selectedVideo}

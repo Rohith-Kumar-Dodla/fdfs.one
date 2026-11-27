@@ -59,6 +59,8 @@ The permanent Super Administrator uses `admin@fdfs.one`. Run the documented comm
 
 Phase 6.1 adds a unified cinematic homepage with ordered CMS sections, scheduled promotions, opt-in campaign reporting, and global search across all six modules. Use Homepage Management and Promotions in `/admin`. The production owner account is active and verified, and the owner confirmed that signing in opens `/admin`. [Phase 6.1 verification](TESTING.md#phase-61-verification)
 
+Phase 6.2 completes the planned web feature work with a private dashboard, persistent watchlists, playback progress and history, followed talent, deterministic recommendations, related content, and personal homepage sections. Open `/dashboard` and use Account Settings to opt in to playback sync, recommendations, or followed-talent notices. Comprehensive testing and release optimization remain in Phase 7. Production onboarding and deployment remain in Phase 8.
+
 The roadmap has 11 main phases and 22 subphases.
 
 - 1.1 Repository and backend foundation

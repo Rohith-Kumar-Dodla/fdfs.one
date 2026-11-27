@@ -28,6 +28,7 @@ export const audiences = ['public', 'authenticated', 'creator', 'organizer'];
 export const presenceModules = [
   'home',
   'account',
+  'dashboard',
   'cinema',
   'originals',
   'podcasts',

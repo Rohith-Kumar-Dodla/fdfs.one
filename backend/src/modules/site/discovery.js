@@ -226,6 +226,8 @@ export async function discover(
     session,
     withCount = false,
     hiddenModules = [],
+    exclude = [],
+    match = {},
   } = {},
 ) {
   const model = models[module];
@@ -236,7 +238,12 @@ export async function discover(
     releaseDays,
     session,
   });
-  if (ids) filter.publicId = { $in: ids };
+  Object.assign(filter, match);
+  if (ids || exclude.length)
+    filter.publicId = {
+      ...(ids && { $in: ids }),
+      ...(exclude.length && { $nin: exclude }),
+    };
   if (genre) filter.genres = genre;
   const titleField = module === 'talent' ? 'displayName' : 'title';
   if (q) {

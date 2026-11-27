@@ -26,6 +26,8 @@ import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { FilmImage } from '../films/FilmImage.jsx';
 import { useSiteSettings } from '../site/public.jsx';
 import { EpisodeComments } from './Comments.jsx';
+import { SaveAction } from '../personal/Actions.jsx';
+import { Related } from '../personal/Related.jsx';
 import { EpisodePlayer } from './Player.jsx';
 
 export const podcastKeys = ['podcasts'];
@@ -98,6 +100,7 @@ function EpisodeCard({ episode }) {
       <p className="text-sm text-muted">
         {languages[episode.language]} · {timestamp(episode.duration)}
       </p>
+      <SaveAction item={episode} module="podcasts" />
       {episode.availability === 'upcoming' && (
         <p className="text-sm text-accent">
           Upcoming{episode.hasTeaser ? ' · Teaser available' : ''}
@@ -369,6 +372,7 @@ export function PodcastLanding() {
 }
 
 export function EpisodeDetail() {
+  const [params] = useSearchParams();
   const settings = useSiteSettings();
   const { slug } = useParams();
   const query = useQuery({
@@ -454,7 +458,15 @@ export function EpisodeDetail() {
               Content advisory · {episode.advisory}
             </p>
           )}
-          <EpisodePlayer key={episode.id} episode={episode} />
+          <div>
+            <SaveAction item={episode} module="podcasts" />
+          </div>
+          <EpisodePlayer
+            key={episode.id}
+            episode={episode}
+            openMain={params.has('resume') || params.has('start')}
+          />
+          <Related module="podcasts" id={episode.id} />
           {episode.notes && (
             <section className="grid gap-2 wrap-anywhere">
               <h2 className="text-xl font-semibold">Show notes</h2>

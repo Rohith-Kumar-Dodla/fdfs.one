@@ -40,6 +40,7 @@ const reminderSchema = new mongoose.Schema(
 reminderSchema.index({ event: 1, user: 1 }, { unique: true });
 reminderSchema.index({ state: 1, dueAt: 1 });
 reminderSchema.index({ state: 1, leaseUntil: 1 });
+reminderSchema.index({ user: 1, state: 1 });
 export const Reminder = mongoose.model('LiveReminder', reminderSchema);
 const dueFor = (event, minutes) =>
   new Date(
@@ -201,7 +202,12 @@ export async function unsubscribe(event, user) {
 
 export async function processReminders(
   deliver,
-  { now = new Date(), limit = 25, shouldContinue = () => true } = {},
+  {
+    now = new Date(),
+    limit = 25,
+    shouldContinue = () => true,
+    onDelivered,
+  } = {},
 ) {
   await Reminder.updateMany(
     { state: 'sending', leaseUntil: { $lte: now } },
@@ -244,7 +250,7 @@ export async function processReminders(
         status: 'active',
         emailVerifiedAt: { $type: 'date' },
       })
-        .select('email')
+        .select('email publicId')
         .lean(),
     ]);
     const owned = { _id: job._id, claim, version: job.version };
@@ -306,6 +312,8 @@ export async function processReminders(
         },
       );
     }
+    if (result === 'sent' && updated.matchedCount)
+      await onDelivered?.(user, job, event);
   }
   return processed;
 }
@@ -316,6 +324,7 @@ export function startReminderWorker({
   available,
   logger,
   health = () => {},
+  onDelivered,
 }) {
   let job;
   let stopping = false;
@@ -323,6 +332,7 @@ export function startReminderWorker({
     if (job || !available()) return;
     job = processReminders(deliver, {
       shouldContinue: () => !stopping && available(),
+      onDelivered,
     })
       .then(() => health('healthy'))
       .catch(() => {

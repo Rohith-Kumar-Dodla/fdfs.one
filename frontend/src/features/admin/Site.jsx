@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker } from 'react-router';
+import {
+  personalConfigDefaults,
+  personalSections,
+} from '../../../../shared/personal.js';
 import { supportCategories } from '../../../../shared/operations.js';
 import {
   discoveryModules,
@@ -143,6 +147,10 @@ function Feedback({ change }) {
 
 function SettingsEditor({ record }) {
   const { revision, value } = record;
+  const personalization = {
+    ...personalConfigDefaults,
+    ...value.personalization,
+  };
   const [links, setLinks] = useState(value.links);
   const [socials, setSocials] = useState(value.socials);
   const [images, setImages] = useState(() =>
@@ -159,6 +167,8 @@ function SettingsEditor({ record }) {
       settingsUrl,
       'site-settings',
       'site-homepage',
+      'homepage-discovery',
+      'personal',
       'support-config',
       '/admin/audit',
     ],
@@ -199,6 +209,12 @@ function SettingsEditor({ record }) {
           supportOpen: input.has('supportOpen'),
           analyticsOpen: input.has('analyticsOpen'),
           supportCategories: input.getAll('supportCategories'),
+          personalization: {
+            recommendations: input.has('recommendations'),
+            recommendationLimit: Number(input.get('recommendationLimit')),
+            position: input.get('personalPosition'),
+            sections: input.getAll('personalSections'),
+          },
         },
       },
     });
@@ -330,6 +346,54 @@ function SettingsEditor({ record }) {
               defaultValue={value.legal[key]}
             />
           ))}
+        </Card>
+        <Card className="grid gap-3">
+          <h2 className="text-lg font-semibold">Personalized homepage</h2>
+          <label className="flex min-h-11 items-center gap-2">
+            <input
+              type="checkbox"
+              name="recommendations"
+              defaultChecked={personalization.recommendations}
+            />
+            Enable organic recommendations
+          </label>
+          <Field
+            type="number"
+            name="recommendationLimit"
+            label="Recommendation limit"
+            min="4"
+            max="12"
+            required
+            defaultValue={personalization.recommendationLimit}
+          />
+          <label className="grid gap-1 text-sm">
+            Personal section placement
+            <select
+              className={control}
+              name="personalPosition"
+              defaultValue={personalization.position}
+            >
+              <option value="after-hero">After the hero</option>
+              <option value="after-explore">After Explore</option>
+              <option value="before-footer">Before footer promotions</option>
+            </select>
+          </label>
+          <fieldset className="grid gap-1 sm:grid-cols-2">
+            <legend className="font-semibold">
+              Show personalized sections
+            </legend>
+            {Object.entries(personalSections).map(([key, label]) => (
+              <label className="flex min-h-11 items-center gap-2" key={key}>
+                <input
+                  type="checkbox"
+                  name="personalSections"
+                  value={key}
+                  defaultChecked={personalization.sections.includes(key)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
         </Card>
         <Card className="grid gap-3">
           <h2 className="text-lg font-semibold">Availability</h2>

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=3",
     "auth:bootstrap-super": "node src/modules/auth/bootstrap-super.js",
     "auth:bootstrap-admin": "node src/modules/auth/bootstrap-admin.js",
     "media:cleanup": "node src/modules/media/cleanup.js"

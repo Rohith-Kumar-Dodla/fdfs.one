@@ -217,6 +217,7 @@ export function saveConfig(key, revision, value, context, publish = false) {
       if (key === 'settings') {
         for (const field of [
           'analyticsOpen',
+          'personalization',
           'supportOpen',
           'supportCategories',
         ]) {
@@ -328,6 +329,7 @@ export async function publicSettings() {
     communityOpen,
     supportOpen,
     analyticsOpen,
+    personalization,
   } = value;
   return {
     name,
@@ -346,6 +348,7 @@ export async function publicSettings() {
     communityOpen,
     supportOpen: supportOpen ?? siteDefaults.supportOpen,
     analyticsOpen: analyticsOpen ?? siteDefaults.analyticsOpen,
+    ...(personalization && { personalization }),
     ...Object.fromEntries(
       branding.map((item) => [
         item,

@@ -41,3 +41,11 @@ Use `GET /api/v1/homepage` for the ordered hero, sections and pre-footer campaig
 Use `GET /api/v1/search/suggestions?q=...` for bounded suggestions and `GET /api/v1/search` for grouped results with `q`, optional `genre` or `module`, and pagination. Review entries use spoiler-safe projections. Use the returned stable ID, module and path for navigation.
 
 A future native client may use `POST /api/v1/homepage/campaign-events` after explicit analytics opt-in. Send campaign UUID, stable placement key, a visit UUID and event kind. Apply the same continuous, one-second half-visible exposure definition and respect foreground state, deduplication and user opt-out.
+
+## Personal library and cross-device playback
+
+Use the same private `/api/v1/personal` contracts for dashboard, watchlist, history, following, reminders and recommendations. Send the current bearer token, use stable module names and UUIDs, and clear private data when identity changes. Use the public related-content endpoint independently of account state.
+
+Playback starts with a GET of the current source digest, revision, history epoch and eligible progress. Only submit progress for released full videos and recorded replays with the matching public video ID. Send position and player duration in seconds, use approximately 15-second synchronization plus safe flush events, and stop stale writes after a 409 until the viewer reopens with fresh state. A history epoch change supersedes queued writes across devices. Respect the explicit history and recommendation preferences independently of analytics. Preserve user-initiated playback and display Continue Watching only for eligible synchronized records.
+
+Notifications use existing owned REST pagination and the private Socket.IO notice signal. Re-fetch after reconnect. Native push delivery remains in the mobile phases.

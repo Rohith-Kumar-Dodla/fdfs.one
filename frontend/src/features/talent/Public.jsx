@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { FollowAction } from '../personal/Actions.jsx';
+import { Related } from '../personal/Related.jsx';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -402,7 +404,11 @@ export function TalentProfile() {
               {profile.displayName}
             </SectionHeading>
           </header>
+          <div>
+            <FollowAction profile={profile} />
+          </div>
           <ProfileContent profile={profile} />
+          <Related module="talent" id={profile.id} />
           <section className="grid gap-2">
             <h2 className="text-xl font-semibold">Filmography</h2>
             {profile.filmography?.length ? (

@@ -182,9 +182,22 @@ describe('frontend authentication', () => {
       status: 'authenticated',
       accessToken: session.accessToken,
     });
-    const key = accountKeys.me(useAuthStore.getState().generation);
+    const generation = useAuthStore.getState().generation;
+    const key = accountKeys.me(generation);
+    const personal = ['personal', generation, '/homepage', undefined];
+    const discovery = ['homepage-discovery'];
     queryClient.setQueryData(key, user);
+    queryClient.setQueryData(personal, {
+      sections: [{ kind: 'watchlist', items: [{ id: 'owned-content' }] }],
+    });
+    await queryClient.fetchQuery({
+      queryKey: discovery,
+      meta: { public: true },
+      queryFn: () => ({ sections: [] }),
+    });
     await accounts.logout();
+    expect(queryClient.getQueryData(personal)).toBeUndefined();
+    expect(queryClient.getQueryData(discovery)).toEqual({ sections: [] });
     expect(request.mock.calls.at(-1)[0].url).toBe('/auth/logout');
     expect(useAuthStore.getState()).toMatchObject({
       status: 'guest',

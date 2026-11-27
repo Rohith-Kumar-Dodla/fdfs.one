@@ -86,12 +86,22 @@ export function NotificationsLink({ onNavigate, className }) {
 
 export function NotificationsPage() {
   const [page, setPage] = useState(1);
+  const [kind, setKind] = useState('');
+  const [unread, setUnread] = useState(false);
   const client = useQueryClient();
   const query = useQuery({
-    queryKey: ['notices', 'list', page],
+    queryKey: ['notices', 'list', page, kind, unread],
     refetchInterval: 60000,
     queryFn: ({ signal }) =>
-      protectedRequest({ url: '/notifications', params: { page }, signal }),
+      protectedRequest({
+        url: '/notifications',
+        params: {
+          page,
+          kind: kind || undefined,
+          unread: unread ? 'true' : undefined,
+        },
+        signal,
+      }),
   });
   const change = useMutation({
     mutationFn: (id) =>
@@ -104,7 +114,36 @@ export function NotificationsPage() {
   return (
     <Container className="grid min-w-0 gap-4 py-8 sm:py-12">
       <SectionHeading as="h1">Notifications</SectionHeading>
-      <DetailLink to="/account">Back to account</DetailLink>
+      <DetailLink to="/dashboard">Back to dashboard</DetailLink>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-sm">
+          Notification category
+          <select
+            className="min-h-11 rounded-control border border-line bg-base px-3"
+            value={kind}
+            onChange={(event) => {
+              setKind(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All notifications</option>
+            <option value="releases">Releases and reminders</option>
+            <option value="reviews">Reviews and comments</option>
+            <option value="support">Support tickets</option>
+          </select>
+        </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={unread}
+            onChange={(event) => {
+              setUnread(event.target.checked);
+              setPage(1);
+            }}
+          />
+          Unread only
+        </label>
+      </div>
       {query.isPending && <Spinner label="Loading notifications" />}
       {query.isError && (
         <ErrorState

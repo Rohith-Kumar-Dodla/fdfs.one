@@ -42,6 +42,7 @@ function Embed({
   title,
   onPlaybackState,
   onPosition,
+  onSample,
   onReady,
   onUnavailable,
   startAt,
@@ -70,10 +71,11 @@ function Embed({
       title,
       onPlaybackState,
       onPosition,
+      onSample,
       onReady,
       onUnavailable,
     };
-  }, [title, onPlaybackState, onPosition, onReady, onUnavailable]);
+  }, [title, onPlaybackState, onPosition, onSample, onReady, onUnavailable]);
 
   useEffect(() => {
     const container = host.current;
@@ -92,10 +94,20 @@ function Embed({
     let disposed = false;
     let player;
     let ticker;
-    function readPosition() {
-      if (!callbacks.current.onPosition) return;
+    function readPosition(state) {
+      if (!callbacks.current.onPosition && !callbacks.current.onSample) return;
       const seconds = control.current?.getCurrentTime?.();
-      if (Number.isFinite(seconds)) callbacks.current.onPosition(seconds);
+      if (!Number.isFinite(seconds) || seconds < 0) return;
+      callbacks.current.onPosition?.(seconds);
+      if (callbacks.current.onSample) {
+        const duration = control.current?.getDuration?.();
+        callbacks.current.onSample({
+          state,
+          position: seconds,
+          duration:
+            Number.isFinite(duration) && duration > 0 ? duration : undefined,
+        });
+      }
     }
     const timeout = setTimeout(() => setStatus('error'), 20000);
     const setStatus = (status) => {
@@ -127,9 +139,12 @@ function Embed({
                 new CustomEvent('fdfs:playback', { detail: data }),
               );
               clearInterval(ticker);
-              readPosition();
-              if (data === 1 && callbacks.current.onPosition)
-                ticker = setInterval(readPosition, 750);
+              readPosition(data);
+              if (
+                data === 1 &&
+                (callbacks.current.onPosition || callbacks.current.onSample)
+              )
+                ticker = setInterval(() => readPosition(1), 750);
             },
           },
         });

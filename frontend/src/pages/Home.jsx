@@ -1,3 +1,5 @@
+import { PersonalHomeSections } from '../features/personal/Dashboard.jsx';
+import { usePersonal } from '../features/personal/api.js';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MoveUpRight } from 'lucide-react';
@@ -83,6 +85,7 @@ export function HomepageDisplay({
   settings,
   legacy,
   preview = false,
+  personal,
   previewSize,
   loading = false,
   serverOffset = 0,
@@ -129,13 +132,25 @@ export function HomepageDisplay({
         loading={loading}
       />
       <Container className="grid min-w-0 gap-9 pt-5 pb-12 sm:gap-12 sm:pt-7">
+        {(personal?.position === 'after-hero' ||
+          (personal?.position === 'after-explore' &&
+            !sections.some((row) => row.type === 'explore'))) && (
+          <PersonalHomeSections data={personal} />
+        )}
         {sections.map((section) => {
           const rail = usable(section.sponsored, now);
           const banners = usable(section.between, now);
           return (
             <div className="grid min-w-0 gap-6" key={section.id}>
               {section.type === 'explore' && (
-                <Explore settings={settings} heading={section.heading} />
+                <>
+                  <Explore settings={settings} heading={section.heading} />
+                  {personal?.position === 'after-explore' &&
+                    section ===
+                      sections.find((row) => row.type === 'explore') && (
+                      <PersonalHomeSections data={personal} />
+                    )}
+                </>
               )}
               {(section.items?.length > 0 || rail.length > 0) && (
                 <ContentRail
@@ -168,6 +183,9 @@ export function HomepageDisplay({
             ))}
           </div>
         )}
+        {personal?.position === 'before-footer' && (
+          <PersonalHomeSections data={personal} />
+        )}
         {usable(value?.footer, now).map((item) => (
           <CampaignBanner
             item={item}
@@ -181,6 +199,10 @@ export function HomepageDisplay({
   );
 }
 export default function Home() {
+  const personal = usePersonal('/homepage', {
+    enabled: true,
+    staleTime: 15000,
+  });
   const settings = useSiteSettings();
   const query = useQuery({
     queryKey: ['homepage-discovery'],
@@ -208,6 +230,7 @@ export default function Home() {
     <>
       <HomepageDisplay
         value={value}
+        personal={personal.data}
         loading={!value && query.isPending}
         settings={settings}
         legacy={legacy}

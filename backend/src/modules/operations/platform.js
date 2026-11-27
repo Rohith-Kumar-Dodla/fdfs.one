@@ -182,12 +182,28 @@ const labels = {
   resolved: 'Your support ticket was resolved',
   review_comment: 'Someone commented on your review',
   review_moderation: 'Your review activity was moderated',
+  live_reminder: 'Your live event reminder was sent',
+  talent_release: 'A new release features talent you follow',
+};
+export const noticeKinds = {
+  reviews: [
+    'review_reply',
+    'review_comment',
+    'review_moderation',
+    'review_like',
+  ],
+  support: ['reply', 'status', 'resolved'],
+  releases: ['talent_release', 'live_reminder'],
 };
 export async function listNotices(res, query, user) {
   return sendList(
     res,
     Notice,
-    { owner: user.publicId },
+    {
+      owner: user.publicId,
+      ...(query.kind && { type: { $in: noticeKinds[query.kind] } }),
+      ...(query.unread && { readAt: null }),
+    },
     query,
     ({ publicId, type, ticket, path, createdAt, readAt }) => ({
       id: publicId,
@@ -274,6 +290,7 @@ export async function systemHealth({
         }
       : { status: 'not_configured' },
     reminderWorker: options('reminderWorker', smtp),
+    talentNotices: options('talentNotices', connected),
     supportWorker: options('supportWorker', smtp),
     cloudinary: options('cloudinary', media),
     recentEmail:

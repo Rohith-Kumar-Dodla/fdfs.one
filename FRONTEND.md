@@ -124,3 +124,13 @@ The homepage loads dynamic hero slides and ordered rails through `/api/v1/homepa
 The sticky navigation opens a keyboard-accessible search dialog. Suggestions use a short debounce and cancel obsolete requests. `/search` provides grouped results, URL-based filters and pagination. Genre cards display calculated published counts and open the corresponding result filter.
 
 Homepage Management configures the ordered hero and sections, featured titles, genre artwork, release windows and layout. Its saved preview uses the public homepage components with mobile or desktop artwork selection. Promotions includes campaign dashboards, artwork upload and selection, scoped content pickers, scheduling, previews, audit history and reporting. Sponsored campaigns display their disclosure in every placement. Preview excludes campaign event collection. The public footer continues to use Website Settings and provides the Support Center and analytics preference.
+
+## Personal dashboard and playback
+
+`/dashboard` links to Watchlist, Continue Watching, Watch history, Following and Reminders, plus the existing settings, ratings, notifications and support pages. Public eligible title cards and detail pages provide Save controls. Guests can sign in from the attempted action. Optimistic saves and follows roll back on failure. Related sections use published metadata and credits, with empty rails omitted.
+
+Account settings keeps playback history, recommendations, and followed-talent notices independent from optional analytics and existing email preferences. Signed-in users can clear history across devices or remove individual entries after confirmation. Dismissing Continue Watching keeps history and other activity.
+
+Only full videos pass playback samples to the synchronization layer. It uses the official player position, duration and state APIs, saves during playback at roughly 15-second intervals, and attempts a final save on pause, completion, navigation or document hiding. Unexpected browser termination can interrupt that final save. Resume starts the paused embed at the stored position after the viewer chooses Resume, and the viewer starts playback. [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
+
+The public homepage keeps its existing hero, editorial order and promotion placements. Signed-in personal sections load independently through user-scoped TanStack Query keys. Logout and identity changes clear those keys. The Notification Center supports categories, unread filtering, pagination and mark read actions, and refreshes its owned REST records after Socket.IO notifications and reconnection.

@@ -10,6 +10,7 @@ import { overview } from './overview.js';
 import { mountReviews } from '../reviews/routes.js';
 import { mountOperations } from '../operations/routes.js';
 import { Router } from 'express';
+import { mountPersonal } from '../personal/routes.js';
 import { z } from 'zod';
 import { mountLiveManagement } from '../live/routes.js';
 import {
@@ -147,6 +148,7 @@ export function mountPhase22(
     );
   }
 
+  mountPersonal(api, authenticate, available);
   mountOperations(api, admin, authenticate, {
     authConfig,
     available,

@@ -20,6 +20,7 @@ const routes = new Set([
   'talent',
   'reviews',
   'account',
+  'dashboard',
   'support',
 ]);
 const detailRoutes = new Set([

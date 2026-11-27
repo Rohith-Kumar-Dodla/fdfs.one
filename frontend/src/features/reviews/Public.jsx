@@ -10,6 +10,8 @@ import { Badge, Container } from '../../components/ui/surfaces.jsx';
 import { EmptyState } from '../../components/ui/states.jsx';
 import { control } from '../admin/common.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
+import { SaveAction } from '../personal/Actions.jsx';
+import { Related } from '../personal/Related.jsx';
 import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { kinds, useParticipation, useRead } from './client.js';
@@ -177,6 +179,9 @@ export function TitleCard({ row }) {
           <RatingText rating={row.rating} />
         </div>
       </Link>
+      <div className="px-3 pb-3">
+        <SaveAction item={row} module={row.classification ?? 'movies'} />
+      </div>
     </article>
   );
 }
@@ -599,6 +604,10 @@ function MovieContent({ movie }) {
         )}
         <Facts movie={movie} />
       </section>
+      <div>
+        <SaveAction item={movie} module="movies" />
+      </div>
+      <Related module="movies" id={movie.id} />
       {movie.trailer && (
         <section className="grid min-w-0 gap-3">
           <h2 className="text-xl font-semibold">

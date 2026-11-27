@@ -1,3 +1,8 @@
+import { initializePersonalIndexes } from './modules/personal/models.js';
+import {
+  createPersonalNotice,
+  startTalentNoticeWorker,
+} from './modules/personal/notices.js';
 import { Promotion } from './modules/site/promotions.js';
 import { initializeReviewsIndexes } from './modules/reviews/models.js';
 import { createPresenceStore } from './modules/operations/presence.js';
@@ -80,7 +85,24 @@ async function start() {
       health: health.set,
     },
   );
+  const notify = (id) => realtime.notice(id);
+  const stopTalent = startTalentNoticeWorker({
+    available,
+    notify,
+    logger,
+    health: (status) => health.set('talentNotices', status),
+  });
   const stopReminders = startReminderWorker({
+    onDelivered: (user, job, event) =>
+      createPersonalNotice(
+        user.publicId,
+        'reminder:' + String(job._id) + ':' + job.version,
+        'live_reminder',
+        '/live/' + event.slug,
+        notify,
+      ).catch(() =>
+        logger.warn('Live reminder notification could not be saved'),
+      ),
     health: (status) => health.set('reminderWorker', status),
     deliver: createReminderDelivery(authConfig, logger),
     intervalMs: config.LIVE_REMINDER_INTERVAL_MS,
@@ -100,7 +122,11 @@ async function start() {
 
     try {
       realtime.close();
-      const reminderDrain = Promise.all([stopReminders(), stopSupport()]);
+      const reminderDrain = Promise.all([
+        stopReminders(),
+        stopSupport(),
+        stopTalent(),
+      ]);
       if (server.listening) {
         const drainDeadline = setTimeout(() => {
           logger.warn(
@@ -153,6 +179,7 @@ async function start() {
           initializeOperationsIndexes(),
           initializeReviewsIndexes(),
           Promotion.createIndexes(),
+          initializePersonalIndexes(),
         ]);
         indexesReady = true;
       },

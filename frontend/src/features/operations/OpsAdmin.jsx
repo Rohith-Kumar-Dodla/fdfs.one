@@ -227,6 +227,7 @@ export function SystemHealth() {
     presence: 'Presence service',
     analytics: 'Analytics aggregation',
     reminderWorker: 'Live reminder worker',
+    talentNotices: 'Followed-talent release notifications',
     supportWorker: 'Support notification worker',
     cloudinary: 'Cloudinary operations',
     backup: 'Backup status',
@@ -250,10 +251,11 @@ export function SystemHealth() {
                 <Card key={key} className="min-w-0">
                   <dt className="font-semibold">{title}</dt>
                   <dd className="mt-1 text-sm">
-                    {readable(report[key].status).replace(/^./, (letter) =>
-                      letter.toUpperCase(),
+                    {readable(report[key]?.status ?? 'unknown').replace(
+                      /^./,
+                      (letter) => letter.toUpperCase(),
                     )}
-                    {report[key].checkedAt &&
+                    {report[key]?.checkedAt &&
                       ' · ' + date(report[key].checkedAt)}
                   </dd>
                 </Card>

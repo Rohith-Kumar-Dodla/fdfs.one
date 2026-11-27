@@ -124,6 +124,13 @@ export function AccountNavigation({
       <div
         className={`z-20 mt-2 grid min-w-40 justify-items-start gap-1 rounded-panel border border-line bg-nav p-2 ${mobile ? '' : 'absolute right-0'}`}
       >
+        <Link
+          to="/dashboard"
+          className={buttonClasses('ghost')}
+          onClick={close}
+        >
+          Dashboard
+        </Link>
         <Link to="/account" className={buttonClasses('ghost')} onClick={close}>
           Profile
         </Link>

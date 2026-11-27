@@ -1,3 +1,4 @@
+import { SaveAction } from '../personal/Actions.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { Link } from 'react-router';
@@ -420,6 +421,11 @@ export function ContentRail({ section, preview = false, previewSize }) {
               preview={preview}
               previewSize={previewSize}
             />
+            {!preview && (
+              <div className="mt-1">
+                <SaveAction item={item} />
+              </div>
+            )}
           </li>
         ))}
       </ul>

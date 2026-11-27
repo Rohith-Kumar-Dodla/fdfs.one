@@ -60,6 +60,7 @@ import {
   editAnnouncement,
   getAnnouncement,
   listNotices,
+  noticeKinds,
   managedAnnouncements,
   readNotices,
   systemHealth,
@@ -418,8 +419,15 @@ export function mountOperations(api, admin, authenticate, options) {
   );
   const notifications = Router();
   notifications.use(ready, privateResponse, authenticate, requireActiveAccount);
-  notifications.get('/', validate(listInput()), (req, res) =>
-    listNotices(res, input(res).query, user(req)),
+  notifications.get(
+    '/',
+    validate(
+      listInput({
+        kind: z.enum(Object.keys(noticeKinds)).optional(),
+        unread: z.stringbool().optional(),
+      }),
+    ),
+    (req, res) => listNotices(res, input(res).query, user(req)),
   );
   notifications.get('/unread', async (req, res) =>
     sendSuccess(res, await unreadCount(user(req))),
