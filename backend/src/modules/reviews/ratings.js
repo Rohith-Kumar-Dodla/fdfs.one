@@ -71,7 +71,7 @@ export async function accountRating(target, account) {
     ...(await ratingSummary(target)),
   };
 }
-async function updateTotals(target, before, after, session) {
+export async function updateTotals(target, before, after, session) {
   const key = targetKey(target);
   if (before === after)
     return RatingTotals.findOne(key).session(session).lean();

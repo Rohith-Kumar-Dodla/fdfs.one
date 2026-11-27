@@ -1,11 +1,11 @@
 import { can } from '../../../../shared/admin.js';
 import { mediaCategories } from '../../../../shared/site.js';
-import { useOutletContext } from 'react-router';
-import { MediaFilters } from './MediaPicker.jsx';
+import { Link, useOutletContext, useSearchParams } from 'react-router';
+import { ContentHeading, RecordFilters } from './ContentGrid.jsx';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { parseYouTube } from '../../../../shared/youtube.js';
-import { Button } from '../../components/ui/Button.jsx';
+import { Button, buttonClasses } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
 import { Card, SectionHeading } from '../../components/ui/surfaces.jsx';
@@ -16,7 +16,6 @@ import {
   control,
   date,
   QueryState,
-  Select,
   useChange,
   useRecords,
 } from './common.jsx';
@@ -61,8 +60,200 @@ function VideoPreview() {
   );
 }
 
+const categories = {
+  movies: {
+    title: 'Movies',
+    modules: [['movies', 'Movies', '/admin/movies', '/admin/movies']],
+  },
+  films: {
+    title: 'Short Films',
+    modules: [
+      ['independent', 'Cinema', '/admin/films', '/admin/films'],
+      ['original', 'Originals', '/admin/films', '/admin/films'],
+    ],
+  },
+  podcasts: {
+    title: '404 Podcasts',
+    modules: [
+      [
+        'podcasts',
+        'Episodes',
+        '/admin/podcasts/episodes',
+        '/admin/podcasts/episodes',
+      ],
+    ],
+  },
+};
 export function MediaPage() {
-  const records = useRecords(url);
+  const account = useOutletContext();
+  const [params] = useSearchParams();
+  const category = params.get('category');
+  if (category === 'shared')
+    return (
+      <>
+        <DetailLinkToLibrary />
+        <SharedMedia />
+      </>
+    );
+  if (Object.hasOwn(categories, category)) {
+    const { title, modules } = categories[category];
+    return (
+      <MediaContent
+        key={category}
+        title={title}
+        modules={modules.filter(([key]) => can(account, 'content', key))}
+        movie={category === 'movies'}
+      />
+    );
+  }
+  return (
+    <>
+      <SectionHeading as="h1">Media Library</SectionHeading>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Object.entries(categories).map(([key, { title }]) => (
+          <Card
+            as="article"
+            key={key}
+            className="grid justify-items-start gap-3"
+          >
+            <h2 className="font-semibold">{title}</h2>
+            <Link
+              className={buttonClasses('outline')}
+              to={url + '?category=' + key}
+            >
+              Manage Artwork
+            </Link>
+          </Card>
+        ))}
+      </div>
+      <Link
+        className={buttonClasses('outline', 'w-fit')}
+        to={url + '?category=shared'}
+      >
+        Shared Assets
+      </Link>
+    </>
+  );
+}
+
+function DetailLinkToLibrary() {
+  return (
+    <Link to={url} className="w-fit text-sm font-semibold text-accent">
+      Back to Media Library
+    </Link>
+  );
+}
+
+function MediaContent({ title, modules, movie }) {
+  const [selected, select] = useState(modules[0]?.[0]);
+  const item = modules.find(([key]) => key === selected);
+  return (
+    <>
+      <DetailLinkToLibrary />
+      <ContentHeading
+        title={title + ' Artwork'}
+        create={movie && item ? '/admin/movies/new' : undefined}
+        action="Add Movie Draft"
+      />
+      {!item ? (
+        <p className="text-sm text-muted">
+          Your role has no content access in this category.
+        </p>
+      ) : (
+        <>
+          {modules.length > 1 && (
+            <nav className="flex gap-2" aria-label="Short-film modules">
+              {modules.map(([key, name]) => (
+                <Button
+                  key={key}
+                  variant={selected === key ? 'primary' : 'outline'}
+                  aria-pressed={selected === key}
+                  onClick={() => select(key)}
+                >
+                  {name}
+                </Button>
+              ))}
+            </nav>
+          )}
+          <MediaContentPicker key={selected} module={item} />
+        </>
+      )}
+    </>
+  );
+}
+
+function MediaContentPicker({ module: [key, , path, editPath] }) {
+  const records = useRecords(
+    path,
+    ['independent', 'original'].includes(key)
+      ? { classification: key, limit: 12 }
+      : { limit: 12 },
+  );
+  const [selected, select] = useState(null);
+  return (
+    <>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          records.filter(
+            'q',
+            new FormData(event.currentTarget).get('q').trim(),
+          );
+        }}
+      >
+        <label className="grid min-w-0 flex-1 gap-1 text-sm">
+          Find content
+          <input className={control} name="q" type="search" maxLength={80} />
+        </label>
+        <Button variant="outline" type="submit">
+          Search
+        </Button>
+      </form>
+      <QueryState query={records.query} empty="No content matches your search">
+        {(rows) => (
+          <div className="flex flex-wrap gap-2">
+            {rows.map((item) => (
+              <Button
+                key={item.id}
+                variant={selected?.id === item.id ? 'primary' : 'outline'}
+                className="min-w-0 wrap-anywhere"
+                onClick={() => select(item)}
+              >
+                {item.title}
+              </Button>
+            ))}
+          </div>
+        )}
+      </QueryState>
+      {records.query.data && (
+        <Pagination
+          page={records.params.page}
+          totalPages={records.query.data.pagination.totalPages}
+          onPageChange={records.changePage}
+        />
+      )}
+      {selected && (
+        <>
+          <Link
+            className={buttonClasses('outline', 'w-fit')}
+            to={editPath + '/' + selected.id}
+          >
+            Edit Artwork for {selected.title}
+          </Link>
+          <SharedMedia
+            key={selected.id}
+            targetId={selected.id}
+            title={'Assets linked to ' + selected.title}
+          />
+        </>
+      )}
+    </>
+  );
+}
+
+function SharedMedia({ targetId, title = 'Shared Assets' }) {
+  const records = useRecords(url, targetId ? { targetId } : {});
   const { query, params, changePage } = records;
   const account = useOutletContext();
   const manage = can(account, 'media_manage');
@@ -95,25 +286,34 @@ export function MediaPage() {
   }
   return (
     <>
-      <SectionHeading as="h1">Media library</SectionHeading>
-      <Card>
-        <ImageUpload label="Add image to library" onUpload={upload} />
-      </Card>
+      <SectionHeading as={targetId ? 'h2' : 'h1'}>{title}</SectionHeading>
+      {!targetId && (
+        <Card>
+          <ImageUpload label="Add image to library" onUpload={upload} />
+        </Card>
+      )}
       {notice && (
         <p role="status" className="text-sm text-success">
           {notice}
         </p>
       )}
-      <MediaFilters records={records} />
-      <Select
-        label="Reference status"
-        options={[
-          ['used', 'Referenced'],
-          ['unused', 'Unused'],
-        ]}
-        value={params.usage ?? ''}
-        onChange={(value) => records.filter('usage', value)}
-      />
+      <div>
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search artwork'],
+            ['category', 'Category', Object.entries(mediaCategories)],
+            [
+              'usage',
+              'Reference status',
+              [
+                ['used', 'Referenced'],
+                ['unused', 'Unused'],
+              ],
+            ],
+          ]}
+        />
+      </div>
       <QueryState query={query} empty="No uploaded images">
         {(images) => (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -222,7 +422,7 @@ export function MediaPage() {
           Return to first page
         </Button>
       )}
-      <VideoPreview />
+      {!targetId && <VideoPreview />}
       <Dialog
         open={Boolean(replace)}
         onClose={() => setReplace(null)}

@@ -1,6 +1,9 @@
 ﻿import { z } from 'zod';
 import { parseYouTube } from '../../../../shared/youtube.js';
 
+import { youtubeThumbnails } from '../../../../shared/youtube-artwork.js';
+
+export const artworkKey = z.enum(Object.keys(youtubeThumbnails));
 const providers = { youtube: parseYouTube };
 const videoInput = z.strictObject({
   provider: z.enum(Object.keys(providers)),
@@ -9,6 +12,7 @@ const videoInput = z.strictObject({
   availability: z
     .enum(['unknown', 'available', 'unavailable'])
     .default('unknown'),
+  artwork: artworkKey.optional(),
   durationSeconds: z.number().int().positive().optional(),
   thumbnail: z
     .strictObject({

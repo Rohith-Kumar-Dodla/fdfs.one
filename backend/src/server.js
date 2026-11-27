@@ -70,6 +70,7 @@ async function start() {
   });
   const server = createServer(app);
   realtime = attachLiveSockets(server, {
+    chatEnabled: config.LIVE_CHAT_ENABLED,
     authConfig,
     origins: config.CORS_ORIGINS,
     presence,

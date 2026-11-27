@@ -54,7 +54,10 @@ const mediaIds = (key, value) =>
 const references = (value) =>
   [
     value.hero?.featured,
-    ...(value.heroSlides ?? []).map((row) => row.target),
+    ...(value.heroSlides ?? []).flatMap((row) =>
+      row.target ? [row.target] : [],
+    ),
+    ...Object.values(value.featuredPicks ?? {}).flat(),
     ...value.sections.flatMap((row) => row.items),
   ].filter(Boolean);
 const active = ({ startAt, endAt }, now) =>
@@ -229,7 +232,15 @@ export function saveConfig(key, revision, value, context, publish = false) {
         }
       }
       if (key === 'homepage') {
-        const refs = references(next);
+        const previousRefs = new Set(
+          references(previous?.value ?? defaultHomepage).map(
+            (ref) => lookupKey(ref) + ':' + Boolean(ref.upcoming),
+          ),
+        );
+        const refs = references(next).filter(
+          (ref) =>
+            !previousRefs.has(lookupKey(ref) + ':' + Boolean(ref.upcoming)),
+        );
         const valid = await features(refs, new Date(), session);
         if (refs.some((ref) => !valid.has(lookupKey(ref))))
           throw invalid('Choose published, publicly visible content.');

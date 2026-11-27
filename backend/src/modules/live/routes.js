@@ -14,6 +14,7 @@ import {
   ChatParticipant,
   ChatReport,
   chatActionInput,
+  chatClosed,
   chatHistory,
   chatHistoryInput,
   chatReportInput,
@@ -76,27 +77,29 @@ export function initializeLiveIndexes() {
   );
 }
 
-export function publicLiveRoutes(available) {
+export function publicLiveRoutes(available, chatEnabled = false) {
   const router = Router();
   router.use(availableOnly(available));
   router.get('/', validate(publicList), (_req, res) =>
     listEvents(res, input(res).query),
   );
-  router.get('/:slug', validate(slugInput), async (_req, res) =>
-    sendSuccess(
-      res,
-      await liveDetails({ ...visibility(), ...input(res).params }),
-    ),
-  );
-  router.get('/:slug/chat', validate(historicSlug), async (_req, res) =>
-    sendSuccess(
+  router.get('/:slug', validate(slugInput), async (_req, res) => {
+    const event = await liveDetails({ ...visibility(), ...input(res).params });
+    return sendSuccess(res, {
+      ...event,
+      chatEnabled: chatEnabled && event.chatEnabled,
+    });
+  });
+  router.get('/:slug/chat', validate(historicSlug), async (_req, res) => {
+    if (!chatEnabled) throw chatClosed();
+    return sendSuccess(
       res,
       await chatHistory(
         await publicEvent(input(res).params.slug),
         input(res).query.cursor,
       ),
-    ),
-  );
+    );
+  });
   return router;
 }
 
@@ -104,7 +107,7 @@ export function mountLiveManagement(
   api,
   admin,
   authenticate,
-  { available, liveNotify = () => {}, reminderLead = 15 },
+  { available, liveNotify = () => {}, reminderLead = 15, chatEnabled = false },
 ) {
   const organizer = Router();
   organizer.use(
@@ -140,18 +143,24 @@ export function mountLiveManagement(
         ),
     );
   }
+  if (!chatEnabled)
+    participation.post('/:slug/chat', () => {
+      throw chatClosed();
+    });
   participation.post(
     '/:slug/chat/reports',
     validate(reportInput),
-    async (req, res) =>
-      sendSuccess(
+    async (req, res) => {
+      if (!chatEnabled) throw chatClosed();
+      return sendSuccess(
         res,
         await reportChat(
           await publicEvent(input(res).params.slug),
           identity(req),
           input(res).body,
         ),
-      ),
+      );
+    },
   );
   api.use('/live', participation);
   api.use('/organizer', organizer);
@@ -161,7 +170,10 @@ export function mountLiveManagement(
       input(res).body,
       identity(req),
       audit(req, res),
+      reminderLead,
     );
+    if (event.status === 'published')
+      liveNotify({ slug: event.slug, status: event.status });
     return sendSuccess(res, await liveDetails({ _id: event._id }, true), {
       status: 201,
     });

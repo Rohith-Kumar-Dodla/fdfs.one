@@ -64,7 +64,10 @@ const featureSlide = (item, override = {}) => ({
 });
 const referenceList = (config) => [
   ...(config.hero?.featured ? [config.hero.featured] : []),
-  ...(config.heroSlides ?? []).map((slide) => slide.target),
+  ...(config.heroSlides ?? []).flatMap((slide) =>
+    slide.target ? [slide.target] : [],
+  ),
+  ...Object.values(config.featuredPicks ?? {}).flat(),
   ...config.sections.flatMap((section) => section.items ?? []),
 ];
 const orderByDate = (items, ascending = false) =>
@@ -188,21 +191,33 @@ export async function assembledHomepage({
     !refined ||
     (item?.module === 'live' && (item.live || item.upcoming)) ||
     released.includes(item?.module);
+  const heroCampaigns = campaigns(
+    promotions.items,
+    'hero',
+    undefined,
+    Number.MAX_SAFE_INTEGER,
+  );
   const slides = config.heroSlides
+    .toSorted((a, b) => (a.slot ?? 6) - (b.slot ?? 6))
     .filter(
       (slide) =>
-        open(slide, now) && get(slide.target) && canSlide(get(slide.target)),
+        open(slide, now) &&
+        (slide.campaignId
+          ? heroCampaigns.some((item) => item.id === slide.campaignId)
+          : get(slide.target) && canSlide(get(slide.target))),
     )
     .map((slide) =>
-      featureSlide(get(slide.target), {
-        title: slide.title,
-        description: slide.description,
-        image: media(slide.imageId),
-        mobile: media(slide.mobileId),
-        focal: slide.focal,
-      }),
+      slide.campaignId
+        ? heroCampaigns.find((item) => item.id === slide.campaignId)
+        : featureSlide(get(slide.target), {
+            title: slide.title,
+            description: slide.description,
+            image: media(slide.imageId),
+            mobile: media(slide.mobileId),
+            focal: slide.focal,
+          }),
     );
-  if (config.hero && open(config.hero, now)) {
+  if (!config.managedHero && config.hero && open(config.hero, now)) {
     const legacy = get(config.hero.featured);
     if (legacy && canSlide(legacy))
       slides.unshift(
@@ -221,8 +236,14 @@ export async function assembledHomepage({
         primary: { label: 'Explore FDFS', href: explore },
       });
   }
-  slides.unshift(...campaigns(promotions.items, 'hero', undefined, 3));
+  if (!config.managedHero)
+    slides.unshift(
+      ...heroCampaigns
+        .filter((item) => !slides.some((slide) => slide.id === item.id))
+        .slice(0, 3),
+    );
   if (
+    !config.managedHero &&
     !slides.length &&
     (!refined || (!config.heroSlides.length && !config.hero?.featured))
   ) {
@@ -241,6 +262,7 @@ export async function assembledHomepage({
   const sections = refined
     ? await refinedSections({
         visible,
+        picks: config.featuredPicks,
         selected: get,
         promotions: promotions.items,
         hidden,
@@ -383,12 +405,37 @@ export async function assembledHomepage({
     .map((entry) => entry && new Date(entry))
     .filter((entry) => entry && entry > now)
     .sort((a, b) => a - b)[0];
+  const shownSlides = [
+    ...new Map(
+      slides.map((slide) => [slide.module + ':' + slide.id, slide]),
+    ).values(),
+  ].slice(0, refined ? publicHeroLimit : 8);
+  const used = new Set(
+    shownSlides
+      .filter((slide) => slide.module === 'promotion')
+      .map((slide) => slide.id),
+  );
+  const distinctCampaigns = (items) =>
+    (items ?? []).filter((item) => {
+      if (used.has(item.id)) return false;
+      used.add(item.id);
+      return true;
+    });
   return {
     serverNow: now,
     nextChangeAt: next,
     rotationSeconds: config.rotationSeconds,
-    slides: slides.slice(0, refined ? publicHeroLimit : 8),
-    sections,
-    footer: campaigns(promotions.items, 'footer', undefined, 2),
+    slides: shownSlides,
+    sections: refined
+      ? sections.map((section) => ({
+          ...section,
+          above: distinctCampaigns(section.above),
+          sponsored: distinctCampaigns(section.sponsored),
+          between: distinctCampaigns(section.between),
+        }))
+      : sections,
+    footer: refined
+      ? distinctCampaigns(campaigns(promotions.items, 'footer', undefined, 2))
+      : campaigns(promotions.items, 'footer', undefined, 2),
   };
 }

@@ -1,3 +1,4 @@
+import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -29,6 +30,24 @@ import { FilmImage } from './FilmImage.jsx';
 
 export { FilmDirectory } from '../public-ui/Directories.jsx';
 
+export function SupportingVideos({ extras }) {
+  if (!extras?.length) return null;
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-xl font-semibold">Supporting Videos</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {extras.map(({ title, video, thumbnail }, index) => (
+          <div key={video.providerVideoId + ':' + index} className="grid gap-2">
+            <h3 className="font-semibold">{title}</h3>
+            {thumbnail && <FilmImage image={thumbnail} landscape />}
+            <YouTubePlayer video={video} title={title} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function VideoSection({ film }) {
   const [params] = useSearchParams();
   const [selected, setSelected] = useState(() =>
@@ -57,13 +76,6 @@ export function VideoSection({ film }) {
           },
         ]
       : []),
-    ...(film.extras ?? []).map(({ title, video, thumbnail }, index) => ({
-      key: 'extra-' + index,
-      label: 'Watch ' + title,
-      title,
-      video,
-      thumbnail,
-    })),
   ];
   if (!choices.length) return null;
   const active = choices.find(({ key }) => key === selected);
@@ -240,6 +252,7 @@ function FilmDetailContent({ film }) {
         <TargetCommunity key={film.id} target={target} />
       )}
       <Related module={film.classification} id={film.id} />
+      <SupportingVideos extras={film.extras} />
       {film.gallery.length > 0 && (
         <section className="grid gap-3">
           <h2 className="text-xl font-semibold">Gallery</h2>

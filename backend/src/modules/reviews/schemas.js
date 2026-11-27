@@ -167,6 +167,14 @@ const commentFields = {
   spoiler: z.boolean().default(false),
 };
 const halfStar = z.number().min(0.5).max(5).multipleOf(0.5);
+export const pendingReviewFields = z.strictObject({
+  title: plainText(180),
+  year: z.number().int().min(1888).max(2100).optional(),
+  details: plainText(240).optional(),
+  body: reviewFields.body,
+  spoiler: reviewFields.spoiler,
+  rating: halfStar,
+});
 export const targetInput = z.object({ params: target });
 export const reviewInput = z.object({ params: item });
 export const commentInput = z.object({ params: comment });

@@ -36,7 +36,7 @@ export function parseYouTube(source) {
     ) {
       id = url.searchParams.get('v');
     } else {
-      id = /^\/(?:embed|live)\/([^/]+)$/.exec(url.pathname)?.[1];
+      id = /^\/(?:embed|live|shorts)\/([^/]+)$/.exec(url.pathname)?.[1];
     }
   }
   if (privateHosts.has(url.hostname))

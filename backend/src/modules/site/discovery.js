@@ -1,3 +1,4 @@
+import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
 import { sources } from '../../../../shared/homepage.js';
 import { filmPaths } from '../../../../shared/films.js';
 import { visibility } from '../live/events.js';
@@ -22,7 +23,7 @@ const models = {
 };
 const mediaFields = 'publicId status url alt width height';
 const summaryFields =
-  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration number professions startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount';
+  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration number professions startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount mainVideo.providerVideoId mainVideo.artwork video.providerVideoId video.artwork';
 const fieldsByModule = {
   independent: ['poster', 'banner'],
   original: ['poster', 'banner'],
@@ -78,6 +79,12 @@ function feature(row, module, now) {
       ? row.broadcast === 'scheduled' && row.startAt > now
       : Boolean(releasedAt > now);
   const live = module === 'live' && row.broadcast === 'live';
+  const providerArt =
+    live ||
+    (['independent', 'original', 'podcasts'].includes(module) &&
+      row.releaseAt <= now)
+      ? youtubeArtwork(live ? row.video : row.mainVideo)
+      : undefined;
   return {
     id: row.publicId,
     module,
@@ -95,16 +102,18 @@ function feature(row, module, now) {
     upcoming,
     live,
     reminder: module === 'live' && upcoming && row.remindersEnabled === true,
-    image: discoveryImage(
-      row.poster ?? row.thumbnail ?? row.profileImage ?? row.replayThumbnail,
-    ),
-    landscape: discoveryImage(
-      row.banner ??
-        row.backdrop ??
-        row.coverImage ??
-        row.replayThumbnail ??
-        row.thumbnail,
-    ),
+    image:
+      discoveryImage(
+        row.poster ?? row.thumbnail ?? row.profileImage ?? row.replayThumbnail,
+      ) ?? providerArt,
+    landscape:
+      discoveryImage(
+        row.banner ??
+          row.backdrop ??
+          row.coverImage ??
+          row.replayThumbnail ??
+          row.thumbnail,
+      ) ?? providerArt,
   };
 }
 const reviewFeature = (row) => ({

@@ -56,6 +56,14 @@ export function useRecords(url, initial = {}) {
     query,
     params,
     filter,
+    applyFilters: (values, keys) =>
+      setParams((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          keys.map((key) => [key, values[key]?.trim() || undefined]),
+        ),
+        page: 1,
+      })),
     changePage: (page) => setParams((current) => ({ ...current, page })),
   };
 }

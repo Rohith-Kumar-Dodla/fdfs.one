@@ -94,6 +94,19 @@ export function ProfileContent({ profile }) {
       {profile.location && (
         <p className="text-sm text-muted">{profile.location}</p>
       )}
+      {(profile.professionalBackground || profile.expertise) && (
+        <section className="grid gap-2">
+          <h2 className="text-xl font-semibold">
+            Professional background and expertise
+          </h2>
+          {profile.professionalBackground && (
+            <p className="whitespace-pre-wrap">
+              {profile.professionalBackground}
+            </p>
+          )}
+          {profile.expertise && <p>{profile.expertise}</p>}
+        </section>
+      )}
       {profile.biography && (
         <section className="grid gap-2">
           <h2 className="text-xl font-semibold">Biography</h2>

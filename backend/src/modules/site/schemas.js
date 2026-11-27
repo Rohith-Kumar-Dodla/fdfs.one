@@ -102,69 +102,106 @@ const section = z
     ({ items }) =>
       new Set(items.map(({ module, id }) => module + id)).size === items.length,
   );
-export const homepage = z.strictObject({
-  hero: z
-    .strictObject({
-      title: text(100),
-      description: text(280).optional(),
-      imageId: publicId.optional(),
-      featured: reference.optional(),
-      ...windowFields,
-    })
-    .refine(ordered, { path: ['endAt'], message: 'End must follow start.' })
-    .optional(),
-  sections: z
-    .array(section)
-    .max(16)
-    .default([])
-    .refine(
-      (items) => new Set(items.map(({ id }) => id)).size === items.length,
-    ),
-  heroSlides: z
-    .array(
-      z
-        .strictObject({
-          id: publicId,
-          title: text(100).optional(),
-          description: text(280).optional(),
-          imageId: publicId.optional(),
-          mobileId: publicId.optional(),
-          target: reference,
-          focal: z
-            .enum(['center', 'top', 'bottom', 'left', 'right'])
-            .optional(),
-          ...windowFields,
-        })
-        .refine(ordered),
-    )
-    .max(8)
-    .optional()
-    .refine(
-      (rows) =>
-        !rows || new Set(rows.map((row) => row.id)).size === rows.length,
-    ),
-  rotationSeconds: z
-    .number()
-    .int()
-    .min(0)
-    .max(60)
-    .refine((value) => value === 0 || value >= 5)
-    .optional(),
-  releaseDays: z.number().int().min(1).max(180).optional(),
-  genres: z
-    .array(
-      z.strictObject({
-        genre: z.enum(Object.keys({ ...genres, ...reviewGenres })),
+export const homepage = z
+  .strictObject({
+    hero: z
+      .strictObject({
+        title: text(100),
+        description: text(280).optional(),
         imageId: publicId.optional(),
-      }),
-    )
-    .max(16)
-    .optional()
-    .refine(
-      (rows) =>
-        !rows || new Set(rows.map((row) => row.genre)).size === rows.length,
-    ),
-});
+        featured: reference.optional(),
+        ...windowFields,
+      })
+      .refine(ordered, { path: ['endAt'], message: 'End must follow start.' })
+      .optional(),
+    sections: z
+      .array(section)
+      .max(16)
+      .default([])
+      .refine(
+        (items) => new Set(items.map(({ id }) => id)).size === items.length,
+      ),
+    heroSlides: z
+      .array(
+        z
+          .strictObject({
+            id: publicId,
+            title: text(100).optional(),
+            description: text(280).optional(),
+            imageId: publicId.optional(),
+            mobileId: publicId.optional(),
+            target: reference.optional(),
+            campaignId: publicId.optional(),
+            slot: z.number().int().min(1).max(5).optional(),
+            focal: z
+              .enum(['center', 'top', 'bottom', 'left', 'right'])
+              .optional(),
+            ...windowFields,
+          })
+          .refine(ordered)
+          .refine((row) => Boolean(row.target) !== Boolean(row.campaignId)),
+      )
+      .max(8)
+      .optional()
+      .refine(
+        (rows) =>
+          !rows ||
+          (new Set(rows.map((row) => row.id)).size === rows.length &&
+            new Set(rows.flatMap((row) => (row.slot ? [row.slot] : [])))
+              .size === rows.filter(({ slot }) => slot).length),
+      ),
+    featuredPicks: z
+      .partialRecord(
+        z.enum(['independent', 'original', 'podcasts', 'reviews', 'talent']),
+        z.array(reference).max(12),
+      )
+      .optional()
+      .refine(
+        (groups) =>
+          !groups ||
+          Object.entries(groups).every(
+            ([key, rows]) =>
+              rows.every((row) => row.module === key && !row.upcoming) &&
+              new Set(rows.map((row) => row.id)).size === rows.length,
+          ),
+      ),
+    managedHero: z.boolean().optional(),
+    rotationSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .max(60)
+      .refine((value) => value === 0 || value >= 5)
+      .optional(),
+    releaseDays: z.number().int().min(1).max(180).optional(),
+    genres: z
+      .array(
+        z.strictObject({
+          genre: z.enum(Object.keys({ ...genres, ...reviewGenres })),
+          imageId: publicId.optional(),
+        }),
+      )
+      .max(16)
+      .optional()
+      .refine(
+        (rows) =>
+          !rows || new Set(rows.map((row) => row.genre)).size === rows.length,
+      ),
+  })
+  .refine(
+    ({ managedHero, heroSlides = [] }) =>
+      !managedHero ||
+      (heroSlides.length <= 5 &&
+        new Set(
+          heroSlides.map(
+            (row) => row.campaignId ?? row.target.module + row.target.id,
+          ),
+        ).size === heroSlides.length),
+    {
+      path: ['heroSlides'],
+      message: 'Choose at most five distinct hero slides.',
+    },
+  );
 export const settingsInput = z.object({
   body: z.strictObject({ revision, settings }),
 });

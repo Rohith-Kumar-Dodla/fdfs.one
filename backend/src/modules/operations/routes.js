@@ -241,9 +241,16 @@ export function mountOperations(api, admin, authenticate, options) {
   const staff = Router();
   staff.use(permit('support'), staffActor);
   admin.use('/support', staff);
-  staff.get('/stats', async (_req, res) =>
-    sendSuccess(res, { open: await openSupportCount() }),
-  );
+  staff.get('/stats', async (_req, res) => {
+    const [open, rows] = await Promise.all([
+      openSupportCount(),
+      Ticket.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    ]);
+    return sendSuccess(res, {
+      open,
+      statuses: Object.fromEntries(rows.map(({ _id, count }) => [_id, count])),
+    });
+  });
   staff.get('/assignees', validate(assignmentInput), (_req, res) =>
     listAssignees(res, input(res).query),
   );

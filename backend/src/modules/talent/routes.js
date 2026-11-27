@@ -3,6 +3,12 @@ import { Router } from 'express';
 import { validate } from '../../middlewares/validate.js';
 import { idParams } from '../../utils/list.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
+import {
+  readTalentCredits,
+  saveTalentCredits,
+  talentCredits,
+  writeTalentCredits,
+} from './credits.js';
 import { z } from 'zod';
 import {
   adminCreateInput,
@@ -51,6 +57,21 @@ export function publicTalentRoutes(available) {
 }
 
 export function mountAdminTalent(admin) {
+  const credits = '/talent/:id/credits/:module/:target';
+  admin.get(credits, validate(readTalentCredits), async (req, res) =>
+    sendSuccess(res, await talentCredits(data(res).params, req.auth.user)),
+  );
+  admin.put(credits, validate(writeTalentCredits), async (req, res) =>
+    sendSuccess(
+      res,
+      await saveTalentCredits(
+        data(res).params,
+        data(res).body,
+        req.auth.user,
+        context(req, res),
+      ),
+    ),
+  );
   admin.get(
     '/talent/duplicates',
     validate(

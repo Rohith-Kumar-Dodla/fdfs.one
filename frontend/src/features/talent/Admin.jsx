@@ -1,22 +1,32 @@
+import {
+  ContentGrid,
+  ContentHeading,
+  RecordFilters,
+} from '../admin/ContentGrid.jsx';
+import { talentCategories } from '../../../../shared/public-home.js';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { can } from '../../../../shared/admin.js';
-import { useNavigate, useOutletContext, useParams } from 'react-router';
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { professions } from '../../../../shared/talent.js';
-import { Button } from '../../components/ui/Button.jsx';
+import { Button, buttonClasses } from '../../components/ui/Button.jsx';
 import { TextInput } from '../../components/ui/fields.jsx';
 import { Badge, Card, SectionHeading } from '../../components/ui/surfaces.jsx';
 import {
   ConfirmAction,
-  control,
   DetailLink,
   get,
   QueryState,
-  Records,
-  Select,
   useChange,
   useRecords,
 } from '../admin/common.jsx';
+import { TalentCredits } from './Credits.jsx';
 import { TalentForm } from './Form.jsx';
 import { professionOptions, ProfileContent, TalentImage } from './Public.jsx';
 
@@ -28,75 +38,78 @@ const invalidationKeys = [
   '/admin/overview',
   'site-homepage',
 ];
-const columns = [
-  {
-    title: 'Name',
-    render: (profile) => (
-      <DetailLink to={profile.id}>{profile.displayName}</DetailLink>
-    ),
-  },
-  {
-    title: 'Professions',
-    render: (profile) =>
-      profile.professions.map((role) => professions[role]).join(', '),
-  },
-  {
-    title: 'Status',
-    render: (profile) => (
-      <Badge tone={profile.status === 'published' ? 'success' : 'neutral'}>
-        {profile.status}
-      </Badge>
-    ),
-  },
-];
 const states = ['draft', 'published', 'archived'];
-
+function useCategory() {
+  const [params] = useSearchParams();
+  const category = params.get('category');
+  return Object.hasOwn(talentCategories, category) ? category : undefined;
+}
 export function AdminTalentList() {
-  const records = useRecords(base);
-  return (
+  const category = useCategory();
+  return category ? (
+    <TalentGrid key={category} category={category} />
+  ) : (
     <>
       <SectionHeading as="h1">Talent Profiles</SectionHeading>
-      <div className="flex flex-wrap items-center gap-x-5">
-        <DetailLink to={base + '/new'}>Create a profile</DetailLink>
-        <DetailLink to="/admin/submissions?category=talent">
-          Review talent submissions
-        </DetailLink>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Object.entries(talentCategories).map(([key, label]) => (
+          <Card
+            key={key}
+            as="article"
+            className="grid justify-items-start gap-3"
+          >
+            <h2 className="text-lg font-semibold">{label}</h2>
+            <Link
+              to={base + '?category=' + key}
+              className={buttonClasses('outline')}
+            >
+              Manage Profiles
+            </Link>
+          </Card>
+        ))}
       </div>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
+      <DetailLink to="/admin/submissions?category=talent">
+        Review talent submissions
+      </DetailLink>
+    </>
+  );
+}
+function TalentGrid({ category }) {
+  const records = useRecords(base, { category });
+  return (
+    <>
+      <DetailLink to={base}>Back to Talent Profiles</DetailLink>
+      <ContentHeading
+        title={talentCategories[category]}
+        create={base + '/new?category=' + category}
+        action="Create Profile"
       >
-        <label className="grid min-w-0 flex-1 basis-48 gap-1 text-sm">
-          Search by name
-          <input type="search" name="q" maxLength={80} className={control} />
-        </label>
-        <Button type="submit">Search</Button>
-      </form>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Select
-          label="Profession"
-          options={professionOptions}
-          value={records.params.profession ?? ''}
-          onChange={(value) => records.filter('profession', value)}
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search by name'],
+            ['profession', 'Profession', professionOptions],
+            [
+              'status',
+              'Publication status',
+              states.map((status) => [status, status]),
+            ],
+          ]}
         />
-        <Select
-          label="Publication status"
-          options={states.map((status) => [status, status])}
-          value={records.params.status ?? ''}
-          onChange={(value) => records.filter('status', value)}
-        />
-      </div>
-      <Records
+      </ContentHeading>
+      <ContentGrid
         records={records}
-        columns={columns}
-        label="Talent profiles"
         empty="No talent profiles found"
+        entry={(profile) => ({
+          title: profile.displayName,
+          image: profile.profileImage,
+          meta: profile.professions.map((role) => professions[role]).join(', '),
+          edit: base + '/' + profile.id,
+          preview:
+            profile.status === 'published'
+              ? '/talent/' + profile.slug
+              : base + '/' + profile.id + '#preview',
+        })}
       />
     </>
   );
@@ -239,6 +252,7 @@ function ProfileActions({ profile }) {
 }
 
 export function AdminNewTalent() {
+  const category = useCategory();
   const navigate = useNavigate();
   const change = useChange(invalidationKeys, ({ data }) =>
     navigate(base + '/' + data.id),
@@ -251,6 +265,7 @@ export function AdminNewTalent() {
       <TalentForm
         admin
         create
+        category={category}
         change={change}
         label="Create draft"
         submit={(data) => change.mutate({ url: base, method: 'post', data })}
@@ -260,6 +275,7 @@ export function AdminNewTalent() {
 }
 
 export function AdminTalentDetail() {
+  const account = useOutletContext();
   const { id } = useParams();
   const url = base + '/' + id;
   const query = useQuery({
@@ -292,6 +308,13 @@ export function AdminTalentDetail() {
             ) : (
               <>
                 <ProfileActions profile={profile} />
+                <TalentCredits profile={profile} account={account} />
+                <details id="preview" tabIndex={-1}>
+                  <summary className="cursor-pointer py-2 font-semibold">
+                    Preview profile
+                  </summary>
+                  <ProfileContent profile={profile} />
+                </details>
                 <DetailLink to="/admin/media">Open media library</DetailLink>
                 <TalentForm
                   key={profile.id + '-' + profile.revision}

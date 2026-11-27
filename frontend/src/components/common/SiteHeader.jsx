@@ -103,7 +103,7 @@ export function SiteHeader({
           />
         </nav>
         <div className="flex shrink-0 items-center gap-1">
-          <div className="hidden lg:block">
+          <div className={signedIn ? 'block' : 'hidden lg:block'}>
             <AccountNavigation
               allowRegistration={
                 settings.registrationOpen !== false && !settings.maintenance
@@ -145,15 +145,16 @@ export function SiteHeader({
             onNavigate={() => setOpen(false)}
             mobile
           />
-          <div className="border-t border-line py-3">
-            <AccountNavigation
-              mobile
-              allowRegistration={
-                settings.registrationOpen !== false && !settings.maintenance
-              }
-              onNavigate={() => setOpen(false)}
-            />
-          </div>
+          {!signedIn && (
+            <div className="border-t border-line py-3">
+              <AccountNavigation
+                allowRegistration={
+                  settings.registrationOpen !== false && !settings.maintenance
+                }
+                onNavigate={() => setOpen(false)}
+              />
+            </div>
+          )}
         </Container>
       </div>
     </header>

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { YouTubeDetails } from '../media/YouTubeDetails.jsx';
+import { parseYouTube } from '../../../../shared/youtube.js';
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
@@ -199,6 +201,12 @@ export function EventForm({
   const initial = record?.eventProposal.event ?? event;
   const editing = Boolean(record || (admin && event));
   const [localError, setError] = useState('');
+  const form = useRef(null);
+  const [mode, setMode] = useState('draft');
+  const [artwork, setArtwork] = useState(() => ({
+    key: event?.videoArtwork,
+    id: parseYouTube(event?.video?.sourceUrl)?.providerVideoId,
+  }));
   const [poster, setPoster] = useState(
     record?.eventImages?.poster ??
       event?.poster ??
@@ -226,7 +234,15 @@ export function EventForm({
     setError('');
     let schedule;
     try {
-      schedule = readSchedule(data);
+      schedule =
+        admin && !event && mode === 'live'
+          ? {
+              startAt: new Date().toISOString(),
+              timeZone: data.get('timeZone').trim(),
+            }
+          : readSchedule(data);
+      if (mode === 'upcoming' && Date.parse(schedule.startAt) <= Date.now())
+        throw new Error('Choose a future start for the upcoming event.');
     } catch (error) {
       setError(
         error instanceof RangeError
@@ -269,9 +285,20 @@ export function EventForm({
       data: admin
         ? {
             ...content,
+            videoArtwork:
+              artwork.id === parseYouTube(content.videoUrl)?.providerVideoId
+                ? artwork.key
+                : undefined,
             ...(event
               ? { revision: event.revision }
               : {
+                  ...(mode === 'upcoming' && { publication: { mode } }),
+                  ...(mode === 'live' && {
+                    publication: {
+                      mode,
+                      broadcasting: data.has('broadcasting'),
+                    },
+                  }),
                   organizerId: optional('organizerId'),
                   plannedReplayUrl: optional('plannedReplayUrl'),
                   chatEnabled: data.has('chatEnabled'),
@@ -297,7 +324,43 @@ export function EventForm({
           onChange={setBanner}
         />
       </Card>
-      <form className="grid min-w-0 gap-4" onSubmit={submit}>
+      <form ref={form} className="grid min-w-0 gap-4" onSubmit={submit}>
+        <label className={field}>
+          YouTube Live URL
+          <input
+            name="videoUrl"
+            className={control}
+            maxLength={2048}
+            type="url"
+            defaultValue={initial?.videoUrl ?? initial?.video?.sourceUrl}
+          />
+        </label>
+
+        {admin && (
+          <YouTubeDetails
+            module="live"
+            source={() =>
+              form.current?.elements.namedItem('videoUrl')?.value ?? ''
+            }
+            current={(key) => form.current?.elements.namedItem(key)?.value}
+            values={(details) => ({
+              title: details.title?.trim().slice(0, 140),
+              summary: details.description?.trim().slice(0, 280),
+              description: details.description?.trim().slice(0, 6000),
+            })}
+            apply={(fields, thumbnail, replace) => {
+              for (const [key, value] of Object.entries(fields))
+                form.current.elements.namedItem(key).value = value;
+              if (thumbnail && (replace || !artwork.key))
+                setArtwork({
+                  key: thumbnail.key,
+                  id: parseYouTube(
+                    form.current.elements.namedItem('videoUrl').value,
+                  ).providerVideoId,
+                });
+            }}
+          />
+        )}
         <label className={field}>
           Event title
           <input
@@ -363,8 +426,45 @@ export function EventForm({
               defaultValue={initial?.venue}
             />
           </label>
-          <ScheduleFields event={initial} />
+          {mode !== 'live' ? (
+            <ScheduleFields event={initial} />
+          ) : (
+            <label className={field}>
+              Event timezone (IANA)
+              <input
+                name="timeZone"
+                className={control}
+                defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}
+                required
+                maxLength={64}
+              />
+            </label>
+          )}
         </div>
+        {admin && !event && (
+          <fieldset className="grid gap-2">
+            <legend className="font-semibold">Publishing option</legend>
+            <label className={field}>
+              Event availability
+              <select
+                className={control}
+                value={mode}
+                onChange={(event) => setMode(event.target.value)}
+              >
+                <option value="draft">Save Draft</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="live">Live Now</option>
+              </select>
+            </label>
+            {mode === 'live' && (
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input type="checkbox" required name="broadcasting" /> I
+                verified that the authorized YouTube broadcast is live and plays
+                in an embed.
+              </label>
+            )}
+          </fieldset>
+        )}
         <TalentPicker selected={talent} setSelected={setTalent} />
         {admin && !event && (
           <label className={field}>
@@ -385,16 +485,6 @@ export function EventForm({
             </label>
           </fieldset>
         )}
-        <label className={field}>
-          YouTube Live URL
-          <input
-            name="videoUrl"
-            className={control}
-            maxLength={2048}
-            type="url"
-            defaultValue={initial?.videoUrl ?? initial?.video?.sourceUrl}
-          />
-        </label>
         {admin && !event && (
           <label className={field}>
             Planned replay YouTube URL (optional)
@@ -425,7 +515,7 @@ export function EventForm({
         </label>
         <div>
           <Button type="submit" loading={change.isPending}>
-            {editing ? 'Save event changes' : 'Create event draft'}
+            {editing ? 'Save event changes' : 'Submit Event'}
           </Button>
         </div>
         {(localError || change.isError) && (

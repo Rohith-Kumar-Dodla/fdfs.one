@@ -1,3 +1,4 @@
+import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
 import { podcastBrand } from '../../../../shared/podcasts.js';
 import { sendSuccess } from '../../utils/responses.js';
 import { AppError } from '../../utils/app-error.js';
@@ -10,7 +11,7 @@ const mediaFields =
   'publicId purpose url width height bytes references createdAt alt';
 const peopleFields = 'publicId displayName slug status';
 const cardFields =
-  'publicId slug title synopsis number season language topics duration thumbnail releaseAt teaser.provider';
+  'publicId slug title synopsis number season language topics duration thumbnail releaseAt teaser.provider mainVideo.providerVideoId mainVideo.artwork';
 export const missingEpisode = () =>
   new AppError(404, 'EPISODE_NOT_FOUND', 'Episode not found.');
 export const missingShow = () =>
@@ -120,7 +121,9 @@ function card(episode, now, show, admin = false) {
     topics,
     duration,
     releaseAt,
-    thumbnail: image(thumbnail, admin),
+    thumbnail:
+      image(thumbnail, admin) ??
+      (releaseAt <= now ? youtubeArtwork(episode.mainVideo) : null),
     show: { name: show.name, slug: show.slug },
     availability: releaseAt <= now ? 'released' : 'upcoming',
     hasTeaser: Boolean(teaser?.provider),
@@ -282,6 +285,7 @@ export async function getEpisode(identifier, admin = false) {
       .populate([
         { path: 'thumbnail', select: mediaFields },
         { path: 'banner', select: mediaFields },
+        { path: 'gallery', select: mediaFields },
       ])
       .lean());
   if (!episode) throw missingEpisode();
@@ -299,7 +303,14 @@ export async function getEpisode(identifier, admin = false) {
       available || teaser?.providerVideoId !== mainVideo?.providerVideoId
         ? teaser
         : undefined,
-    ...((available || admin) && { mainVideo, chapters }),
+    ...((available || admin) && {
+      mainVideo,
+      chapters,
+      gallery: (episode.gallery ?? [])
+        .map((row) => image(row, admin))
+        .filter(Boolean),
+      extras: episode.extras ?? [],
+    }),
   };
   if (admin)
     Object.assign(result, {
@@ -309,9 +320,11 @@ export async function getEpisode(identifier, admin = false) {
       announce: episode.announce,
       publicationAt: episode.publicationAt,
       mainUrl: mainVideo?.sourceUrl,
+      videoArtwork: mainVideo?.artwork,
       teaserUrl: teaser?.sourceUrl,
       thumbnailId: episode.thumbnail?.publicId,
       bannerId: episode.banner?.publicId,
+      galleryIds: (episode.gallery ?? []).map((row) => row.publicId),
     });
   return result;
 }

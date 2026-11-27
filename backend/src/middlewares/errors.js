@@ -41,6 +41,7 @@ const parserErrors = {
 const safeServiceErrors = new Set([
   'MOVIE_METADATA_UNAVAILABLE',
   'MOVIE_METADATA_INVALID',
+  'YOUTUBE_METADATA_UNAVAILABLE',
   'DEPENDENCY_UNAVAILABLE',
   'SITE_MAINTENANCE',
 ]);

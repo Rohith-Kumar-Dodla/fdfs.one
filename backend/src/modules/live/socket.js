@@ -6,7 +6,7 @@ import { createSessionService } from '../auth/sessions.js';
 import { slug } from '../films/schemas.js';
 import { siteFlags } from '../site/service.js';
 import { publicEvent } from './events.js';
-import { chatSendInput, sendChat } from './chat.js';
+import { chatClosed, chatSendInput, sendChat } from './chat.js';
 
 const roomName = (slug) => 'live:' + slug;
 const roomInput = z.strictObject({ slug });
@@ -14,7 +14,14 @@ const messageInput = chatSendInput.extend({ slug });
 
 export function attachLiveSockets(
   server,
-  { authConfig, origins, available, logger, presence = createPresenceStore() },
+  {
+    authConfig,
+    origins,
+    available,
+    logger,
+    chatEnabled = false,
+    presence = createPresenceStore(),
+  },
 ) {
   const sessions = createSessionService(authConfig);
   const io = new Server(server, {
@@ -159,6 +166,7 @@ export function attachLiveSockets(
       }),
     );
     handle('chat:send', messageInput, async ({ slug, ...message }) => {
+      if (!chatEnabled) throw chatClosed();
       const room = roomName(slug);
       if (joining || joined !== slug || !socket.rooms.has(room))
         throw new AppError(

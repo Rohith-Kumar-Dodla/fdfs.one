@@ -1,3 +1,4 @@
+import { publicHomeSections } from '../../../../shared/public-home.js';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -99,7 +100,8 @@ const placement = z
   })
   .refine(
     ({ slot, sectionId }) =>
-      Boolean(sectionId) === ['between', 'rail'].includes(slot),
+      Boolean(sectionId) ===
+      ['between', 'rail', 'above', 'below'].includes(slot),
     'Choose a section for this placement.',
   );
 const timezone = z
@@ -301,10 +303,14 @@ export async function listPromotions(res, query) {
       .lean(),
     Promotion.countDocuments(filter),
   ]);
+  const art = await discoveryAssets(rows.flatMap(artworkIds));
   return res.json({
     success: true,
     message: 'OK',
-    data: rows.map(managed),
+    data: rows.map((row) => ({
+      ...managed(row),
+      desktop: discoveryImage(art.get(row.desktopId)),
+    })),
     counts,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
@@ -316,6 +322,13 @@ async function validateConfig(row, session, checkTargets) {
   );
   for (const place of row.placements) {
     const section = candidates.get(place.sectionId);
+    if (['above', 'below'].includes(place.slot)) {
+      if (
+        !publicHomeSections.some((row) => row.placementId === place.sectionId)
+      )
+        throw invalid('Choose an entertainment homepage section.');
+      continue;
+    }
     if (
       place.sectionId &&
       (!section || (place.slot === 'rail' && !permittedRail(section.type)))
@@ -474,6 +487,20 @@ export async function promotionEligible(
   const { published } = await readConfig('homepage');
   const sections = homepageSections(published);
   const placement = row.placements.find((place) => placementKey(place) === key);
+  if (placement.slot === 'hero' && published?.managedHero) {
+    return (
+      published.heroSlides?.some(
+        (slide) =>
+          slide.campaignId === id &&
+          (!slide.startAt || new Date(slide.startAt) <= now) &&
+          (!slide.endAt || new Date(slide.endAt) > now),
+      ) ?? false
+    );
+  }
+  if (['above', 'below'].includes(placement.slot))
+    return publicHomeSections.some(
+      (entry) => entry.placementId === placement.sectionId,
+    );
   return (
     !placement.sectionId ||
     sections.some(

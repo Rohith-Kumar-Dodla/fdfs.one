@@ -32,13 +32,17 @@ const metadata = {
   bufferCommands: false,
 };
 const image = { type: Schema.Types.ObjectId, ref: 'MediaAsset' };
-const link = new Schema({ label: String, url: String }, { _id: false });
+const link = new Schema(
+  { label: String, url: String, description: String },
+  { _id: false },
+);
 const video = new Schema(
   {
     provider: { type: String, enum: ['youtube'] },
     providerVideoId: { type: String, match: /^[A-Za-z0-9_-]{11}$/ },
     sourceUrl: String,
     playbackType: { type: String, enum: ['on_demand'] },
+    artwork: String,
     availability: {
       type: String,
       enum: ['unknown', 'available', 'unavailable'],
@@ -109,6 +113,8 @@ const episode = new Schema(
       validate: Number.isInteger,
     },
     thumbnail: image,
+    gallery: [image],
+    extras: [new Schema({ title: String, video }, { _id: false })],
     banner: image,
     mainVideo: video,
     teaser: video,

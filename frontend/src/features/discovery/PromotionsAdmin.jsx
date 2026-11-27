@@ -1,6 +1,8 @@
+import { ContentGrid, RecordFilters } from '../admin/ContentGrid.jsx';
+import { publicHomeSections } from '../../../../shared/public-home.js';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   permittedRail,
   placementKey,
@@ -24,7 +26,6 @@ import {
   get,
   QueryState,
   Records,
-  Select,
   useChange,
   useRecords,
 } from '../admin/common.jsx';
@@ -69,7 +70,7 @@ export function PromotionsList() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SectionHeading as="h1">Promotions</SectionHeading>
         <Link to={root + '/new'} className={buttonClasses()}>
-          Create campaign
+          Create Promotion
         </Link>
       </div>
       {counts && (
@@ -82,52 +83,41 @@ export function PromotionsList() {
           ))}
         </dl>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
-        <Field
-          label="Search campaign names"
-          type="search"
-          value={records.params.q ?? ''}
-          maxLength={80}
-          onChange={(event) => records.filter('q', event.target.value)}
-        />
-        <Select
-          label="Campaign status"
-          options={statusOptions}
-          value={records.params.state ?? ''}
-          onChange={(value) => records.filter('state', value)}
-        />
-        <Select
-          label="Campaign type"
-          options={Object.entries(promotionTypes)}
-          value={records.params.type ?? ''}
-          onChange={(value) => records.filter('type', value)}
+      <div>
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search campaign names'],
+            ['state', 'Campaign status', statusOptions],
+            ['type', 'Campaign type', Object.entries(promotionTypes)],
+          ]}
         />
       </div>
-      <Records
+      <ContentGrid
         records={records}
-        label="Campaigns"
         empty="No campaigns match these filters"
-        columns={[
-          {
-            title: 'Campaign',
-            render: (row) => (
-              <DetailLink to={root + '/' + row.id}>{row.name}</DetailLink>
-            ),
-          },
-          { title: 'Type', render: (row) => promotionTypes[row.type] },
-          { title: 'Status', render: (row) => capital(row.state) },
-          {
-            title: 'Schedule',
-            render: (row) => (
-              <>
-                {time(row.startAt, row)} – {time(row.endAt, row)}
-                <br />
-                {row.timezone}
-              </>
-            ),
-          },
-          { title: 'Priority', render: (row) => row.priority },
-        ]}
+        entry={(row) => ({
+          title: row.name,
+          image: row.desktop,
+          status: row.state,
+          meta: [
+            row.primary?.kind === 'external'
+              ? new URL(row.primary.url).hostname
+              : row.primary?.label,
+            row.placements
+              ?.map(({ slot }) => placementTypes[slot])
+              .filter(Boolean)
+              .join(', '),
+            row.startAt &&
+              row.endAt &&
+              time(row.startAt, row) + ' to ' + time(row.endAt, row),
+            'Priority ' + row.priority,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          edit: root + '/' + row.id,
+          preview: root + '/' + row.id + '?preview=1',
+        })}
       />
     </>
   );
@@ -217,13 +207,19 @@ function Placements({ items, update }) {
               update(items.map((entry, i) => (i === index ? { slot } : entry)))
             }
           />
-          {['rail', 'between'].includes(row.slot) && (
+          {['rail', 'between', 'above', 'below'].includes(row.slot) && (
             <Choice
               label="Homepage section"
               value={row.sectionId ?? ''}
               options={[
                 ['', 'Choose a section'],
-                ...sections
+                ...(['above', 'below'].includes(row.slot)
+                  ? publicHomeSections.map(({ placementId, heading }) => ({
+                      id: placementId,
+                      heading,
+                    }))
+                  : sections
+                )
                   .filter(
                     (section) =>
                       row.slot !== 'rail' || permittedRail(section.type),
@@ -389,7 +385,10 @@ function Editor({ record }) {
     desktop: record?.desktop,
     mobile: record?.mobile,
   });
-  const [preview, setPreview] = useState(null);
+  const [params] = useSearchParams();
+  const [preview, setPreview] = useState(
+    params.get('preview') === '1' ? 'desktop' : null,
+  );
   const [action, setAction] = useState(null);
   const [error, setError] = useState('');
   const [start, setStart] = useState(() =>

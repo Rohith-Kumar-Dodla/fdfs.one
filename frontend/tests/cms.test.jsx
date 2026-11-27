@@ -2,11 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { visibleGroups } from '../src/features/admin/navigation.js';
 
 const paths = (account) =>
-  visibleGroups(account).flatMap(([, entries]) =>
+  visibleGroups(account).flatMap(([, , entries]) =>
     entries.map(([path]) => path),
   );
 
 describe('CMS navigation', () => {
+  it('shows exactly eight primary workspaces for the owner', () => {
+    expect(
+      visibleGroups({ roles: ['super_admin'] }).map(([name]) => name),
+    ).toEqual([
+      'Overview',
+      'Content',
+      'Community',
+      'Support Tickets',
+      'Media Library',
+      'Promotions',
+      'Homepage Management',
+      'System',
+    ]);
+  });
   it('exposes only assigned modules and shared media to a content manager', () => {
     expect(
       paths({
@@ -24,10 +38,10 @@ describe('CMS navigation', () => {
   it('isolates moderation and reserves role assignment for the Super Administrator', () => {
     expect(paths({ roles: ['moderator'] })).toEqual([
       '/admin',
-      '/admin/submissions',
-      '/admin/moderation',
-      '/admin/reports',
       '/admin/review-moderation',
+      '/admin/submissions',
+      '/admin/reports',
+      '/admin/moderation',
     ]);
     expect(paths({ roles: ['support_agent'] })).toEqual(['/admin/support']);
     expect(paths({ roles: ['admin'] })).not.toContain('/admin/roles');

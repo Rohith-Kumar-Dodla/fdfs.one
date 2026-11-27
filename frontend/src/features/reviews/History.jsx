@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
 import { EmptyState } from '../../components/ui/states.jsx';
 import { ConfirmDelete, TextEditor } from './Community.jsx';
+import { OwnedMovieRequests } from './MovieRequests.jsx';
 import { TargetRatingEditor } from './Rating.jsx';
 import {
   kinds,
@@ -135,6 +136,7 @@ export function ReviewHistory() {
   });
   return (
     <ReviewShell title="My reviews and ratings">
+      {kind === 'reviews' && <OwnedMovieRequests editable={access.allowed} />}
       <nav aria-label="Your review activity" className="flex flex-wrap gap-4">
         <Link
           className={linkText}

@@ -84,7 +84,10 @@ export function createApp({
   api.use('/talent', publicTalentRoutes(isDatabaseConnected));
   api.use('/films', publicFilmRoutes(isDatabaseConnected));
   api.use('/podcasts', publicPodcastRoutes(isDatabaseConnected));
-  api.use('/live', publicLiveRoutes(isDatabaseConnected));
+  api.use(
+    '/live',
+    publicLiveRoutes(isDatabaseConnected, config.LIVE_CHAT_ENABLED),
+  );
 
   if (authConfig) {
     const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);

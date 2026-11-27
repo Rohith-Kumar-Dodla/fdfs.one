@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { artworkKey } from '../media/video.js';
 import { broadcasts, eventCategories } from '../../../../shared/live.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { publicId, idParams, listInput } from '../../utils/list.js';
@@ -48,6 +49,7 @@ const fields = {
   posterId: publicId.optional(),
   bannerId: publicId.optional(),
   videoUrl: youtubeUrl.optional(),
+  videoArtwork: artworkKey.optional(),
   rightsConfirmed: z.boolean().default(false),
   rightsNotes: text(1000).optional(),
 };
@@ -70,6 +72,15 @@ export const adminCreate = z.object({
     plannedReplayUrl: youtubeUrl.optional(),
     chatEnabled: z.boolean().optional(),
     remindersEnabled: z.boolean().optional(),
+    publication: z
+      .discriminatedUnion('mode', [
+        z.strictObject({ mode: z.literal('upcoming') }),
+        z.strictObject({
+          mode: z.literal('live'),
+          broadcasting: z.literal(true),
+        }),
+      ])
+      .optional(),
   }),
 });
 export const adminEdit = z.object({

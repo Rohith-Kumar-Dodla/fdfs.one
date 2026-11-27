@@ -20,13 +20,13 @@ import {
   Spinner,
 } from '../../components/ui/states.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
+import { RecordFilters } from '../admin/ContentGrid.jsx';
 import {
   control,
   date,
   DetailLink,
   readable,
   Records,
-  Select,
   useRecords,
 } from '../admin/common.jsx';
 import { protectedRequest, refreshSession } from '../auth/api.js';
@@ -366,11 +366,22 @@ function TicketList({ staff }) {
         <DetailLink to="/support/new">Create a support ticket</DetailLink>
       )}
       {staff && (
-        <p className="text-sm text-muted">
-          {typeof stats.data?.open === 'number'
-            ? stats.data.open + ' open tickets'
-            : 'Open ticket count unavailable'}
-        </p>
+        <dl className="flex flex-wrap gap-x-4 gap-y-2 rounded-panel border border-line bg-surface px-4 py-3 text-sm">
+          <div>
+            <dt className="text-muted">Open queue</dt>
+            <dd>
+              {stats.data?.open ??
+                (stats.isPending ? 'Loading…' : 'Unavailable')}
+            </dd>
+          </div>
+          {stats.data?.statuses &&
+            ticketStatuses.map((key) => (
+              <div key={key}>
+                <dt className="capitalize text-muted">{readable(key)}</dt>
+                <dd>{stats.data.statuses[key] ?? 0}</dd>
+              </div>
+            ))}
+        </dl>
       )}
       <form
         className="flex flex-wrap items-end gap-2"
@@ -388,33 +399,28 @@ function TicketList({ staff }) {
         </label>
         <Button type="submit">Search</Button>
       </form>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {[
-          ['Status', 'status', choices(ticketStatuses)],
-          ['Category', 'category', Object.entries(supportCategories)],
-          ...(staff
-            ? [
-                ['Priority', 'priority', choices(priorities)],
-                [
-                  'Assignment',
-                  'assignment',
+      <div>
+        <RecordFilters
+          records={records}
+          fields={[
+            ['status', 'Status', choices(ticketStatuses)],
+            ['category', 'Category', Object.entries(supportCategories)],
+            ...(staff
+              ? [
+                  ['priority', 'Priority', choices(priorities)],
                   [
-                    ['mine', 'Assigned to me'],
-                    ['unassigned', 'Unassigned'],
-                    ['assigned', 'Assigned'],
+                    'assignment',
+                    'Assignment',
+                    [
+                      ['mine', 'Assigned to me'],
+                      ['unassigned', 'Unassigned'],
+                      ['assigned', 'Assigned'],
+                    ],
                   ],
-                ],
-              ]
-            : []),
-        ].map(([label, key, options]) => (
-          <Select
-            key={key}
-            label={label}
-            options={options}
-            value={records.params[key] ?? ''}
-            onChange={(value) => records.filter(key, value)}
-          />
-        ))}
+                ]
+              : []),
+          ]}
+        />
       </div>
       <Records
         records={records}

@@ -2,7 +2,14 @@ import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { IconButton } from './Button.jsx';
 
-export function Dialog({ open, onClose, title, children, className = '' }) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  className = '',
+  contentClassName = '',
+}) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -19,13 +26,24 @@ export function Dialog({ open, onClose, title, children, className = '' }) {
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom
+        )
+          onClose();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
       className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-panel border border-line bg-surface text-foreground backdrop:bg-nav/80 ${className}`}
     >
-      <div className="p-5 sm:p-6">
+      <div className={`p-5 sm:p-6 ${contentClassName}`}>
         <header className="mb-4 flex items-center justify-between gap-4">
           <h2 id={titleId} className="text-xl font-semibold">
             {title}

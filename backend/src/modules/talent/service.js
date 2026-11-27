@@ -24,9 +24,10 @@ const imageFields = [
   ['coverImage', 'coverImageId'],
 ];
 const cardFields =
-  'publicId slug displayName introduction professions profileImage';
+  'publicId slug displayName introduction professions profileImage categories';
 const publicFields =
-  cardFields + ' alternativeName biography location website links coverImage';
+  cardFields +
+  ' alternativeName biography location website links coverImage professionalBackground expertise';
 const mediaFields =
   'publicId purpose url width height bytes references createdAt alt';
 const populate = (query, fields) => {
@@ -91,6 +92,7 @@ function projectProfile(record, detail = false, admin = false) {
     displayName,
     introduction,
     professions,
+    categories: record.categories ?? [],
     profileImage: projectImage(profileImage, admin),
   };
   if (!detail) return card;
@@ -104,6 +106,8 @@ function projectProfile(record, detail = false, admin = false) {
     website,
     links,
     coverImage: projectImage(coverImage, admin),
+    professionalBackground: record.professionalBackground,
+    expertise: record.expertise,
   };
 }
 
@@ -128,12 +132,16 @@ export async function listTalent(res, query, admin = false) {
     '-name': { sortName: -1, _id: -1 },
     newest: admin ? { updatedAt: -1, _id: -1 } : { publishedAt: -1, _id: -1 },
   };
-  if (!admin && query.category) {
+  if (query.category) {
     const { page, limit, category } = query;
     const { value } = await readConfig('settings');
     const [result] = await Personality.aggregate([
       { $match: filter },
-      ...(await categoryStages(category, new Date(), value.hiddenModules)),
+      ...(await categoryStages(
+        category,
+        new Date(),
+        admin ? [] : value.hiddenModules,
+      )),
       {
         $facet: {
           rows: [
@@ -142,7 +150,9 @@ export async function listTalent(res, query, admin = false) {
             { $limit: limit },
             {
               $project: Object.fromEntries(
-                cardFields.split(' ').map((key) => [key, 1]),
+                (cardFields + (admin ? ' status' : ''))
+                  .split(' ')
+                  .map((key) => [key, 1]),
               ),
             },
           ],
@@ -157,7 +167,10 @@ export async function listTalent(res, query, admin = false) {
     const total = result.count[0]?.total ?? 0;
     return sendSuccess(
       res,
-      result.rows.map((row) => projectProfile(row)),
+      result.rows.map((row) => ({
+        ...projectProfile(row, false, admin),
+        ...(admin && { status: row.status }),
+      })),
       {
         pagination: {
           page,
@@ -283,8 +296,9 @@ async function requireImage(publicId, session, owner) {
 }
 
 async function setContent(record, input, session, preserveImages = false) {
+  const { categories, professionalBackground, expertise, ...content } = input;
   const { achievements, profileImageId, coverImageId, ...fields } =
-    profileContent.parse(input);
+    profileContent.parse(content);
   const names = [fields.displayName, fields.alternativeName]
     .filter(Boolean)
     .map(normalizedName);
@@ -302,6 +316,8 @@ async function setContent(record, input, session, preserveImages = false) {
     location: undefined,
     website: undefined,
     ...fields,
+    ...(categories !== undefined && { categories }),
+    ...(!preserveImages && { professionalBackground, expertise }),
     sortName,
     searchNames,
   });

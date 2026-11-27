@@ -1,69 +1,69 @@
 import { can } from '../../../../shared/admin.js';
 
+const overview = ['/admin', 'Overview', 'dashboard'];
+const support = ['/admin/support', 'Support Tickets', 'support'];
+const media = ['/admin/media', 'Media Library', 'media'];
+const promotions = ['/admin/promotions', 'Promotions', 'promotions'];
+const homepage = ['/admin/homepage', 'Homepage Management', 'site'];
+
 export const groups = [
-  [
-    'Overview',
-    [
-      ['/admin', 'Overview', 'dashboard'],
-      ['/admin/analytics', 'Analytics', 'analytics'],
-      ['/admin/activity', 'Live activity', 'analytics'],
-    ],
-  ],
+  ['Overview', '/admin', [overview]],
   [
     'Content',
+    '/admin/content',
     [
-      ['/admin/cinema', 'Cinema', 'content', 'independent'],
-      ['/admin/movies', 'Movies', 'content', 'movies'],
-      ['/admin/originals', 'Originals', 'content', 'original'],
+      ['/admin/cinema', 'FDFS Cinema', 'content', 'independent'],
+      ['/admin/originals', 'FDFS Originals', 'content', 'original'],
       ['/admin/podcasts', '404 Reality Not Found', 'content', 'podcasts'],
-      ['/admin/live', 'Live Events', 'content', 'live'],
+      ['/admin/live', 'FDFS Live', 'content', 'live'],
+      ['/admin/movies', 'Movies & Reviews', 'content', 'movies'],
       ['/admin/talent', 'Talent Profiles', 'content', 'talent'],
+      ['/admin/review-moderation', 'Reports and Moderation', 'moderation'],
     ],
   ],
   [
     'Community',
+    '/admin/community',
     [
       ['/admin/users', 'Users', 'users'],
       ['/admin/roles', 'Roles and Permissions', 'roles'],
-      ['/admin/submissions', 'Submissions', 'submissions'],
-      ['/admin/moderation', 'Comments and Live Chat', 'moderation'],
-      ['/admin/reports', 'Reports and Moderation', 'moderation'],
-      ['/admin/review-moderation', 'Review moderation', 'moderation'],
-      ['/admin/support', 'Support tickets', 'support'],
+      [
+        '/admin/submissions',
+        'Creator and Organizer Submissions',
+        'submissions',
+      ],
+      ['/admin/reports', 'Community Moderation', 'moderation'],
+      ['/admin/moderation', 'Comments and Chat Moderation', 'moderation'],
     ],
   ],
-  [
-    'Platform',
-    [
-      ['/admin/media', 'Media library', 'media'],
-      ['/admin/promotions', 'Promotions', 'promotions'],
-      ['/admin/homepage', 'Homepage Management', 'site'],
-      ['/admin/settings', 'Website Settings', 'site'],
-      ['/admin/announcements', 'Announcements', 'announcements'],
-    ],
-  ],
+  ['Support Tickets', '/admin/support', [support]],
+  ['Media Library', '/admin/media', [media]],
+  ['Promotions', '/admin/promotions', [promotions]],
+  ['Homepage Management', '/admin/homepage', [homepage]],
   [
     'System',
+    '/admin/system',
     [
+      ['/admin/settings', 'Website Settings', 'site'],
+      ['/admin/analytics', 'Platform Analytics', 'analytics'],
+      ['/admin/activity', 'Live Activity', 'analytics'],
+      [
+        '/admin/announcements',
+        'Notifications and Announcements',
+        'announcements',
+      ],
+      ['/admin/system-health', 'System Health', 'operations'],
       ['/admin/audit', 'Audit Logs', 'audit'],
-      ['/admin/system-health', 'System health', 'operations'],
+      ['/admin/security', 'Security and Sessions', 'users'],
     ],
   ],
-];
-
-export const quickActions = [
-  ['/admin/cinema/new', 'Add Film', 'independent'],
-  ['/admin/movies/new', 'Add Movie', 'movies'],
-  ['/admin/originals/new', 'Add Original', 'original'],
-  ['/admin/podcasts/episodes/new', 'Add Podcast Episode', 'podcasts'],
-  ['/admin/live/new', 'Create Live Event', 'live'],
-  ['/admin/talent/new', 'Add Talent Profile', 'talent'],
 ];
 
 export function visibleGroups(account) {
   return groups
-    .map(([name, entries]) => [
+    .map(([name, path, entries]) => [
       name,
+      path,
       entries.filter(([, , permission, module]) =>
         permission === 'submissions'
           ? can(account, 'moderation') ||
@@ -73,5 +73,17 @@ export function visibleGroups(account) {
           : can(account, permission, module),
       ),
     ])
-    .filter(([, entries]) => entries.length);
+    .filter(([, , entries]) => entries.length);
+}
+
+export function currentWorkspace(pathname) {
+  if (/^\/admin\/films(?:\/|$)/.test(pathname)) return groups[1];
+  return groups.find(
+    ([, path, entries]) =>
+      pathname === path ||
+      entries.some(
+        ([entry]) => entry !== '/admin' && pathname.startsWith(entry + '/'),
+      ) ||
+      entries.some(([entry]) => pathname === entry),
+  );
 }

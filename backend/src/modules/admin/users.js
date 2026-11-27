@@ -45,7 +45,22 @@ export function listUsers(res, query) {
   if (verified !== undefined)
     filter.emailVerifiedAt = verified === 'true' ? { $type: 'date' } : null;
   if (status) filter.status = status;
-  return sendList(res, User, filter, query, accountView);
+  return sendList(
+    res,
+    User,
+    filter,
+    query,
+    (user) => ({
+      ...accountView(user),
+      avatar:
+        user.profileImage?.status === 'active'
+          ? user.profileImage.url
+          : undefined,
+    }),
+    undefined,
+    undefined,
+    (find) => find.populate('profileImage', 'url status'),
+  );
 }
 
 export async function getUser(id) {

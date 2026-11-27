@@ -1,3 +1,8 @@
+import {
+  ContentGrid,
+  ContentHeading,
+  RecordFilters,
+} from '../admin/ContentGrid.jsx';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router';
@@ -20,8 +25,6 @@ import {
   get,
   QueryState,
   readable,
-  Records,
-  Select,
   useChange,
   useRecords,
 } from '../admin/common.jsx';
@@ -55,99 +58,48 @@ function Workspace({ admin, children }) {
 export function LiveManagement({ admin = false }) {
   const base = listPath(admin);
   const records = useRecords(base);
-  const columns = [
-    {
-      title: 'Event',
-      render: (row) => (
-        <DetailLink to={base + '/' + row.id}>{row.title}</DetailLink>
-      ),
-    },
-    { title: 'Category', render: (row) => eventCategories[row.category] },
-    {
-      title: 'Schedule',
-      render: (row) =>
-        formatEventTime(row.startAt, row.timeZone) + ' · ' + row.timeZone,
-    },
-    {
-      title: 'Status',
-      render: (row) => readable(row.status) + ' · ' + readable(row.broadcast),
-    },
+  const fields = [
+    ['q', 'Search events'],
+    ['category', 'Category', Object.entries(eventCategories)],
+    ['broadcast', 'Broadcast', options(broadcasts)],
+    ['status', 'Publication', options(['draft', 'published', 'archived'])],
     ...(admin
       ? [
-          {
-            title: 'Organizer',
-            render: (row) => row.organizer ?? 'Unavailable',
-          },
-          { title: 'Moderation', render: (row) => readable(row.moderation) },
+          ['moderation', 'Moderation', options(['pending', 'approved'])],
+          ['organizer', 'Organizer account ID'],
         ]
       : []),
   ];
   return (
     <Workspace admin={admin}>
-      <SectionHeading as="h1">
-        {admin ? 'Live events' : 'My live events'}
-      </SectionHeading>
-      <div className="flex flex-wrap gap-x-4">
-        <DetailLink to={base + '/new'}>Create event draft</DetailLink>
-        <DetailLink to={(admin ? '/admin' : '') + '/submissions?category=live'}>
-          {admin ? 'Review event submissions' : 'My event submissions'}
-        </DetailLink>
-      </div>
-      <form
-        className="grid min-w-0 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const values = new FormData(e.currentTarget);
-          records.filter('q', values.get('q').trim());
-          if (admin)
-            records.filter('organizer', values.get('organizer').trim());
-        }}
+      <ContentHeading
+        title={admin ? 'FDFS Live' : 'My Live Events'}
+        create={base + '/new'}
+        action={admin ? 'Create Live Event' : 'Create Event Draft'}
       >
-        <label className={field}>
-          Search events
-          <input className={control} name="q" type="search" maxLength={80} />
-        </label>
-        {admin && (
-          <label className={field}>
-            Organizer account ID
-            <input
-              className={control}
-              name="organizer"
-              pattern="[0-9a-fA-F-]{36}"
-            />
-          </label>
-        )}
-        <div>
-          <Button type="submit">Search</Button>
-        </div>
-      </form>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['Category', 'category', Object.entries(eventCategories)],
-          ['Broadcast', 'broadcast', options(broadcasts)],
-          [
-            'Publication',
-            'status',
-            options(['draft', 'published', 'archived']),
-          ],
-          ...(admin
-            ? [['Moderation', 'moderation', options(['pending', 'approved'])]]
-            : []),
-        ].map(([label, key, choices]) => (
-          <Select
-            key={key}
-            label={label}
-            options={choices}
-            value={records.params[key] ?? ''}
-            onChange={(value) => records.filter(key, value)}
-          />
-        ))}
-      </div>
-      <Records
+        <RecordFilters records={records} fields={fields} />
+      </ContentHeading>
+      <DetailLink to={(admin ? '/admin' : '') + '/submissions?category=live'}>
+        {admin ? 'Review event submissions' : 'My event submissions'}
+      </DetailLink>
+      <ContentGrid
         records={records}
-        columns={columns}
-        label="Live events"
         empty="No events found"
+        entry={(row) => ({
+          title: row.title,
+          image: row.banner ?? row.poster ?? row.replayThumbnail,
+          meta: [
+            eventCategories[row.category],
+            formatEventTime(row.startAt, row.timeZone),
+            readable(row.broadcast),
+          ].join(' · '),
+          edit: base + '/' + row.id,
+          preview:
+            row.status === 'published' &&
+            (!row.publicationAt || Date.parse(row.publicationAt) <= Date.now())
+              ? '/live/' + row.slug
+              : base + '/' + row.id + '#preview',
+        })}
       />
     </Workspace>
   );
@@ -157,7 +109,9 @@ export function NewLiveEvent({ admin = false }) {
   return (
     <Workspace admin={admin}>
       <DetailLink to={listPath(admin)}>Back to live events</DetailLink>
-      <SectionHeading as="h1">Create event draft</SectionHeading>
+      <SectionHeading as="h1">
+        {admin ? 'Create Live Event' : 'Create event draft'}
+      </SectionHeading>
       <EventForm admin={admin} />
     </Workspace>
   );
@@ -694,7 +648,11 @@ export function ManageLiveEvent({ admin = false, correction = false }) {
                   }}
                 />
               )}
-              {admin && <EventPreview key={event.revision} event={event} />}
+              {admin && (
+                <div id="preview" tabIndex={-1}>
+                  <EventPreview key={event.revision} event={event} />
+                </div>
+              )}
               {event.status !== 'archived' && (
                 <EventActions
                   key={event.revision}

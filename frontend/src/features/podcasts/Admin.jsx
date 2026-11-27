@@ -1,3 +1,8 @@
+import {
+  ContentGrid,
+  ContentHeading,
+  RecordFilters,
+} from '../admin/ContentGrid.jsx';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
@@ -5,7 +10,6 @@ import { languages } from '../../../../shared/films.js';
 import { podcastBrand } from '../../../../shared/podcasts.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { Button } from '../../components/ui/Button.jsx';
-import { TextInput } from '../../components/ui/fields.jsx';
 import { Badge, Card, SectionHeading } from '../../components/ui/surfaces.jsx';
 import { ErrorState, Spinner } from '../../components/ui/states.jsx';
 import {
@@ -14,8 +18,6 @@ import {
   DetailLink,
   get,
   QueryState,
-  Records,
-  Select,
   useChange,
   useRecords,
 } from '../admin/common.jsx';
@@ -40,29 +42,6 @@ const statusOptions = ['draft', 'published', 'archived'].map((status) => [
   status,
   status,
 ]);
-const columns = [
-  {
-    title: 'Episode',
-    render: (record) => (
-      <DetailLink to={episodes + '/' + record.id}>{record.title}</DetailLink>
-    ),
-  },
-  {
-    title: 'Number',
-    render: (record) => 'S' + record.season + ' · E' + record.number,
-  },
-  { title: 'Language', render: (record) => languages[record.language] },
-  { title: 'Release', render: (record) => date(record.releaseAt) },
-  {
-    title: 'Status',
-    render: (record) => (
-      <Badge tone={record.status === 'published' ? 'success' : 'neutral'}>
-        {record.status}
-      </Badge>
-    ),
-  },
-];
-
 function Nav() {
   return (
     <nav aria-label="Podcast administration" className="flex flex-wrap gap-x-4">
@@ -78,62 +57,47 @@ export function AdminPodcasts() {
   const records = useRecords(episodes);
   return (
     <>
-      <SectionHeading as="h1">Podcasts</SectionHeading>
+      <ContentHeading
+        title="404 Reality Not Found"
+        create={episodes + '/new'}
+        action="Create Episode"
+      >
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search by title'],
+            ['status', 'Publication status', statusOptions],
+            ['language', 'Language', Object.entries(languages)],
+            ['season', 'Season', undefined, 'number', 1, 999],
+          ]}
+        />
+      </ContentHeading>
       <Nav />
-      <DetailLink to={episodes + '/new'}>Create episode</DetailLink>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
-      >
-        <label className="grid min-w-0 flex-1 basis-48 gap-1 text-sm">
-          Search by title
-          <TextInput type="search" name="q" maxLength={80} />
-        </label>
-        <Button type="submit">Search</Button>
-      </form>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Select
-          label="Publication status"
-          options={statusOptions}
-          value={records.params.status ?? ''}
-          onChange={(value) => records.filter('status', value)}
-        />
-        <Select
-          label="Language"
-          options={Object.entries(languages)}
-          value={records.params.language ?? ''}
-          onChange={(value) => records.filter('language', value)}
-        />
-      </div>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'season',
-            new FormData(event.currentTarget).get('season'),
-          );
-        }}
-      >
-        <label className="grid min-w-0 flex-1 basis-32 gap-1 text-sm">
-          Season
-          <TextInput type="number" min={1} max={999} name="season" />
-        </label>
-        <Button variant="outline" type="submit">
-          Apply season
-        </Button>
-      </form>
-      <Records
+      <ContentGrid
         records={records}
-        columns={columns}
-        label="Podcast episodes"
         empty="No podcast episodes found"
+        entry={(episode) => ({
+          title: episode.title,
+          image: episode.thumbnail,
+          meta:
+            'S' +
+            episode.season +
+            ' · E' +
+            episode.number +
+            ' · ' +
+            languages[episode.language],
+          status:
+            episode.status === 'published' &&
+            episode.availability === 'upcoming'
+              ? 'scheduled'
+              : episode.status,
+          edit: episodes + '/' + episode.id,
+          preview:
+            episode.status === 'published' &&
+            episode.availability === 'released'
+              ? '/podcasts/' + episode.slug
+              : episodes + '/' + episode.id + '#preview',
+        })}
       />
     </>
   );
@@ -282,18 +246,20 @@ export function ManageEpisode() {
             <StatusActions record={episode} url={url} episode />
             {episode.status !== 'archived' && (
               <>
-                <EpisodePlayer
-                  key={'review-' + episode.revision}
-                  episode={{
-                    ...episode,
-                    mainVideo: episode.mainUrl
-                      ? parseYouTube(episode.mainUrl)
-                      : undefined,
-                    teaser: episode.teaserUrl
-                      ? parseYouTube(episode.teaserUrl)
-                      : undefined,
-                  }}
-                />
+                <div id="preview" tabIndex={-1}>
+                  <EpisodePlayer
+                    key={'review-' + episode.revision}
+                    episode={{
+                      ...episode,
+                      mainVideo: episode.mainUrl
+                        ? parseYouTube(episode.mainUrl)
+                        : undefined,
+                      teaser: episode.teaserUrl
+                        ? parseYouTube(episode.teaserUrl)
+                        : undefined,
+                    }}
+                  />
+                </div>
                 <DetailLink to="/admin/media">Open media library</DetailLink>
                 <EpisodeForm
                   key={episode.revision}

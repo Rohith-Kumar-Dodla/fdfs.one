@@ -1,3 +1,4 @@
+import { FilterDrawer } from '../public-ui/Catalogue.jsx';
 import { SaveAction } from '../personal/Actions.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { sources } from '../../../../shared/homepage.js';
@@ -97,26 +98,35 @@ export function SearchResults() {
         </label>
         <Button type="submit">Search</Button>
       </form>
-      <label className={field + ' max-w-md'}>
-        Content type
-        <select
-          className={control}
-          value={module ?? ''}
-          onChange={(event) => filter({ module: event.target.value })}
-        >
-          <option value="">All content</option>
-          {Object.entries(sources)
-            .filter(
-              ([key]) =>
-                !genre || ['independent', 'original', 'movies'].includes(key),
-            )
-            .map(([key, item]) => (
-              <option key={key} value={key}>
-                {item.label}
-              </option>
-            ))}
-        </select>
-      </label>
+      <div>
+        <FilterDrawer
+          fields={[
+            {
+              key: 'module',
+              label: 'Content type',
+              options: Object.entries(sources).map(([key, item]) => [
+                key,
+                item.label,
+              ]),
+            },
+            {
+              key: 'genre',
+              label: 'Genre',
+              options: Object.entries(genreNames),
+            },
+          ]}
+          values={{ ...(module && { module }), ...(genre && { genre }) }}
+          apply={(values) => {
+            const nextGenre = values.genre;
+            const nextModule =
+              nextGenre &&
+              !['independent', 'original', 'movies'].includes(values.module)
+                ? undefined
+                : values.module;
+            filter({ genre: nextGenre, module: nextModule });
+          }}
+        />
+      </div>
       {!accepted(q) && !genre ? (
         <EmptyState title="Enter at least two characters to search" />
       ) : query.isPending ? (

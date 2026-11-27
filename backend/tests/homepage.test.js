@@ -678,4 +678,78 @@ describe.skipIf(!uri)('Phase 6.1 isolated discovery and promotions', () => {
         .map((row) => row.title),
     ).toEqual([labels[3], labels[2], labels[1]]);
   });
+  it('keeps configured hero order and renders a campaign once in the entertainment preview and published feed', async () => {
+    const row = data(
+      await api('post', promos, owner)
+        .send({
+          name: 'Managed campaign fixture',
+          title: 'Managed campaign fixture',
+          type: 'announcement',
+          primary: cta(),
+          startAt: fromNow(-60000).toISOString(),
+          endAt: fromNow(60000).toISOString(),
+          placements: [
+            { slot: 'hero' },
+            { slot: 'below', sectionId: defaultSections[2].id },
+          ],
+        })
+        .expect(201),
+    );
+    await api('post', promos + '/' + row.id + '/status', owner)
+      .send({ revision: row.revision, action: 'publish' })
+      .expect(200);
+    const current = data(await api('get', home, owner).expect(200));
+    const cinema = { module: 'independent', id: refs.independent.publicId };
+    const target = { module: 'live', id: upcoming.publicId, upcoming: true };
+    const slides = [
+      { id: randomUUID(), target: cinema },
+      { id: randomUUID(), campaignId: row.id },
+      { id: randomUUID(), target },
+    ];
+    const config = {
+      ...current.value,
+      managedHero: true,
+      heroSlides: slides,
+      featuredPicks: { independent: [cinema] },
+    };
+    await api('put', home, owner)
+      .send({
+        revision: current.revision,
+        homepage: {
+          ...config,
+          heroSlides: [...slides, { ...slides[0], id: randomUUID() }],
+        },
+      })
+      .expect(400);
+    const draft = data(
+      await api('put', home, owner)
+        .send({ revision: current.revision, homepage: config })
+        .expect(200),
+    );
+    const preview = data(
+      await api('get', home + '/assembly?view=entertainment', owner).expect(
+        200,
+      ),
+    );
+    expect(preview.slides.map(({ id }) => id)).toEqual([
+      cinema.id,
+      row.id,
+      target.id,
+    ]);
+    expect(
+      preview.sections.find(({ key }) => key === 'independent').between,
+    ).toEqual([]);
+    await api('post', home + '/publish', owner)
+      .send({ revision: draft.revision })
+      .expect(200);
+    const published = data(
+      await api('get', '/homepage?view=entertainment').expect(200),
+    );
+    expect(published.slides.map(({ id }) => id)).toEqual(
+      preview.slides.map(({ id }) => id),
+    );
+    expect(
+      published.sections.find(({ key }) => key === 'independent').items[0].id,
+    ).toBe(cinema.id);
+  });
 });

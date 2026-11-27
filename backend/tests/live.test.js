@@ -37,6 +37,7 @@ const authConfig = {
   secure: false,
 };
 const config = {
+  LIVE_CHAT_ENABLED: true,
   NODE_ENV: 'test',
   CORS_ORIGINS: [origin],
   RATE_LIMIT_WINDOW_MS: 10000,
@@ -105,8 +106,8 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
       ? result.set('Authorization', 'Bearer ' + user.accessToken)
       : result;
   };
-  const room = (user, socketOrigin = origin) => {
-    const socket = io('http://127.0.0.1:' + server.address().port, {
+  const room = (user, socketOrigin = origin, target = server) => {
+    const socket = io('http://127.0.0.1:' + target.address().port, {
       autoConnect: false,
       reconnection: false,
       forceNew: true,
@@ -150,6 +151,69 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
     ).body.data;
     return status(draft, 'publish');
   }
+
+  it('closes public REST and Socket.IO chat by default with event and staff access intact', async () => {
+    const event = await status(
+      await publish('Disabled chat release fixture'),
+      'start',
+      { broadcasting: true },
+    );
+    const disabled = createApp({
+      config: { ...config, LIVE_CHAT_ENABLED: false },
+      authConfig,
+      logger,
+      isDatabaseConnected: available,
+    });
+    const isolated = createServer(disabled);
+    const socketsOff = attachLiveSockets(isolated, {
+      authConfig,
+      origins: [origin],
+      available,
+      logger,
+    });
+    isolated.listen(0, '127.0.0.1');
+    await once(isolated, 'listening');
+    const path = '/api/v1/live/' + event.slug;
+    try {
+      const detail = await request(disabled).get(path).expect(200);
+      expect(detail.body.data).toMatchObject({
+        broadcast: 'live',
+        chatEnabled: false,
+        video: { provider: 'youtube' },
+      });
+      await request(disabled)
+        .get(path + '/chat')
+        .expect(409);
+      await request(disabled)
+        .post(path + '/chat')
+        .set('Authorization', 'Bearer ' + viewer.accessToken)
+        .send({
+          text: 'This message must stay private',
+          clientId: randomUUID(),
+        })
+        .expect(409);
+      const socket = await connect(room(viewer, origin, isolated));
+      expect(
+        await emit(socket, 'event:join', { slug: event.slug }),
+      ).toMatchObject({ ok: true });
+      expect(
+        await emit(socket, 'chat:send', {
+          slug: event.slug,
+          text: 'Disabled socket',
+          clientId: randomUUID(),
+        }),
+      ).toMatchObject({ ok: false, code: 'CHAT_CLOSED' });
+      socket.disconnect();
+      await request(disabled)
+        .get('/api/v1/admin/live/' + event.id + '/chat')
+        .set('Authorization', 'Bearer ' + staff.accessToken)
+        .expect(200);
+    } finally {
+      socketsOff.close();
+      if (isolated.listening)
+        await new Promise((resolve) => isolated.close(resolve));
+    }
+  });
 
   beforeAll(async () => {
     await mongoose.connect(uri, {
@@ -200,6 +264,7 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
     });
     server = createServer(app);
     realtime = attachLiveSockets(server, {
+      chatEnabled: true,
       authConfig,
       origins: [origin],
       available,

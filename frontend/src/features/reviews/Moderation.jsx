@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { ManagedReviewListing } from './ReviewManagement.jsx';
 import { linkText } from './common.jsx';
 import { useState } from 'react';
@@ -209,55 +209,72 @@ function RatingAbuse() {
   );
 }
 export function ReviewsModeration() {
+  const [params] = useSearchParams();
+  const view = params.get('view');
   const records = useRecords(reportsPath, { status: 'open' });
   return (
     <>
       <SectionHeading as="h1">Review moderation</SectionHeading>
-      <nav aria-label="Moderation views" className="flex flex-wrap gap-x-4">
-        <Link className={linkText} to="#review-reports">
-          Reports
-        </Link>
-        <Link className={linkText} to="#review-catalogue">
-          Review catalogue
-        </Link>
-      </nav>
-      <h2 tabIndex={-1} id="review-reports" className="text-xl font-semibold">
-        Reports
-      </h2>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Select
-          label="Report status"
-          options={pairs(['open', 'resolved'])}
-          value={records.params.status ?? 'open'}
-          onChange={(value) => records.filter('status', value)}
-        />
-        <Select
-          label="Reported content"
-          options={pairs(['review', 'comment'])}
-          value={records.params.type ?? ''}
-          onChange={(value) => records.filter('type', value)}
-        />
-      </div>
-      <QueryState query={records.query} empty="No reports match these filters">
-        {(rows) => (
-          <ul className="grid min-w-0 gap-3">
-            {rows.map((row) => (
-              <ReportCard key={row.id} row={row} />
-            ))}
-          </ul>
-        )}
-      </QueryState>
-      {records.query.data && (
-        <Pagination
-          page={records.params.page}
-          totalPages={records.query.data.pagination.totalPages}
-          onPageChange={records.changePage}
-        />
+      {!view && (
+        <nav aria-label="Moderation views" className="flex flex-wrap gap-x-4">
+          <Link className={linkText} to="#review-reports">
+            Reports
+          </Link>
+          <Link className={linkText} to="#review-catalogue">
+            Review catalogue
+          </Link>
+        </nav>
       )}
-      <section tabIndex={-1} id="review-catalogue">
-        <ManagedReviewListing />
-      </section>
-      <RatingAbuse />
+      {view !== 'reviews' && (
+        <>
+          <h2
+            tabIndex={-1}
+            id="review-reports"
+            className="text-xl font-semibold"
+          >
+            Reports
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Select
+              label="Report status"
+              options={pairs(['open', 'resolved'])}
+              value={records.params.status ?? 'open'}
+              onChange={(value) => records.filter('status', value)}
+            />
+            <Select
+              label="Reported content"
+              options={pairs(['review', 'comment'])}
+              value={records.params.type ?? ''}
+              onChange={(value) => records.filter('type', value)}
+            />
+          </div>
+          <QueryState
+            query={records.query}
+            empty="No reports match these filters"
+          >
+            {(rows) => (
+              <ul className="grid min-w-0 gap-3">
+                {rows.map((row) => (
+                  <ReportCard key={row.id} row={row} />
+                ))}
+              </ul>
+            )}
+          </QueryState>
+          {records.query.data && (
+            <Pagination
+              page={records.params.page}
+              totalPages={records.query.data.pagination.totalPages}
+              onPageChange={records.changePage}
+            />
+          )}
+        </>
+      )}
+      {view !== 'reports' && (
+        <section tabIndex={-1} id="review-catalogue">
+          <ManagedReviewListing />
+        </section>
+      )}
+      {view !== 'reviews' && <RatingAbuse />}
     </>
   );
 }

@@ -79,18 +79,30 @@ export const directoryInput = listInput({
   ...filters,
   category: z.enum(Object.keys(talentCategories)).optional(),
 });
+const category = z.enum(Object.keys(talentCategories));
+const adminProfileFields = {
+  ...profileFields,
+  categories: z
+    .array(category)
+    .max(3)
+    .refine((items) => new Set(items).size === items.length)
+    .optional(),
+  professionalBackground: text(1500).optional(),
+  expertise: text(500).optional(),
+};
 export const adminListInput = listInput({
+  category: category.optional(),
   ...filters,
   status: profileStatus.optional(),
 });
 export const slugInput = z.object({ params: z.object({ slug }) });
 export const adminCreateInput = z.object({
-  body: z.strictObject({ ...profileFields, slug: slug.optional() }),
+  body: z.strictObject({ ...adminProfileFields, slug: slug.optional() }),
 });
 export const adminEditInput = z.object({
   params: idParams,
   body: z.strictObject({
-    ...profileFields,
+    ...adminProfileFields,
     revision: z.number().int().nonnegative(),
   }),
 });

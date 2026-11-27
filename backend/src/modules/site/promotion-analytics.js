@@ -14,7 +14,7 @@ import { readConfig } from './service.js';
 
 const placement = z
   .string()
-  .regex(/^(?:hero|footer|(?:between|rail):[a-f0-9-]{36})$/);
+  .regex(/^(?:hero|footer|(?:between|rail|above|below):[a-f0-9-]{36})$/);
 export const analyticsCampaignInput = z.object({
   body: z.strictObject({
     campaign: publicId,

@@ -53,3 +53,9 @@ Notifications use existing owned REST pagination and the private Socket.IO notic
 ## Public discovery layout reference
 
 The web discovery order is cinematic hero, Cinema, Originals, 404 Reality Not Found, Reviews and Top Picked Profiles. Keep empty shelves and catalogue links in the native reference design. Reuse landscape artwork for short films, podcasts and live events, and portrait artwork for movies and people. Use the optional entertainment homepage projection and the public talent category filter. The review composer selects published records and keeps rating and review ownership on the existing API. Playback stays explicitly viewer-initiated.
+
+## Administration refinement contracts
+
+Use one filter trigger for each catalogue or management list. Show the active count, open a bottom sheet or full-height panel on smaller screens, and provide Apply Filters, Reset Filters and Close. Preserve dedicated catalogue and entity searches. Keep list pagination and URL parameters where the web routes already use them. Return focus to the trigger after dismissal and allow an Escape equivalent where a keyboard is available.
+
+Private missing-movie reviews use the owned movie-request API. Display the pending verification state without placing it in public feeds or aggregates. Approved requests appear in regular review history once linked to a published movie. Read the Live detail chat flag before rendering chat controls. Talent category pages may include explicitly assigned profiles before any public appearance. Native application and physical-device implementation remain future phases.

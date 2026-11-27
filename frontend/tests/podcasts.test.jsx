@@ -223,9 +223,7 @@ it('rejects administrator duplicate chapter timestamps and normalizes H/M/S inpu
   const titles = screen.getAllByLabelText('Chapter title');
   await user.type(titles[0], 'Opening');
   await user.type(titles[1], 'Second topic');
-  await user.click(
-    screen.getByRole('button', { name: 'Create episode draft' }),
-  );
+  await user.click(screen.getByRole('button', { name: 'Submit Episode' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'unique chapter times',
   );
@@ -235,9 +233,7 @@ it('rejects administrator duplicate chapter timestamps and normalizes H/M/S inpu
   fireEvent.input(screen.getAllByLabelText('Seconds')[1], {
     target: { value: 25 },
   });
-  await user.click(
-    screen.getByRole('button', { name: 'Create episode draft' }),
-  );
+  await user.click(screen.getByRole('button', { name: 'Submit Episode' }));
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({

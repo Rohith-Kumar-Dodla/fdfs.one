@@ -87,3 +87,9 @@ The roadmap has 11 main phases and 22 subphases.
 - 9.2 Mobile community, profiles and user experience
 - 10.1 Mobile testing and optimization
 - 10.2 Mobile production release
+
+## Phase 6 administration refinement
+
+Open `/admin` for the full-width administration workspace. Content contains Cinema, Originals, 404 Reality Not Found, Live, Movies & Reviews and Talent Profiles. Movie Requests in Movies & Reviews handles privately saved reviews awaiting a verified movie. Media Library organizes assets around the existing catalogue records and includes a Shared Assets area. Homepage Management edits the five hero slots, featured picks and campaign placements.
+
+Set `YOUTUBE_DATA_API_KEY` on the server to enable YouTube metadata lookups. Editors can enter the same details manually. FDFS Live chat defaults off. Authorized active YouTube Live playback, external movie metadata licensing and any unverified live provider checks carry forward. Phase 7 has not started.

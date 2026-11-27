@@ -38,27 +38,31 @@ export function ArtworkField({ label, image, onChange, upload }) {
   );
 }
 
-function ContentSearch({ onSelect, url, allowUpcoming }) {
+function ContentSearch({ onSelect, url, allowUpcoming, fixedModule, modules }) {
   const records = useRecords(url, {
-    module: 'independent',
+    module: fixedModule ?? modules?.[0] ?? 'independent',
     limit: 6,
   });
   return (
     <div className="grid min-w-0 gap-3">
-      <label className="grid gap-1 text-sm">
-        Content module
-        <select
-          className={control}
-          value={records.params.module}
-          onChange={(event) => records.filter('module', event.target.value)}
-        >
-          {Object.entries(sources).map(([module, { label }]) => (
-            <option value={module} key={module}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!fixedModule && (
+        <label className="grid gap-1 text-sm">
+          Content module
+          <select
+            className={control}
+            value={records.params.module}
+            onChange={(event) => records.filter('module', event.target.value)}
+          >
+            {Object.entries(sources)
+              .filter(([module]) => !modules || modules.includes(module))
+              .map(([module, { label }]) => (
+                <option value={module} key={module}>
+                  {label}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
       {allowUpcoming && (
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
@@ -129,6 +133,8 @@ export function ContentPicker({
   onSelect,
   url = '/admin/site/content',
   allowUpcoming = false,
+  fixedModule,
+  modules,
   label = 'Choose published content',
 }) {
   const [open, setOpen] = useState(false);
@@ -144,6 +150,8 @@ export function ContentPicker({
           <ContentSearch
             url={url}
             allowUpcoming={allowUpcoming}
+            fixedModule={fixedModule}
+            modules={modules}
             onSelect={(item) => {
               onSelect(item);
               setOpen(false);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { artworkKey } from '../media/video.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { participantRoles } from '../../../../shared/podcasts.js';
 import { idParams, listInput, publicId } from '../../utils/list.js';
@@ -12,6 +13,16 @@ const url = text(2048)
     return !parsed.username && !parsed.password;
   });
 const link = z.strictObject({ label: text(80), url });
+const resource = link.extend({
+  url: z
+    .url({ protocol: /^https?$/ })
+    .max(2048)
+    .refine((value) => {
+      const parsed = new URL(value);
+      return !parsed.username && !parsed.password;
+    }),
+  description: text(300).optional(),
+});
 const distinct = (schema, max) =>
   z
     .array(schema)
@@ -49,8 +60,14 @@ export const episodeFields = {
   topics: distinct(tags, 12).default([]),
   duration: z.number().int().min(1).max(28800),
   thumbnailId: publicId.optional(),
+  galleryIds: distinct(publicId, 8).default([]),
+  extras: z
+    .array(z.strictObject({ title: text(100), url: safeVideo }))
+    .max(5)
+    .default([]),
   bannerId: publicId.optional(),
   mainUrl: safeVideo.optional(),
+  videoArtwork: artworkKey.optional(),
   teaserUrl: safeVideo.optional(),
   chapters: z
     .array(
@@ -72,7 +89,7 @@ export const episodeFields = {
     )
     .max(40)
     .default([]),
-  links: z.array(link).max(15).default([]),
+  links: z.array(resource).max(15).default([]),
   advisory: text(300).optional(),
   releaseAt: releaseDate.optional(),
   rightsConfirmed: z.boolean().default(false),
@@ -82,6 +99,20 @@ const episode = (fields = {}) =>
   z
     .strictObject({ ...episodeFields, ...fields })
     .superRefine((value, ctx) => {
+      const videos = [
+        value.mainUrl,
+        value.teaserUrl,
+        ...value.extras.map((extra) => extra.url),
+      ]
+        .filter(Boolean)
+        .map((url) => parseYouTube(url)?.providerVideoId);
+      if (new Set(videos).size !== videos.length)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['extras'],
+          message:
+            'Use distinct videos for the episode, teaser and supporting content.',
+        });
       const starts = value.chapters.map(({ start }) => start);
       if (
         new Set(starts).size !== starts.length ||
@@ -147,7 +178,7 @@ export const showStatusInput = z.object({
   }),
 });
 export const createEpisodeInput = z.object({
-  body: episode({ slug: slug.optional() }),
+  body: episode({ slug: slug.optional(), release: releaseInput.optional() }),
 });
 export const editEpisodeInput = z.object({
   params: idParams,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { artworkKey } from '../media/video.js';
 import { genres, languages } from '../../../../shared/films.js';
 import { professions } from '../../../../shared/talent.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
@@ -51,6 +52,7 @@ export const filmFields = {
   bannerId: publicId.optional(),
   galleryIds: unique(publicId, 8).default([]),
   mainUrl: youtube.optional(),
+  videoArtwork: artworkKey.optional(),
   trailerUrl: youtube.optional(),
   extras: z
     .array(
@@ -139,6 +141,7 @@ export const adminCreate = z.object({
   body: details({
     classification,
     slug: slug.optional(),
+    release: releaseInput.optional(),
   }),
 });
 const revision = z.number().int().nonnegative();

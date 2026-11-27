@@ -33,6 +33,8 @@ const envSchema = z.object({
     .min(1)
     .max(2147483647)
     .default(900000),
+  LIVE_CHAT_ENABLED: z.stringbool().default(false),
+  YOUTUBE_DATA_API_KEY: z.string().trim().optional(),
   LIVE_REMINDER_LEAD_MINUTES: z.coerce
     .number()
     .int()

@@ -8,6 +8,7 @@ import { assembledHomepage } from './homepage.js';
 import { globalSearch, searchInput, suggestInput } from './search.js';
 import {
   getPromotion,
+  Promotion,
   listPromotions,
   promotionAction,
   promotionCreate,
@@ -215,7 +216,31 @@ export function mountSiteAdmin(admin, config) {
   admin.get('/site/homepage/assembly', async (req, res) =>
     sendSuccess(
       res,
-      await assembledHomepage({ preview: true, logger: req.log }),
+      await assembledHomepage({
+        preview: true,
+        refined: req.query.view === 'entertainment',
+        logger: req.log,
+      }),
+    ),
+  );
+  admin.get('/site/homepage/hero-campaigns', async (_req, res) =>
+    sendList(
+      res,
+      Promotion,
+      {
+        status: 'published',
+        endAt: { $gt: new Date() },
+        'placements.slot': 'hero',
+      },
+      { page: 1, limit: 100 },
+      ({ publicId, name, startAt, endAt }) => ({
+        id: publicId,
+        name,
+        startAt,
+        endAt,
+      }),
+      'publicId name startAt endAt',
+      { priority: -1, order: 1, _id: 1 },
     ),
   );
   admin.use('/promotions', permit('promotions'));

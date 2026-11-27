@@ -801,6 +801,153 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
       });
     }
   }, 12000);
+  it('owns pending movie requests and resolves reviews and aggregate ratings exactly once', async () => {
+    const url = '/account/movie-requests';
+    const fixture = {
+      title: 'Catalogued Fixture',
+      year: 2024,
+      details: 'English',
+      body: 'Written before the movie was catalogued.',
+      rating: 3.5,
+      spoiler: true,
+    };
+    const submit = (values = fixture) =>
+      requestFor('post', url, third, noProvider).send(values);
+    const saved = data(await submit().expect(201));
+    expect(saved).toMatchObject({
+      status: 'pending',
+      body: fixture.body,
+      rating: 3.5,
+    });
+    await submit({ ...fixture, title: 'CATALOGUED—fixture' }).expect(409);
+    const otherFilm = data(
+      await submit({ ...fixture, year: 1994 }).expect(201),
+    );
+    expect(data(await requestFor('get', url, second).expect(200))).toEqual([]);
+    await requestFor('patch', url + '/' + saved.id, second)
+      .send({ ...fixture, revision: saved.revision })
+      .expect(404);
+    await requestFor('get', '/admin/movie-requests', reportsStaff).expect(403);
+    const created = data(
+      await requestFor('post', '/admin/movies', operator)
+        .send({
+          title: fixture.title,
+          synopsis: 'Private movie fixture.',
+          releaseYear: 2024,
+          language: 'en',
+          genres: ['drama'],
+        })
+        .expect(201),
+    );
+    await requestFor(
+      'post',
+      '/admin/movies/' + created.id + '/status',
+      operator,
+    )
+      .send({ action: 'publish', revision: created.revision })
+      .expect(200);
+    const credits =
+      '/admin/talent/' + person.publicId + '/credits/movies/' + created.id;
+    const state = data(await requestFor('get', credits, operator).expect(200));
+    await requestFor('put', credits, operator)
+      .send({
+        revision: state.revision,
+        rows: [
+          { role: 'actor', character: 'Lead Investigator' },
+          { role: 'director', character: 'Sequence Director' },
+        ],
+      })
+      .expect(200);
+    const assigned = data(
+      await requestFor('get', '/admin/movies/' + created.id, operator).expect(
+        200,
+      ),
+    );
+    expect(assigned.credits).toMatchObject([
+      { personalityId: person.publicId, character: 'Lead Investigator' },
+      { personalityId: person.publicId, character: 'Sequence Director' },
+    ]);
+    await requestFor('put', credits, operator)
+      .send({ revision: state.revision, rows: [] })
+      .expect(409);
+    const ratingPath = '/ratings/movie/' + created.slug;
+    expect(data(await requestFor('get', ratingPath).expect(200)).count).toBe(0);
+    const resolve = (id, body) =>
+      requestFor(
+        'post',
+        '/admin/movie-requests/' + id + '/resolve',
+        operator,
+      ).send(body);
+    const approval = {
+      action: 'approve',
+      revision: saved.revision,
+      movie: created.slug,
+    };
+    const results = await Promise.all([
+      resolve(saved.id, approval).expect(200),
+      resolve(saved.id, approval).expect(200),
+    ]);
+    expect(results.map((response) => data(response).reviewId)).toEqual([
+      data(results[0]).reviewId,
+      data(results[0]).reviewId,
+    ]);
+    expect(data(results[0])).toMatchObject({
+      status: 'approved',
+      movieSlug: created.slug,
+    });
+    expect(data(await requestFor('get', ratingPath).expect(200))).toMatchObject(
+      { count: 1, average: 3.5 },
+    );
+    const history = data(
+      await requestFor('get', '/account/reviews?kind=reviews', third).expect(
+        200,
+      ),
+    );
+    expect(history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: data(results[0]).reviewId,
+          body: fixture.body,
+          spoiler: true,
+        }),
+      ]),
+    );
+    expect(
+      data(
+        await resolve(otherFilm.id, {
+          ...approval,
+          revision: otherFilm.revision,
+        }).expect(200),
+      ),
+    ).toMatchObject({ status: 'conflict', open: true, body: fixture.body });
+    const rejected = data(
+      await resolve(otherFilm.id, {
+        action: 'reject',
+        revision: otherFilm.revision + 1,
+        message: 'The submitted year identifies a different title.',
+      }).expect(200),
+    );
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      open: false,
+      rating: 3.5,
+    });
+    expect(data(await requestFor('get', ratingPath).expect(200)).count).toBe(1);
+    const notifications = data(
+      await requestFor('get', '/notifications?kind=reviews', third).expect(200),
+    );
+    expect(
+      notifications.filter((entry) => entry.type === 'movie_request'),
+    ).toHaveLength(3);
+    const cancelled = data(
+      await submit({ ...fixture, title: 'Withdrawable title' }).expect(201),
+    );
+    await requestFor('delete', url + '/' + cancelled.id, third).expect(200);
+    expect(
+      data(await requestFor('get', url, third).expect(200)).map(({ id }) => id),
+    ).not.toContain(cancelled.id);
+    await status(assigned, 'archive');
+  });
   it('checks reviews analytics visibility, supports maintenance and removes archived targets from all public queries', async () => {
     const route = '/analytics/events';
     await requestFor('post', route, viewer)

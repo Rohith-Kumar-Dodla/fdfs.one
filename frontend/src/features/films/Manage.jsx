@@ -1,3 +1,8 @@
+import {
+  ContentGrid,
+  ContentHeading,
+  RecordFilters,
+} from '../admin/ContentGrid.jsx';
 import { can } from '../../../../shared/admin.js';
 import { useAccount } from '../auth/guards.jsx';
 import { useState } from 'react';
@@ -9,6 +14,7 @@ import {
   genres,
   languages,
 } from '../../../../shared/films.js';
+import { eventLocalTime, eventUtcTime } from '../../../../shared/live.js';
 import { professions } from '../../../../shared/talent.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
 import { Button } from '../../components/ui/Button.jsx';
@@ -21,7 +27,6 @@ import {
 } from '../../components/ui/surfaces.jsx';
 import {
   ConfirmAction,
-  control,
   date,
   DetailLink,
   get,
@@ -33,7 +38,7 @@ import {
 } from '../admin/common.jsx';
 import { FilmForm } from './Form.jsx';
 import { FilmImage } from './FilmImage.jsx';
-import { VideoSection } from './Public.jsx';
+import { SupportingVideos, VideoSection } from './Public.jsx';
 
 const adminPath = '/admin/films';
 const ownerPath = '/submissions/films';
@@ -82,20 +87,14 @@ const submissionColumns = [
   { title: 'Updated', render: (row) => date(row.updatedAt) },
 ];
 
-function localTime(value) {
-  if (!value) return '';
-  const time = new Date(value);
-  return new Date(time.getTime() - time.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-}
-
 export function ReleaseForm({
   onRelease,
   current,
   publicationSchedule = false,
   label = 'Review publication',
 }) {
+  const [error, setError] = useState('');
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
   return (
     <form
       className="grid min-w-0 gap-4"
@@ -104,14 +103,24 @@ export function ReleaseForm({
         const data = new FormData(event.currentTarget);
         const release = data.get('releaseAt');
         const publication = data.get('publicationAt');
-        onRelease({
-          playbackChecked: true,
-          releaseAt: release ? new Date(release).toISOString() : undefined,
-          announce: data.has('announce'),
-          ...(publication && {
-            publicationAt: new Date(publication).toISOString(),
-          }),
-        });
+        const zone = data.get('timezone').trim();
+        try {
+          setError('');
+          onRelease({
+            playbackChecked: true,
+            releaseAt: release ? eventUtcTime(release, zone) : undefined,
+            announce: data.has('announce'),
+            ...(publication && {
+              publicationAt: eventUtcTime(publication, zone),
+            }),
+          });
+        } catch (failure) {
+          setError(
+            failure instanceof RangeError
+              ? 'Enter a valid IANA timezone.'
+              : failure.message,
+          );
+        }
       }}
     >
       <label className="grid min-w-0 gap-1 text-sm">
@@ -120,10 +129,11 @@ export function ReleaseForm({
           type="datetime-local"
           className="min-w-0"
           name="releaseAt"
-          defaultValue={localTime(
+          defaultValue={eventLocalTime(
             current?.releaseAt > new Date().toISOString()
               ? current.releaseAt
               : null,
+            timeZone,
           )}
         />
       </label>
@@ -134,14 +144,24 @@ export function ReleaseForm({
             type="datetime-local"
             className="min-w-0"
             name="publicationAt"
-            defaultValue={localTime(
+            defaultValue={eventLocalTime(
               current?.publicationAt > new Date().toISOString()
                 ? current.publicationAt
                 : null,
+              timeZone,
             )}
           />
         </label>
       )}
+      <label className="grid min-w-0 gap-1 text-sm">
+        Timezone (IANA)
+        <TextInput
+          name="timezone"
+          defaultValue={timeZone}
+          required
+          maxLength={64}
+        />
+      </label>
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <Checkbox name="announce" defaultChecked={Boolean(current?.announce)} />{' '}
         Show the announcement before release
@@ -151,6 +171,11 @@ export function ReleaseForm({
         confirmation and verified that the supplied videos play in an authorized
         embed.
       </label>
+      {error && (
+        <p className="text-sm text-danger-text" role="alert">
+          {error}
+        </p>
+      )}
       <div>
         <Button type="submit">{label}</Button>
       </div>
@@ -161,17 +186,20 @@ export function ReleaseForm({
 function ReviewVideos({ film }) {
   const preview = (source) => (source ? parseYouTube(source) : undefined);
   return (
-    <VideoSection
-      film={{
-        title: film.title,
-        mainVideo: preview(film.mainUrl),
-        trailer: preview(film.trailerUrl),
-        extras: film.extras.map(({ title, url }) => ({
-          title,
-          video: preview(url),
-        })),
-      }}
-    />
+    <>
+      <VideoSection
+        film={{
+          title: film.title,
+          mainVideo: preview(film.mainUrl),
+          trailer: preview(film.trailerUrl),
+        }}
+      />
+      <SupportingVideos
+        extras={film.extras
+          .map(({ title, url }) => ({ title, video: preview(url) }))
+          .filter(({ video }) => video)}
+      />
+    </>
   );
 }
 
@@ -376,79 +404,83 @@ export function AdminFilms({ classification }) {
     adminPath,
     classification ? { classification } : {},
   );
-  const select = (label, name, options) => (
-    <Select
-      label={label}
-      value={records.params[name] ?? ''}
-      options={options}
-      onChange={(value) => records.filter(name, value)}
-    />
-  );
-  return (
-    <>
-      <SectionHeading as="h1">
-        {filmLabels[classification] ?? 'Films'}
-      </SectionHeading>
-      <div className="flex flex-wrap gap-x-5">
-        {classification !== 'original' &&
-          can(account, 'content', 'independent') && (
-            <DetailLink to="/admin/cinema/new">Add Film</DetailLink>
-          )}
-        {classification !== 'independent' &&
-          can(account, 'content', 'original') && (
-            <DetailLink to="/admin/originals/new">Add Original</DetailLink>
-          )}
-        {classification !== 'original' &&
-          can(account, 'content', 'independent') && (
-            <DetailLink to="/admin/submissions?category=film">
-              Review independent film submissions
-            </DetailLink>
-          )}
-      </div>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
-      >
-        <label className="grid min-w-0 flex-1 basis-48 gap-1 text-sm">
-          Search by title
-          <input className={control} type="search" name="q" maxLength={80} />
-        </label>
-        <Button type="submit">Search</Button>
-      </form>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {!classification &&
-          select(
-            'Classification',
+  const canCreate = classification && can(account, 'content', classification);
+  const fields = [
+    ['q', 'Search by title'],
+    [
+      'status',
+      'Publication status',
+      statuses.map((status) => [status, status]),
+    ],
+    ['genre', 'Genre', Object.entries(genres)],
+    ['language', 'Language', Object.entries(languages)],
+    [
+      'sort',
+      'Sort order',
+      [
+        ['newest', 'Newest release'],
+        ['title', 'Title A to Z'],
+        ['-title', 'Title Z to A'],
+        ['year', 'Release year'],
+      ],
+    ],
+    ...(!classification
+      ? [
+          [
             'classification',
+            'Classification',
             Object.entries(filmLabels).filter(([value]) =>
               can(account, 'content', value),
             ),
-          )}
-        {select(
-          'Publication status',
-          'status',
-          statuses.map((status) => [status, status]),
+          ],
+        ]
+      : []),
+  ];
+  return (
+    <>
+      <ContentHeading
+        title={filmLabels[classification] ?? 'Films'}
+        create={
+          canCreate &&
+          (classification === 'independent'
+            ? '/admin/cinema/new'
+            : '/admin/originals/new')
+        }
+        action={
+          classification === 'independent' ? 'Add Cinema' : 'Add Original'
+        }
+      >
+        <RecordFilters records={records} fields={fields} />
+      </ContentHeading>
+      {classification !== 'original' &&
+        can(account, 'content', 'independent') && (
+          <DetailLink to="/admin/submissions?category=film">
+            Review independent film submissions
+          </DetailLink>
         )}
-        {select('Genre', 'genre', Object.entries(genres))}
-        {select('Language', 'language', Object.entries(languages))}
-        {select('Sort order', 'sort', [
-          ['newest', 'Newest release'],
-          ['title', 'Title A to Z'],
-          ['-title', 'Title Z to A'],
-          ['year', 'Release year'],
-        ])}
-      </div>
-      <Records
+      <ContentGrid
         records={records}
-        columns={columns((film) => adminPath + '/' + film.id)}
-        label="Managed films"
         empty="No films found"
+        entry={(film) => ({
+          title: film.title,
+          image: film.banner ?? film.poster,
+          meta: [
+            film.releaseYear,
+            languages[film.language],
+            film.runtimeMinutes && film.runtimeMinutes + ' min',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          status:
+            film.status === 'published' && film.availability === 'upcoming'
+              ? 'scheduled'
+              : film.status,
+          edit: adminPath + '/' + film.id,
+          preview:
+            film.status === 'published' && film.availability === 'released'
+              ? filmPath(film)
+              : adminPath + '/' + film.id + '#preview',
+        })}
       />
     </>
   );
@@ -466,12 +498,14 @@ export function NewOriginal({ classification = 'original' }) {
         Back to {filmLabels[classification]}
       </DetailLink>
       <SectionHeading as="h1">
-        {independent ? 'Add Film' : 'Create FDFS Original'}
+        {independent ? 'Add Cinema' : 'Add Original'}
       </SectionHeading>
       <DetailLink to="/admin/media">Open media library</DetailLink>
       <FilmForm
         admin
         creation
+        classification={classification}
+        button={independent ? 'Submit Cinema' : 'Submit Original'}
         change={change}
         save={(film) =>
           change.mutate({
@@ -592,7 +626,9 @@ export function AdminFilmDetail() {
             {film.status === 'draft' ||
             (film.status === 'published' && !film.creatorId) ? (
               <>
-                <ReviewVideos key={film.revision} film={film} />
+                <div id="preview" tabIndex={-1}>
+                  <ReviewVideos key={film.revision} film={film} />
+                </div>
                 <DetailLink to="/admin/media">Open media library</DetailLink>
                 <FilmForm
                   key={film.id + '-' + film.revision}

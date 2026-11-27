@@ -1,3 +1,4 @@
+import { RecordFilters } from './ContentGrid.jsx';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useOutletContext, useParams } from 'react-router';
@@ -20,7 +21,6 @@ import {
   QueryState,
   readable,
   Records,
-  Select,
   useChange,
   useRecords,
 } from './common.jsx';
@@ -29,7 +29,24 @@ const url = '/admin/users';
 const columns = [
   {
     title: 'Account',
-    render: (row) => <DetailLink to={row.id}>{row.fullName}</DetailLink>,
+    render: (row) => (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-accent text-xs font-bold text-ink">
+          {row.avatar ? (
+            <img src={row.avatar} alt="" className="size-full object-cover" />
+          ) : (
+            row.fullName
+              ?.trim()
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((word) => word[0])
+              .join('')
+              .toUpperCase()
+          )}
+        </span>
+        <DetailLink to={url + '/' + row.id}>{row.fullName}</DetailLink>
+      </div>
+    ),
   },
   { title: 'Email', render: (row) => row.email },
   { title: 'Roles', render: (row) => row.roles.join(', ') },
@@ -47,51 +64,41 @@ const columns = [
   },
 ];
 
-export function UsersPage() {
+export function UsersPage({ sessions = false }) {
   const records = useRecords(url);
   return (
     <>
-      <SectionHeading as="h1">Users</SectionHeading>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
-      >
-        <label className="grid min-w-0 flex-1 basis-48 gap-1 text-sm">
-          Search by name or email
-          <input type="search" name="q" maxLength={80} className={control} />
-        </label>
-        <Button type="submit">Search</Button>
-      </form>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Select
-          label="Role"
-          options={Object.entries(roleLabels)}
-          value={records.params.role ?? ''}
-          onChange={(value) => records.filter('role', value)}
-        />
-        <Select
-          label="Email verification"
-          options={[
-            ['true', 'Verified'],
-            ['false', 'Unverified'],
+      <SectionHeading as="h1">
+        {sessions ? 'Security and Sessions' : 'Users'}
+      </SectionHeading>
+      {sessions && (
+        <p className="text-sm text-muted">
+          Open an account to review its status or revoke its sessions.
+        </p>
+      )}
+      <div>
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search by name or email'],
+            ['role', 'Role', Object.entries(roleLabels)],
+            [
+              'verified',
+              'Email verification',
+              [
+                ['true', 'Verified'],
+                ['false', 'Unverified'],
+              ],
+            ],
+            [
+              'status',
+              'Account status',
+              ['active', 'suspended', 'deleted'].map((status) => [
+                status,
+                readable(status),
+              ]),
+            ],
           ]}
-          value={records.params.verified ?? ''}
-          onChange={(value) => records.filter('verified', value)}
-        />
-        <Select
-          label="Account status"
-          options={['active', 'suspended', 'deleted'].map((status) => [
-            status,
-            readable(status),
-          ])}
-          value={records.params.status ?? ''}
-          onChange={(value) => records.filter('status', value)}
         />
       </div>
       <Records records={records} columns={columns} label="User accounts" />

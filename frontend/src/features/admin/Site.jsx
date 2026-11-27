@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useBeforeUnload, useBlocker } from 'react-router';
+import { Link, useBeforeUnload, useBlocker } from 'react-router';
 import {
   personalConfigDefaults,
   personalSections,
@@ -12,11 +12,12 @@ import {
   sectionKinds,
   sources,
 } from '../../../../shared/homepage.js';
-import { HomepageDisplay } from '../../pages/Home.jsx';
+import { EntertainmentHome } from '../public-ui/Home.jsx';
 import { useSiteSettings } from '../site/public.jsx';
 import {
   Choice,
   HomepageControls,
+  FeaturedPicks,
   OrderButtons,
   reordered,
 } from './HomepageControls.jsx';
@@ -693,12 +694,14 @@ function HomepageEditor({ record }) {
   const [draft, setDraft] = useState(value);
   const [action, setAction] = useState(null);
   const [preview, setPreview] = useState(false);
+  const [tab, setTab] = useState('Carousel');
   const [mobile, setMobile] = useState(false);
   const settings = useSiteSettings();
   const [localTitles, setTitles] = useState({});
   const query = useQuery({
     queryKey: [homepageUrl, 'assembly'],
-    queryFn: ({ signal }) => get(homepageUrl + '/assembly', signal),
+    queryFn: ({ signal }) =>
+      get(homepageUrl + '/assembly', signal, { view: 'entertainment' }),
     enabled: Boolean(revision),
   });
   const change = useChange([
@@ -710,7 +713,7 @@ function HomepageEditor({ record }) {
   const presentation = query.data?.data;
   const known = [
     ...(presentation?.slides ?? []),
-    ...(presentation?.sections.flatMap((row) => row.items ?? []) ?? []),
+    ...(presentation?.sections?.flatMap((row) => row.items ?? []) ?? []),
   ].filter(Boolean);
   const titles = {
     ...Object.fromEntries(known.map((item) => [item.id, item.title])),
@@ -721,6 +724,10 @@ function HomepageEditor({ record }) {
       .filter((item) => item.placement)
       .map((item) => ({ item, label: 'Hero carousel' })),
     ...(presentation?.sections ?? []).flatMap((section) => [
+      ...(section.above ?? []).map((item) => ({
+        item,
+        label: 'Above ' + section.heading,
+      })),
       ...(section.sponsored ?? []).map((item) => ({
         item,
         label: section.heading + ' rail',
@@ -757,7 +764,37 @@ function HomepageEditor({ record }) {
   return (
     <>
       <LeaveWarning dirty={dirty} />
-      {placements.length > 0 && (
+      <nav aria-label="Homepage management" className="flex flex-wrap gap-2">
+        {['Carousel', 'Featured Content', 'Promotions', 'Preview'].map(
+          (label) => (
+            <Button
+              key={label}
+              variant={tab === label ? 'primary' : 'outline'}
+              aria-pressed={tab === label}
+              onClick={() => setTab(label)}
+            >
+              {label}
+            </Button>
+          ),
+        )}
+      </nav>
+      {tab === 'Promotions' && (
+        <Card className="grid gap-2">
+          <h2 className="font-semibold">Homepage promotions</h2>
+          <Link
+            className="w-fit text-sm font-semibold text-accent"
+            to="/admin/promotions"
+          >
+            Manage campaign placements
+          </Link>
+          {placements.length === 0 && (
+            <p className="text-sm text-muted">
+              No eligible campaigns in the saved preview.
+            </p>
+          )}
+        </Card>
+      )}
+      {tab === 'Promotions' && placements.length > 0 && (
         <Card className="grid gap-2">
           <h2 className="font-semibold">
             Active campaign placements in the saved preview
@@ -771,75 +808,129 @@ function HomepageEditor({ record }) {
           </ul>
         </Card>
       )}
-      <HomepageControls
-        draft={draft}
-        update={(patch) => setDraft((current) => ({ ...current, ...patch }))}
-        normalize={normalize}
-        titles={titles}
-      />
-      <HeroEditor
-        hero={draft.hero}
-        titles={titles}
-        edit={(update) => {
-          const next = {
-            ...update,
-            ...(Object.hasOwn(update, 'featured') && {
-              featured: normalize(update.featured),
-            }),
-          };
-          setDraft((current) => ({
-            ...current,
-            hero: { ...current.hero, ...next },
-          }));
-        }}
-        remove={() => setDraft({ ...draft, hero: undefined })}
-      />
-      <h2 className="text-lg font-semibold">Section order</h2>
-      {draft.sections.map((row, index) => (
-        <SectionEditor
-          key={row.id}
-          row={row}
-          move={move}
-          index={index}
-          total={draft.sections.length}
-          titles={titles}
-          edit={(update) =>
-            updateSection(row.id, {
-              ...update,
-              ...(update.items && { items: update.items.map(normalize) }),
-            })
-          }
-          remove={() =>
-            setDraft({
-              ...draft,
-              sections: draft.sections.filter(({ id }) => id !== row.id),
-            })
-          }
-        />
-      ))}
-      {draft.sections.length < 16 && (
-        <div>
-          <Button
-            variant="outline"
-            onClick={() =>
-              setDraft({
-                ...draft,
-                sections: [
-                  ...draft.sections,
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'featured',
-                    heading: '',
-                    visible: true,
-                    items: [],
-                  },
-                ],
-              })
+      {tab === 'Carousel' && (
+        <>
+          <Card className="grid gap-2">
+            <h2 className="font-semibold">
+              Visible slide order in the saved draft
+            </h2>
+            {presentation?.slides?.length ? (
+              <ol className="list-decimal pl-6 text-sm">
+                {presentation.slides.slice(0, 5).map((slide) => (
+                  <li key={slide.id}>{slide.title}</li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted">
+                {query.isError
+                  ? 'Preview unavailable'
+                  : revision
+                    ? 'No eligible slides'
+                    : 'Save a draft to see which slides are eligible.'}
+              </p>
+            )}
+          </Card>
+          <HomepageControls
+            draft={draft}
+            update={(patch) =>
+              setDraft((current) => ({ ...current, ...patch }))
             }
-          >
-            Add section
-          </Button>
-        </div>
+            normalize={normalize}
+            titles={titles}
+          />
+          <details>
+            <summary className="cursor-pointer py-2 font-semibold">
+              Legacy hero settings
+            </summary>
+            <HeroEditor
+              hero={draft.hero}
+              titles={titles}
+              edit={(update) => {
+                const next = {
+                  ...update,
+                  ...(Object.hasOwn(update, 'featured') && {
+                    featured: normalize(update.featured),
+                  }),
+                };
+                setDraft((current) => ({
+                  ...current,
+                  hero: { ...current.hero, ...next },
+                }));
+              }}
+              remove={() => setDraft({ ...draft, hero: undefined })}
+            />
+          </details>
+        </>
+      )}
+      {tab === 'Featured Content' && (
+        <>
+          <FeaturedPicks
+            draft={draft}
+            normalize={normalize}
+            titles={titles}
+            update={(patch) =>
+              setDraft((current) => ({ ...current, ...patch }))
+            }
+          />
+          <details className="grid gap-2">
+            <summary className="cursor-pointer py-2 font-semibold">
+              Advanced homepage sections
+            </summary>
+            <h2 className="sr-only">Section order</h2>
+            {draft.sections.map((row, index) => (
+              <SectionEditor
+                key={row.id}
+                row={row}
+                move={move}
+                index={index}
+                total={draft.sections.length}
+                titles={titles}
+                edit={(update) =>
+                  updateSection(row.id, {
+                    ...update,
+                    ...(update.items && { items: update.items.map(normalize) }),
+                  })
+                }
+                remove={() =>
+                  setDraft({
+                    ...draft,
+                    sections: draft.sections.filter(({ id }) => id !== row.id),
+                  })
+                }
+              />
+            ))}
+            {draft.sections.length < 16 && (
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      sections: [
+                        ...draft.sections,
+                        {
+                          id: crypto.randomUUID(),
+                          type: 'featured',
+                          heading: '',
+                          visible: true,
+                          items: [],
+                        },
+                      ],
+                    })
+                  }
+                >
+                  Add section
+                </Button>
+              </div>
+            )}
+          </details>
+        </>
+      )}
+      {tab === 'Preview' && (
+        <p className="text-sm text-muted">
+          Save the draft to preview its current eligible slides, featured
+          content and active campaigns.
+        </p>
       )}
       <div className="flex flex-wrap gap-2">
         <Button
@@ -852,14 +943,15 @@ function HomepageEditor({ record }) {
             })
           }
         >
-          Save homepage draft
+          Save Draft
         </Button>
         <Button
           variant="outline"
           disabled={!revision || dirty}
+          aria-label="Open homepage preview"
           onClick={() => setPreview(true)}
         >
-          Preview saved draft
+          Preview
         </Button>
         <Button
           variant="outline"
@@ -878,7 +970,7 @@ function HomepageEditor({ record }) {
             });
           }}
         >
-          Publish homepage configuration
+          Publish Changes
         </Button>
       </div>
       <Feedback change={change} />
@@ -914,7 +1006,7 @@ function HomepageEditor({ record }) {
             <QueryState query={query}>
               {(data) => (
                 <div className={mobile ? 'mx-auto max-w-[375px]' : ''}>
-                  <HomepageDisplay
+                  <EntertainmentHome
                     value={data}
                     settings={settings}
                     preview

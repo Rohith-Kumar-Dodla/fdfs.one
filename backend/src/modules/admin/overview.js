@@ -1,6 +1,6 @@
 import { can } from '../../../../shared/admin.js';
 import { User } from '../auth/models.js';
-import { Movie, ReviewReport } from '../reviews/models.js';
+import { Movie, MovieRequest, ReviewReport } from '../reviews/models.js';
 import { publicMovieFilter } from '../reviews/movies.js';
 import { Film } from '../films/models.js';
 import { visibility } from '../live/events.js';
@@ -48,11 +48,14 @@ export async function overview(account) {
           })
         : 0,
     );
-  if (content('movies'))
+  if (content('movies')) {
     metrics.movies = Movie.countDocuments(publicMovieFilter(now));
+    metrics.movieRequests = MovieRequest.countDocuments({ status: 'pending' });
+  }
   if (content('talent')) metrics.talent = Personality.countDocuments(published);
   if (content('live'))
     Object.assign(metrics, {
+      events: LiveEvent.countDocuments(live),
       scheduled: LiveEvent.countDocuments({ ...live, broadcast: 'scheduled' }),
       live: LiveEvent.countDocuments({ ...live, broadcast: 'live' }),
       replays: LiveEvent.countDocuments({

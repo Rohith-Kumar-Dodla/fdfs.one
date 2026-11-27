@@ -1,4 +1,5 @@
 import { ratedPage } from '../reviews/rated-page.js';
+import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
 import { genres } from '../../../../shared/films.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
@@ -10,7 +11,7 @@ import { normalizedName } from '../talent/models.js';
 import { Film, FilmCredit } from './models.js';
 
 const cardFields =
-  'publicId slug classification title synopsis genres language runtimeMinutes releaseYear poster banner releaseAt trailer.provider';
+  'publicId slug classification title synopsis genres language runtimeMinutes releaseYear poster banner releaseAt trailer.provider mainVideo.providerVideoId mainVideo.artwork';
 const images =
   'publicId purpose url width height bytes references createdAt alt';
 export const missingFilm = () =>
@@ -63,7 +64,9 @@ function cardView(film, now) {
     language,
     runtimeMinutes,
     releaseYear,
-    poster: viewImage(poster),
+    poster:
+      viewImage(poster) ??
+      (existsNow(film, now) ? youtubeArtwork(film.mainVideo) : null),
     banner: viewImage(film.banner),
     releaseAt,
     availability: existsNow(film, now) ? 'released' : 'upcoming',
@@ -274,6 +277,7 @@ export async function getManagedFilm(id, creatorId) {
     rightsConfirmed: film.rightsConfirmed,
     rightsNotes: film.rightsNotes,
     mainUrl: film.mainVideo?.sourceUrl,
+    videoArtwork: film.mainVideo?.artwork,
     trailerUrl: film.trailer?.sourceUrl,
     posterId: film.poster?.publicId,
     bannerId: film.banner?.publicId,

@@ -58,6 +58,7 @@ export const mediaListInput = listInput({
   q: z.string().trim().min(1).max(80).optional(),
   category: z.enum(Object.keys(mediaCategories)).optional(),
   usage: z.enum(['used', 'unused']).optional(),
+  targetId: z.uuid().optional(),
   library: z.literal('true').optional(),
 });
 export const mediaMetadataInput = z.object({
@@ -137,6 +138,7 @@ export function listMedia(res, query, uploadDetails) {
     status: 'active',
     ...((!uploadDetails || query.library) && { purpose: 'library' }),
   };
+  if (query.targetId) filter['references.targetId'] = query.targetId;
   if (query.category === 'uncategorized')
     filter.category = { $in: [null, 'uncategorized'] };
   else if (query.category) filter.category = query.category;

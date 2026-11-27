@@ -18,6 +18,7 @@ const video = new Schema(
       enum: ['scheduled_live', 'live', 'replay'],
       required: true,
     },
+    artwork: String,
     availability: {
       type: String,
       enum: ['unknown', 'available', 'unavailable'],

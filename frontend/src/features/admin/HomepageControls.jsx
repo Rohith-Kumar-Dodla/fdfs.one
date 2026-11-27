@@ -1,4 +1,9 @@
-﻿import { useState } from 'react';
+﻿import { useQuery } from '@tanstack/react-query';
+import {
+  publicHeroLimit,
+  publicHomeSections,
+} from '../../../../shared/public-home.js';
+import { useState } from 'react';
 import { genres } from '../../../../shared/films.js';
 import { reviewGenres } from '../../../../shared/reviews.js';
 import { Button } from '../../components/ui/Button.jsx';
@@ -9,7 +14,9 @@ import {
   Field,
   PromotionDates,
 } from './SiteFields.jsx';
-import { control } from './common.jsx';
+import { control, get } from './common.jsx';
+
+const heroModules = ['independent', 'original', 'podcasts', 'live'];
 
 const genreLabels = { ...genres, ...reviewGenres };
 export function Choice({ label, value, onChange, options }) {
@@ -62,6 +69,12 @@ export const focalOptions = ['center', 'top', 'bottom', 'left', 'right'].map(
 );
 function Slide({ row, update, titles }) {
   const [images, setImages] = useState({});
+  if (row.campaignId)
+    return (
+      <p className="text-sm">
+        {titles[row.campaignId] ?? 'Campaign ' + row.campaignId}
+      </p>
+    );
   return (
     <>
       <p className="text-sm">
@@ -71,6 +84,7 @@ function Slide({ row, update, titles }) {
       <ContentPicker
         label="Replace slide content"
         allowUpcoming
+        modules={heroModules}
         onSelect={(target) => update({ target })}
       />
       <Field
@@ -115,23 +129,62 @@ function Slide({ row, update, titles }) {
   );
 }
 export function HomepageControls({ draft, update, normalize, titles }) {
-  const slides = draft.heroSlides ?? [];
+  const stored = draft.heroSlides ?? [];
+  const slides = Array.from({ length: publicHeroLimit }, (_, index) =>
+    stored.find((row, fallback) => (row.slot ?? fallback + 1) === index + 1),
+  );
+  const legacy = stored
+    .slice(publicHeroLimit)
+    .filter((row) => row.slot === undefined);
+  const campaigns = useQuery({
+    queryKey: ['/admin/site/homepage/hero-campaigns'],
+    queryFn: ({ signal }) => get('/admin/site/homepage/hero-campaigns', signal),
+  });
+  const campaignOptions = (campaigns.data?.data ?? []).filter(
+    ({ id }) => !stored.some((row) => row.campaignId === id),
+  );
+  const campaignTitles = Object.fromEntries(
+    (campaigns.data?.data ?? []).map(({ id, name }) => [id, name]),
+  );
+  const saveSlides = (heroSlides) =>
+    update({
+      heroSlides: [
+        ...heroSlides.flatMap((row, index) =>
+          row ? [{ ...row, slot: index + 1 }] : [],
+        ),
+        ...legacy,
+      ],
+      managedHero: legacy.length === 0,
+    });
   const configured = draft.genres ?? [];
   const available = Object.entries(genreLabels).filter(
     ([key]) => !configured.some((row) => row.genre === key),
   );
   function patchSlide(index, patch) {
-    update({
-      heroSlides: slides.map((row, i) =>
+    if (
+      patch.target &&
+      slides.some(
+        (row, position) =>
+          position !== index &&
+          row?.target?.id === patch.target.id &&
+          row.target.module === patch.target.module,
+      )
+    )
+      return;
+    saveSlides(
+      slides.map((row, i) =>
         i === index
           ? {
               ...row,
               ...patch,
-              ...(patch.target && { target: normalize(patch.target) }),
+              ...(patch.target && {
+                target: normalize(patch.target),
+                campaignId: undefined,
+              }),
             }
           : row,
       ),
-    });
+    );
   }
   function patchGenre(index, patch) {
     update({
@@ -166,40 +219,121 @@ export function HomepageControls({ draft, update, normalize, titles }) {
             }
           />
         </div>
-        {slides.map((row, i) => (
-          <Card className="grid min-w-0 gap-3" key={row.id}>
-            <Slide
-              row={row}
-              update={(patch) => patchSlide(i, patch)}
-              titles={titles}
-            />
-            <OrderButtons
-              index={i}
-              total={slides.length}
-              move={(index) =>
-                update({ heroSlides: reordered(slides, i, index) })
-              }
-              remove={() =>
-                update({
-                  heroSlides: slides.filter((other) => other.id !== row.id),
-                })
-              }
-            />
-          </Card>
-        ))}
-        {slides.length < 8 && (
-          <ContentPicker
-            label="Add hero slide"
-            allowUpcoming
-            onSelect={(item) =>
-              update({
-                heroSlides: [
-                  ...slides,
-                  { id: crypto.randomUUID(), target: normalize(item) },
-                ],
-              })
-            }
-          />
+        {Array.from({ length: publicHeroLimit }, (_, index) => {
+          const row = slides[index];
+          const add = (target) => {
+            if (
+              slides.some(
+                (slide) =>
+                  slide?.target?.id === target.id &&
+                  slide.target.module === target.module,
+              )
+            )
+              return;
+            saveSlides(
+              slides.map((item, i) =>
+                i === index
+                  ? { id: crypto.randomUUID(), target: normalize(target) }
+                  : item,
+              ),
+            );
+          };
+          return (
+            <Card className="grid gap-3 p-3!" key={row?.id ?? index}>
+              <h3 className="font-semibold">
+                Slot {index + 1}
+                {!row && ' · Empty'}
+              </h3>
+              {row && (
+                <>
+                  <Slide
+                    row={row}
+                    update={(patch) => patchSlide(index, patch)}
+                    titles={{ ...campaignTitles, ...titles }}
+                  />
+                  {row.campaignId && (
+                    <ContentPicker
+                      label="Replace with content"
+                      allowUpcoming
+                      modules={heroModules}
+                      onSelect={(target) => patchSlide(index, { target })}
+                    />
+                  )}
+                  <OrderButtons
+                    index={index}
+                    total={publicHeroLimit}
+                    move={(target) =>
+                      saveSlides(reordered(slides, index, target))
+                    }
+                    remove={() =>
+                      saveSlides(
+                        slides.map((item, i) =>
+                          i === index ? undefined : item,
+                        ),
+                      )
+                    }
+                  />
+                </>
+              )}
+              {!row && (
+                <ContentPicker
+                  label="Choose slide content"
+                  allowUpcoming
+                  modules={heroModules}
+                  onSelect={add}
+                />
+              )}
+              {campaignOptions.length > 0 && (
+                <Choice
+                  label={
+                    row
+                      ? 'Replace with eligible campaign'
+                      : 'Choose eligible campaign'
+                  }
+                  value=""
+                  options={[
+                    ['', 'Select campaign'],
+                    ...campaignOptions.map(({ id, name }) => [id, name]),
+                  ]}
+                  onChange={(campaignId) => {
+                    if (!campaignId) return;
+                    const next = {
+                      id: row?.id ?? crypto.randomUUID(),
+                      campaignId,
+                    };
+                    saveSlides(
+                      slides.map((item, i) => (i === index ? next : item)),
+                    );
+                  }}
+                />
+              )}
+            </Card>
+          );
+        })}
+        {legacy.length > 0 && (
+          <details>
+            <summary className="cursor-pointer">
+              Additional legacy selections ({legacy.length})
+            </summary>
+            {legacy.map((row) => (
+              <div className="flex flex-wrap items-center gap-2" key={row.id}>
+                <span className="text-sm">
+                  {titles[row.target?.id] ?? row.target?.id ?? row.campaignId}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    update({
+                      heroSlides: stored.filter((other) => other.id !== row.id),
+                      managedHero: false,
+                    })
+                  }
+                >
+                  Remove legacy selection
+                </Button>
+              </div>
+            ))}
+          </details>
         )}
       </Card>
       <Card className="grid min-w-0 gap-3">
@@ -241,4 +375,46 @@ export function HomepageControls({ draft, update, normalize, titles }) {
       </Card>
     </>
   );
+}
+
+export function FeaturedPicks({ draft, update, normalize, titles }) {
+  return publicHomeSections.map(({ key, heading }) => {
+    const configured = draft.featuredPicks?.[key];
+    const legacy = draft.sections
+      .filter((row) => row.type === 'featured')
+      .flatMap((row) =>
+        row.items.filter((item) => item.module === key && !item.upcoming),
+      );
+    const picks =
+      configured ??
+      [...new Map(legacy.map((item) => [item.id, item])).values()].slice(0, 12);
+    const replace = (rows) =>
+      update({ featuredPicks: { ...draft.featuredPicks, [key]: rows } });
+    return (
+      <Card key={key} className="grid gap-3">
+        <h2 className="font-semibold">{heading}</h2>
+        {picks.map((row, index) => (
+          <div key={row.id} className="grid gap-2 text-sm">
+            <span className="wrap-anywhere">{titles[row.id] ?? row.id}</span>
+            <OrderButtons
+              index={index}
+              total={picks.length}
+              move={(target) => replace(reordered(picks, index, target))}
+              remove={() => replace(picks.filter((item) => item.id !== row.id))}
+            />
+          </div>
+        ))}
+        {picks.length < 12 && (
+          <ContentPicker
+            fixedModule={key}
+            label={'Choose content for ' + heading}
+            onSelect={(item) => {
+              if (!picks.some((row) => row.id === item.id))
+                replace([...picks, normalize(item)]);
+            }}
+          />
+        )}
+      </Card>
+    );
+  });
 }

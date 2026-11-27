@@ -1,3 +1,9 @@
+import { GalleryOrder } from '../media/GalleryOrder.jsx';
+import {
+  PublicationFields,
+  publicationValues,
+} from '../admin/PublicationFields.jsx';
+import { YouTubeDetails } from '../media/YouTubeDetails.jsx';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -234,10 +240,12 @@ function PeoplePicker({ fields, register, append, remove, hosts = false }) {
     </fieldset>
   );
 }
-function Links({ array, register }) {
+function Links({ array, register, resources = false }) {
   return (
     <fieldset className="grid min-w-0 gap-3">
-      <legend className="mb-2 text-lg font-semibold">Links</legend>
+      <legend className="mb-2 text-lg font-semibold">
+        {resources ? 'Useful resource links' : 'Links'}
+      </legend>
       {array.fields.map(({ id }, index) => (
         <Card key={id} className="grid min-w-0 gap-2">
           <Field label="Link label">
@@ -247,7 +255,7 @@ function Links({ array, register }) {
               {...register('links.' + index + '.label')}
             />
           </Field>
-          <Field label="HTTPS link">
+          <Field label={resources ? 'HTTP or HTTPS link' : 'HTTPS link'}>
             <TextInput
               type="url"
               required
@@ -255,7 +263,29 @@ function Links({ array, register }) {
               {...register('links.' + index + '.url')}
             />
           </Field>
-          <div>
+          {resources && (
+            <Field label="Description (optional)">
+              <TextInput
+                maxLength={300}
+                {...register('links.' + index + '.description')}
+              />
+            </Field>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={index === 0}
+              onClick={() => array.move(index, index - 1)}
+            >
+              Move link up
+            </Button>
+            <Button
+              variant="outline"
+              disabled={index === array.fields.length - 1}
+              onClick={() => array.move(index, index + 1)}
+            >
+              Move link down
+            </Button>
             <Button variant="outline" onClick={() => array.remove(index)}>
               Remove link {index + 1}
             </Button>
@@ -480,6 +510,12 @@ export function ShowForm({ show, change, save }) {
 export function EpisodeForm({ episode, change, save }) {
   const [art, setArt] = useArtwork(episode, 'thumbnail');
   const [error, setError] = useState('');
+  const [galleryIds, setGallery] = useState(episode?.galleryIds ?? []);
+  const locked = episode?.status === 'published';
+  const [artwork, setArtwork] = useState(() => ({
+    key: episode?.videoArtwork,
+    id: parseYouTube(episode?.mainUrl)?.providerVideoId,
+  }));
   const { register, handleSubmit, control, getValues, setValue } = useForm({
     defaultValues: {
       title: episode?.title ?? '',
@@ -496,6 +532,11 @@ export function EpisodeForm({ episode, change, save }) {
       links: episode?.links ?? [],
       mainUrl: episode?.mainUrl ?? '',
       teaserUrl: episode?.teaserUrl ?? '',
+      extras:
+        episode?.extras?.map(({ title, video }) => ({
+          title,
+          url: video.sourceUrl,
+        })) ?? [],
       releaseAt: localDate(episode?.releaseAt),
       rightsConfirmed: episode?.rightsConfirmed ?? false,
       rightsNotes: episode?.rightsNotes ?? '',
@@ -512,8 +553,15 @@ export function EpisodeForm({ episode, change, save }) {
   });
   const participants = useFieldArray({ control, name: 'participants' });
   const links = useFieldArray({ control, name: 'links' });
+  const extras = useFieldArray({ control, name: 'extras' });
   const chapters = useFieldArray({ control, name: 'chapters' });
   function submit(values) {
+    let release;
+    try {
+      release = episode ? undefined : publicationValues(values);
+    } catch (error) {
+      return setError(error.message);
+    }
     const fields = validEpisode.safeParse({
       ...values,
       title: values.title.trim(),
@@ -534,7 +582,11 @@ export function EpisodeForm({ episode, change, save }) {
       return setError('Enter a valid media ID or remove it.');
     const main = optional(values.mainUrl),
       teaser = optional(values.teaserUrl);
-    if ([main, teaser].filter(Boolean).some((value) => !parseYouTube(value)))
+    if (
+      [main, teaser, ...values.extras.map(({ url }) => url.trim())]
+        .filter(Boolean)
+        .some((value) => !parseYouTube(value))
+    )
       return setError('Enter supported HTTPS YouTube links.');
     const times = values.chapters.map(
       ({ hours, minutes, seconds }) =>
@@ -572,7 +624,17 @@ export function EpisodeForm({ episode, change, save }) {
       ],
       thumbnailId: optional(art.primary),
       bannerId: optional(art.banner),
+      galleryIds,
+      extras: values.extras.map(({ title, url }) => ({
+        title: title.trim(),
+        url: url.trim(),
+      })),
       mainUrl: main,
+      videoArtwork:
+        artwork.id === parseYouTube(main)?.providerVideoId
+          ? artwork.key
+          : undefined,
+      ...(release && { release }),
       teaserUrl: teaser,
       participants: values.participants.map(
         ({ personalityId, role, introduction }) => ({
@@ -586,7 +648,11 @@ export function EpisodeForm({ episode, change, save }) {
         description: optional(description),
         start: times[index],
       })),
-      links: values.links,
+      links: values.links.map(({ label, url, description }) => ({
+        label,
+        url,
+        description: optional(description),
+      })),
       releaseAt: values.releaseAt
         ? new Date(values.releaseAt).toISOString()
         : undefined,
@@ -607,11 +673,54 @@ export function EpisodeForm({ episode, change, save }) {
         value={art}
         change={setArt}
       />
+      <Card className="grid gap-3">
+        <h2 className="font-semibold">Supporting images</h2>
+        <GalleryOrder
+          ids={galleryIds}
+          change={setGallery}
+          images={episode?.gallery}
+          library
+        />
+      </Card>
       <Card className="min-w-0">
         <form
           className="grid grid-cols-1 gap-4"
           onSubmit={handleSubmit(submit)}
         >
+          <Field label="Main YouTube URL">
+            <TextInput type="url" maxLength={2048} {...register('mainUrl')} />
+          </Field>
+
+          {episode?.status !== 'published' && (
+            <YouTubeDetails
+              module="podcasts"
+              source={() => getValues('mainUrl')}
+              current={getValues}
+              values={(details) => ({
+                title: details.title?.trim().slice(0, 140),
+                synopsis: details.description?.trim().slice(0, 280),
+                notes: details.description?.trim().slice(0, 12000),
+                duration:
+                  details.durationSeconds <= 28800
+                    ? details.durationSeconds
+                    : undefined,
+                language: langChoices.some(
+                  ([key]) => key === details.language?.split('-')[0],
+                )
+                  ? details.language.split('-')[0]
+                  : undefined,
+              })}
+              apply={(fields, thumbnail, replace) => {
+                for (const [key, value] of Object.entries(fields))
+                  setValue(key, value, { shouldDirty: true });
+                if (thumbnail && (replace || !artwork.key))
+                  setArtwork({
+                    key: thumbnail.key,
+                    id: parseYouTube(getValues('mainUrl')).providerVideoId,
+                  });
+              }}
+            />
+          )}
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <Field label="Episode title">
               <TextInput required maxLength={140} {...register('title')} />
@@ -683,20 +792,82 @@ export function EpisodeForm({ episode, change, save }) {
           <Field label="Content advisory">
             <TextInput maxLength={300} {...register('advisory')} />
           </Field>
-          <Field label="Main YouTube URL">
-            <TextInput type="url" maxLength={2048} {...register('mainUrl')} />
-          </Field>
           <Field label="Teaser YouTube URL">
             <TextInput type="url" maxLength={2048} {...register('teaserUrl')} />
           </Field>
-          <Chapters
-            array={chapters}
-            register={register}
-            getValues={getValues}
-            setValue={setValue}
-          />
+          <fieldset className="grid gap-3">
+            <legend className="mb-2 font-semibold">Supporting videos</legend>
+            {extras.fields.map(({ id }, index) => (
+              <div
+                className="grid gap-2 rounded-control border border-line p-3"
+                key={id}
+              >
+                <Field label="Video label">
+                  <TextInput
+                    required
+                    maxLength={100}
+                    {...register('extras.' + index + '.title')}
+                  />
+                </Field>
+                <Field label="Supporting YouTube URL">
+                  <TextInput
+                    required
+                    readOnly={locked}
+                    type="url"
+                    maxLength={2048}
+                    {...register('extras.' + index + '.url')}
+                  />
+                </Field>
+                {!locked && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={index === 0}
+                      onClick={() => extras.move(index, index - 1)}
+                    >
+                      Move video up
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={index === extras.fields.length - 1}
+                      onClick={() => extras.move(index, index + 1)}
+                    >
+                      Move video down
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => extras.remove(index)}
+                    >
+                      Remove video
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!locked && (
+              <Button
+                className="w-fit"
+                variant="outline"
+                disabled={extras.fields.length >= 5}
+                onClick={() => extras.append({ title: '', url: '' })}
+              >
+                Add supporting video
+              </Button>
+            )}
+          </fieldset>
+          <details>
+            <summary className="cursor-pointer py-2 font-semibold">
+              Advanced Settings · Chapters
+            </summary>
+            <Chapters
+              array={chapters}
+              register={register}
+              getValues={getValues}
+              setValue={setValue}
+            />
+          </details>
           <PeoplePicker {...participants} register={register} />
-          <Links array={links} register={register} />
+          <Links array={links} register={register} resources />
           <label className="flex min-h-11 items-center gap-2">
             <Checkbox {...register('commentsEnabled')} />
             Enable episode comments
@@ -705,6 +876,7 @@ export function EpisodeForm({ episode, change, save }) {
           <Field label="Private rights notes">
             <Textarea maxLength={1000} rows={2} {...register('rightsNotes')} />
           </Field>
+          {!episode && <PublicationFields register={register} />}
           {formError(change, error)}
           {change.isSuccess && !error && (
             <p role="status" className="text-sm text-success">
@@ -713,7 +885,7 @@ export function EpisodeForm({ episode, change, save }) {
           )}
           <div>
             <Button type="submit" loading={change.isPending}>
-              {episode ? 'Save episode' : 'Create episode draft'}
+              {episode ? 'Save episode' : 'Submit Episode'}
             </Button>
           </div>
         </form>

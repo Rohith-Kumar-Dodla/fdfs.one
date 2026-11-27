@@ -243,6 +243,47 @@ const report = new Schema(
 );
 report.index({ subjectType: 1, subject: 1, reporter: 1 }, { unique: true });
 report.index({ status: 1, createdAt: -1, _id: -1 });
+const movieRequest = new Schema(
+  {
+    publicId,
+    author: currentAuthor,
+    title: String,
+    normalizedTitle: String,
+    year: Number,
+    details: String,
+    normalizedDetails: String,
+    rating: Number,
+    body: String,
+    spoiler: Boolean,
+    status: {
+      type: String,
+      enum: [
+        'pending',
+        'clarification',
+        'conflict',
+        'approved',
+        'rejected',
+        'cancelled',
+      ],
+      default: 'pending',
+    },
+    open: { type: Boolean, default: true },
+    message: String,
+    movieSlug: String,
+    reviewId: String,
+  },
+  { ...timestamps, optimisticConcurrency: true },
+);
+movieRequest.index(
+  { author: 1, normalizedTitle: 1, year: 1, normalizedDetails: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { open: true },
+  },
+);
+movieRequest.index({ author: 1, createdAt: -1, _id: -1 });
+movieRequest.index({ status: 1, createdAt: -1, _id: -1 });
+export const MovieRequest = mongoose.model('MovieReviewRequest', movieRequest);
 export const Movie = mongoose.model('Movie', movie);
 export const Rating = mongoose.model('ReviewRating', rating);
 export const RatingTotals = mongoose.model('ReviewRatingTotals', totals);
@@ -254,6 +295,7 @@ export const initializeReviewsIndexes = () =>
   Promise.all(
     [
       Movie,
+      MovieRequest,
       Rating,
       RatingTotals,
       Review,

@@ -25,7 +25,7 @@ const kinds = {
   reviews: Star,
   talent: Users,
 };
-export function HomeShelf({ row, loading, error }) {
+export function HomeShelf({ row, loading, error, preview, previewSize }) {
   const id = useId();
   const rail = useRef(null);
   const portrait = ['reviews', 'talent'].includes(row.key);
@@ -42,6 +42,14 @@ export function HomeShelf({ row, loading, error }) {
   }
   return (
     <section aria-labelledby={id} className="grid min-w-0 gap-3">
+      {row.above?.map((item) => (
+        <CampaignBanner
+          key={item.id}
+          item={item}
+          preview={preview}
+          previewSize={previewSize}
+        />
+      ))}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <h2
           id={id}
@@ -121,7 +129,12 @@ export function HomeShelf({ row, loading, error }) {
               key={item.id + ':' + (item.placement ?? '')}
             >
               {item.module === 'promotion' ? (
-                <CampaignBanner item={item} compact />
+                <CampaignBanner
+                  item={item}
+                  preview={preview}
+                  previewSize={previewSize}
+                  compact
+                />
               ) : (
                 <CatalogueCard
                   title={item.title}
@@ -147,7 +160,7 @@ export function HomeShelf({ row, loading, error }) {
                       .join(', '),
                     (item.guests ?? []).join(', '),
                   ]}
-                  save={item}
+                  save={preview ? undefined : item}
                 />
               )}
             </li>
@@ -155,7 +168,7 @@ export function HomeShelf({ row, loading, error }) {
         </ul>
       )}
       {row.between?.map((item) => (
-        <CampaignBanner key={item.id} item={item} />
+        <CampaignBanner key={item.id} item={item} preview={preview} />
       ))}
     </section>
   );

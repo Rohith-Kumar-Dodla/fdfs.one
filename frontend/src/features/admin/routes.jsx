@@ -1,6 +1,7 @@
 import { useOutletContext } from 'react-router';
 import { can } from '../../../../shared/admin.js';
 import { EmptyState } from '../../components/ui/states.jsx';
+import { ContentWorkspace, SystemWorkspace } from './Workspace.jsx';
 import { AccountGuard } from '../auth/guards.jsx';
 
 const submissionPage = (name) => async () => ({
@@ -11,11 +12,19 @@ const adminSubmissionPage = (name) => async () => {
   return { Component: () => <Page admin /> };
 };
 const adminTalentPage = (name) => async () => ({
-  Component: (await import('../talent/Admin.jsx'))[name],
+  Component: guarded(
+    (await import('../talent/Admin.jsx'))[name],
+    'content',
+    'talent',
+  ),
 });
 const filmPage = (name, props) => async () => {
   const Page = (await import('../films/Manage.jsx'))[name];
-  return { Component: () => <Page {...props} /> };
+  return {
+    Component: props?.classification
+      ? guarded(() => <Page {...props} />, 'content', props.classification)
+      : () => <Page {...props} />,
+  };
 };
 const adminPage = (file, name, props) => async () => {
   const Page = (
@@ -24,17 +33,36 @@ const adminPage = (file, name, props) => async () => {
   return { Component: () => <Page {...props} /> };
 };
 const podcastPage = (name) => async () => ({
-  Component: (await import('../podcasts/Admin.jsx'))[name],
+  Component: guarded(
+    (await import('../podcasts/Admin.jsx'))[name],
+    'content',
+    'podcasts',
+  ),
 });
 const podcastModeration = (reports) => async () => {
   const { PodcastModeration } = await import('../podcasts/Moderation.jsx');
-  return { Component: () => <PodcastModeration reports={reports} /> };
+  return {
+    Component: guarded(
+      () => <PodcastModeration reports={reports} />,
+      'moderation',
+    ),
+  };
 };
 
 const livePage = (name, props) => async () => {
   const Page = (await import('../live/Manage.jsx'))[name];
-  return { Component: () => <Page {...props} /> };
+  return {
+    Component: props.admin
+      ? guarded(() => <Page {...props} />, 'content', 'live')
+      : () => <Page {...props} />,
+  };
 };
+
+const guarded = (Page, permission, module) => () => (
+  <StaffPermission permission={permission} module={module}>
+    <Page />
+  </StaffPermission>
+);
 
 function StaffPermission({ permission, module, children }) {
   return can(useOutletContext(), permission, module) ? (
@@ -108,6 +136,40 @@ export const administrationRoutes = [
             lazy: async () => ({
               Component: (await import('./Admin.jsx')).OverviewPage,
             }),
+          },
+          { path: 'content', Component: ContentWorkspace },
+          {
+            path: 'community',
+            lazy: async () => {
+              const { WorkspaceRedirect } = await import('./Admin.jsx');
+              return {
+                Component: () => <WorkspaceRedirect name="Community" />,
+              };
+            },
+          },
+          { path: 'system', Component: SystemWorkspace },
+          {
+            path: 'movies/requests',
+            lazy: async () => {
+              const { MovieRequestsAdmin } =
+                await import('../reviews/MovieRequestsAdmin.jsx');
+              return {
+                Component: () => (
+                  <StaffPermission permission="content" module="movies">
+                    <MovieRequestsAdmin />
+                  </StaffPermission>
+                ),
+              };
+            },
+          },
+          {
+            path: 'security',
+            lazy: async () => {
+              const { UsersPage } = await import('./Users.jsx');
+              return {
+                Component: guarded(() => <UsersPage sessions />, 'users'),
+              };
+            },
           },
           { path: 'movies', lazy: moviePage('MoviesAdmin') },
           { path: 'movies/new', lazy: moviePage('ManageMovie') },
@@ -237,7 +299,10 @@ export const administrationRoutes = [
             path: 'originals',
             lazy: filmPage('AdminFilms', { classification: 'original' }),
           },
-          { path: 'originals/new', lazy: filmPage('NewOriginal') },
+          {
+            path: 'originals/new',
+            lazy: filmPage('NewOriginal', { classification: 'original' }),
+          },
           { path: 'submissions', lazy: adminSubmissionPage('SubmissionList') },
           { path: 'talent', lazy: adminTalentPage('AdminTalentList') },
           { path: 'talent/new', lazy: adminTalentPage('AdminNewTalent') },

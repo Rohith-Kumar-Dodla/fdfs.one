@@ -41,6 +41,17 @@ import {
   submitReport,
   writeReview,
 } from './community.js';
+import {
+  cancelRequest,
+  decideRequest,
+  editRequest,
+  listMovieRequests,
+  newRequest,
+  requestList,
+  resolveMovieRequest,
+  saveMovieRequest,
+  withdrawMovieRequest,
+} from './requests.js';
 import * as s from './schemas.js';
 import {
   createMetadataService,
@@ -188,6 +199,55 @@ export function mountReviews(
   );
   reviews.get('/likes', ...identity, validate(s.likes), async (req, res) =>
     sendSuccess(res, await likedReviews(input(res).query.ids, actor(req))),
+  );
+  api.get(
+    '/account/movie-requests',
+    ready,
+    ...identity,
+    validate(requestList),
+    (req, res) => listMovieRequests(res, input(res).query, actor(req)),
+  );
+  api.post(
+    '/account/movie-requests',
+    ready,
+    active,
+    ...write,
+    validate(newRequest),
+    result((req, res) => saveMovieRequest(actor(req), input(res).body), 201),
+  );
+  api.patch(
+    '/account/movie-requests/:id',
+    ready,
+    active,
+    ...write,
+    validate(editRequest),
+    result((req, res) =>
+      saveMovieRequest(actor(req), input(res).body, input(res).params.id),
+    ),
+  );
+  api.delete(
+    '/account/movie-requests/:id',
+    ready,
+    ...identity,
+    quota,
+    validate(cancelRequest),
+    result((req, res) =>
+      withdrawMovieRequest(actor(req), input(res).params.id),
+    ),
+  );
+  admin.use('/movie-requests', permit('content', 'movies'));
+  admin.get('/movie-requests', validate(requestList), (_req, res) =>
+    listMovieRequests(res, input(res).query),
+  );
+  admin.post(
+    '/movie-requests/:id/resolve',
+    validate(decideRequest),
+    result((req, res) =>
+      resolveMovieRequest(input(res).params.id, input(res).body, {
+        actorId: actor(req).publicId,
+        requestId: res.get('X-Request-Id'),
+      }),
+    ),
   );
   api.get(
     '/account/reviews',

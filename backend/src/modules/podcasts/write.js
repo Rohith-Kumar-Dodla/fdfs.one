@@ -47,7 +47,7 @@ export function podcastAudit(session, context, action, type, id, summary) {
 }
 async function setImages(record, map, kind, session) {
   const reference = { kind, targetId: record.publicId };
-  const ids = [...new Set(Object.values(map).filter(Boolean))];
+  const ids = [...new Set(Object.values(map).flat().filter(Boolean))];
   const assets = await MediaAsset.find({
     publicId: { $in: ids },
     status: 'active',
@@ -59,7 +59,7 @@ async function setImages(record, map, kind, session) {
   const byId = new Map(assets.map((asset) => [asset.publicId, asset._id]));
   const previous = new Set(
     Object.keys(map).flatMap((key) =>
-      record[key] ? [String(record[key])] : [],
+      [record[key]].flat().filter(Boolean).map(String),
     ),
   );
   const next = new Set(assets.map((asset) => String(asset._id)));
@@ -69,7 +69,10 @@ async function setImages(record, map, kind, session) {
   }
   for (const id of previous.difference(next))
     await releaseReference(id, reference, session);
-  for (const [key, id] of Object.entries(map)) record[key] = byId.get(id);
+  for (const [key, id] of Object.entries(map))
+    record[key] = Array.isArray(id)
+      ? id.map((item) => byId.get(item))
+      : byId.get(id);
 }
 async function choosePeople(ids, existing, session) {
   const unique = [...new Set(ids)];
@@ -170,19 +173,23 @@ export async function changeShow({ action, revision }, context) {
   return getShow(false);
 }
 
-const video = (sourceUrl) =>
+const video = (sourceUrl, artwork) =>
   sourceUrl &&
   videoSource.parse({
     provider: 'youtube',
     playbackType: 'on_demand',
     sourceUrl,
+    artwork,
   });
 async function setEpisode(record, input, context, session) {
   const {
     thumbnailId,
     bannerId,
+    galleryIds,
+    extras,
     participants,
     mainUrl,
+    videoArtwork,
     teaserUrl,
     releaseAt,
     notes,
@@ -202,7 +209,7 @@ async function setEpisode(record, input, context, session) {
   );
   await setImages(
     record,
-    { thumbnail: thumbnailId, banner: bannerId },
+    { thumbnail: thumbnailId, banner: bannerId, gallery: galleryIds },
     'podcast-episode',
     session,
   );
@@ -215,8 +222,9 @@ async function setEpisode(record, input, context, session) {
     advisory,
     rightsNotes,
     titlePrefixes: words.map((_, index) => words.slice(index).join(' ')),
-    mainVideo: video(mainUrl),
+    mainVideo: video(mainUrl, videoArtwork),
     teaser: video(teaserUrl),
+    extras: extras.map(({ title, url }) => ({ title, video: video(url) })),
     releaseAt: published
       ? record.releaseAt
       : releaseAt
@@ -253,7 +261,49 @@ async function readManaged(id, revision, session) {
   return record;
 }
 
-export async function createEpisode({ slug, ...content }, context) {
+async function publishEpisode(record, release, context, session) {
+  if (!(await findShow(true).select('_id').session(session)))
+    throw new AppError(
+      409,
+      'PODCAST_SHOW_UNPUBLISHED',
+      'Publish the show before publishing an episode.',
+    );
+  if (
+    !record.rightsConfirmed ||
+    !record.mainVideo?.providerVideoId ||
+    !release.playbackChecked
+  ) {
+    throw new AppError(
+      400,
+      'PODCAST_PLAYBACK_REQUIRED',
+      'Confirm distribution rights and verify an embeddable main video.',
+    );
+  }
+  const now = new Date();
+  const releaseAt = release.releaseAt
+    ? new Date(release.releaseAt)
+    : (record.releaseAt ?? now);
+  const publicationAt = release.publicationAt
+    ? new Date(release.publicationAt)
+    : release.announce
+      ? now
+      : releaseAt;
+  if (!release.announce && publicationAt < releaseAt)
+    throw new AppError(
+      400,
+      'PODCAST_ANNOUNCEMENT_REQUIRED',
+      'Authorize an announcement to publish before full playback starts.',
+    );
+  record.set({
+    releaseAt,
+    publicationAt,
+    announce: Boolean(release.announce),
+    authorizedAt: now,
+    authorizedBy: context.actorId,
+  });
+}
+
+export async function createEpisode({ slug, release, ...content }, context) {
   const id = await write(async (session) => {
     const show = await findShow(false).select('_id status').session(session);
     if (!show || show.status === 'archived')
@@ -281,6 +331,23 @@ export async function createEpisode({ slug, ...content }, context) {
       record.publicId,
       { field: 'publication-status', to: 'draft' },
     );
+    if (release) {
+      changeStatus(record, 'publish');
+      await publishEpisode(record, release, context, session);
+      await record.save({ session });
+      await podcastAudit(
+        session,
+        context,
+        'episode_publish',
+        'podcast-episode',
+        record.publicId,
+        {
+          field: 'publication-status',
+          from: 'draft',
+          to: 'published',
+        },
+      );
+    }
     return record.publicId;
   });
   return getEpisode(id, true);
@@ -305,7 +372,13 @@ export async function editEpisode(
         video(content.mainUrl)?.providerVideoId !==
           record.mainVideo?.providerVideoId ||
         video(content.teaserUrl)?.providerVideoId !==
-          record.teaser?.providerVideoId)
+          record.teaser?.providerVideoId ||
+        content.extras.length !== record.extras.length ||
+        content.extras.some(
+          (extra, index) =>
+            video(extra.url).providerVideoId !==
+            record.extras[index].video.providerVideoId,
+        ))
     )
       throw new AppError(
         409,
@@ -335,45 +408,7 @@ export async function changeEpisode(
     const before = record.status;
     changeStatus(record, action);
     if (action === 'publish') {
-      if (!(await findShow(true).select('_id').session(session)))
-        throw new AppError(
-          409,
-          'PODCAST_SHOW_UNPUBLISHED',
-          'Publish the show before publishing an episode.',
-        );
-      if (
-        !record.rightsConfirmed ||
-        !record.mainVideo?.providerVideoId ||
-        !release.playbackChecked
-      ) {
-        throw new AppError(
-          400,
-          'PODCAST_PLAYBACK_REQUIRED',
-          'Confirm distribution rights and verify an embeddable main video.',
-        );
-      }
-      const now = new Date();
-      const releaseAt = release.releaseAt
-        ? new Date(release.releaseAt)
-        : (record.releaseAt ?? now);
-      const publicationAt = release.publicationAt
-        ? new Date(release.publicationAt)
-        : release.announce
-          ? now
-          : releaseAt;
-      if (!release.announce && publicationAt < releaseAt)
-        throw new AppError(
-          400,
-          'PODCAST_ANNOUNCEMENT_REQUIRED',
-          'Authorize an announcement to publish before full playback starts.',
-        );
-      record.set({
-        releaseAt,
-        publicationAt,
-        announce: Boolean(release.announce),
-        authorizedAt: now,
-        authorizedBy: context.actorId,
-      });
+      await publishEpisode(record, release, context, session);
     }
     record.updatedBy = context.actorId;
     await record.save({ session });

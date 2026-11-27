@@ -1,3 +1,4 @@
+import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
@@ -122,6 +123,9 @@ function view(row, managed = false, detail = false) {
     ),
     ...(detail && {
       description: row.description,
+      ...(!row.poster &&
+        broadcast === 'live' &&
+        youtubeArtwork(row.video) && { poster: youtubeArtwork(row.video) }),
       serverNow: new Date(),
       talent: row.talent.map(({ publicId, slug, displayName }) => ({
         id: publicId,
@@ -142,6 +146,7 @@ function view(row, managed = false, detail = false) {
       plannedReplayUrl: row.plannedReplayUrl,
       rightsConfirmed: row.rightsConfirmed,
       rightsNotes: row.rightsNotes,
+      videoArtwork: row.video?.artwork,
     }),
   };
 }
@@ -264,12 +269,18 @@ export function requireReady(event) {
     );
 }
 
-function provider(sourceUrl, playbackType) {
-  return videoSource.parse({ provider: 'youtube', sourceUrl, playbackType });
+function provider(sourceUrl, playbackType, artwork) {
+  return videoSource.parse({
+    provider: 'youtube',
+    sourceUrl,
+    playbackType,
+    artwork,
+  });
 }
 
 async function applyContent(event, input, actorId, session, owner) {
-  const { posterId, bannerId, talentIds, videoUrl, ...content } = input;
+  const { posterId, bannerId, talentIds, videoUrl, videoArtwork, ...content } =
+    input;
   const talent = await Personality.find({
     publicId: { $in: talentIds },
     status: 'published',
@@ -299,7 +310,9 @@ async function applyContent(event, input, actorId, session, owner) {
     rightsNotes: undefined,
     ...content,
     talent: talent.map(({ _id }) => _id),
-    video: videoUrl ? provider(videoUrl, 'scheduled_live') : undefined,
+    video: videoUrl
+      ? provider(videoUrl, 'scheduled_live', videoArtwork)
+      : undefined,
     rightsConfirmedAt: content.rightsConfirmed ? new Date() : undefined,
     updatedBy: actorId,
   });
@@ -332,13 +345,14 @@ async function organizerById(id, session) {
   return organizer;
 }
 
-export function createEvent(input, actor, context) {
+export function createEvent(input, actor, context, reminderLead) {
   const {
     organizerId,
     slug,
     chatEnabled,
     remindersEnabled,
     plannedReplayUrl,
+    publication,
     ...content
   } = input;
   return write(async (session) => {
@@ -356,8 +370,29 @@ export function createEvent(input, actor, context) {
       remindersEnabled,
     });
     await applyContent(event, content, context.actorId, session);
+    if (publication?.mode === 'upcoming' && event.startAt <= new Date())
+      throw new AppError(
+        400,
+        'LIVE_SCHEDULE_REQUIRED',
+        'Choose a future start for the upcoming event.',
+      );
     await event.save({ session });
     await audit(session, context, 'create', event, 'draft');
+    if (publication) {
+      await transition(event, { action: 'publish' }, context, session);
+      await audit(session, context, 'publish', event, 'published/scheduled');
+      if (publication.mode === 'live' && publication.broadcasting) {
+        await transition(
+          event,
+          { action: 'start', broadcasting: true },
+          context,
+          session,
+        );
+        await audit(session, context, 'start', event, 'published/live');
+      }
+      await event.save({ session });
+      await replanReminders(event, reminderLead, session);
+    }
     return event;
   });
 }

@@ -36,11 +36,12 @@ const staff = (actor) => ({
   actorId: actor.actorId,
   requestId: actor.requestId,
 });
-const playback = (sourceUrl) =>
+const playback = (sourceUrl, artwork) =>
   sourceUrl
     ? videoSource.parse({
         provider: 'youtube',
         sourceUrl,
+        artwork,
         playbackType: 'on_demand',
       })
     : undefined;
@@ -165,6 +166,7 @@ async function setContent(
     bannerId,
     galleryIds,
     mainUrl,
+    videoArtwork,
     trailerUrl,
     extras,
     credits,
@@ -197,7 +199,7 @@ async function setContent(
     poster: assets.get(posterId),
     banner: assets.get(bannerId),
     gallery: galleryIds.map((id) => assets.get(id)),
-    mainVideo: playback(mainUrl),
+    mainVideo: playback(mainUrl, videoArtwork),
     trailer: playback(trailerUrl),
     extras: extras.map(({ title, url, thumbnailId }) => ({
       title,
@@ -288,7 +290,7 @@ async function currentFilm(id, revision, session) {
 }
 
 export async function createAdminFilm(input, context) {
-  const { classification, slug, ...content } = input;
+  const { classification, slug, release, ...content } = input;
   const id = await filmWrite(async (session) => {
     const film = new Film({ classification, createdBy: context.actorId });
     film.slug = slug ?? filmSlug(content.title, film.publicId);
@@ -297,6 +299,15 @@ export async function createAdminFilm(input, context) {
       field: 'publication-status',
       to: 'draft',
     });
+    if (release) {
+      authorizeRelease(film, release, context);
+      await film.save({ session });
+      await audit(session, context, 'publish', film, {
+        field: 'publication-status',
+        from: 'draft',
+        to: 'published',
+      });
+    }
     return film.publicId;
   });
   return getManagedFilm(id);

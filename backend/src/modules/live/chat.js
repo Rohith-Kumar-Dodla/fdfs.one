@@ -95,7 +95,7 @@ export const chatActionInput = z.object({
 
 export const chatReadable = (event) =>
   event.chatEnabled && event.broadcast !== 'cancelled';
-const chatClosed = () =>
+export const chatClosed = () =>
   new AppError(409, 'CHAT_CLOSED', 'Chat is currently unavailable.');
 const unavailable = () =>
   new AppError(404, 'CHAT_NOT_FOUND', 'Chat record not found.');

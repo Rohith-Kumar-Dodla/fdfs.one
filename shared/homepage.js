@@ -39,6 +39,8 @@ export const promotionTypes = {
 };
 export const placementTypes = {
   hero: 'Hero carousel',
+  above: 'Above a homepage section',
+  below: 'Below a homepage section',
   between: 'Between sections',
   rail: 'In a content rail',
   footer: 'Before the footer',

@@ -15,6 +15,7 @@ const video = new Schema(
     },
     sourceUrl: { type: String, required: true },
     playbackType: { type: String, enum: ['on_demand'], required: true },
+    artwork: String,
     availability: {
       type: String,
       enum: ['unknown', 'available', 'unavailable'],

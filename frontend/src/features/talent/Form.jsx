@@ -12,6 +12,7 @@ import {
 import { Card } from '../../components/ui/surfaces.jsx';
 import { MediaPicker } from '../admin/MediaPicker.jsx';
 import { ImageUpload, uploadImage } from '../media/Images.jsx';
+import { talentCategories } from '../../../../shared/public-home.js';
 import { linkKinds } from '../../../../shared/talent.js';
 import { professionOptions, TalentImage } from './Public.jsx';
 
@@ -204,12 +205,16 @@ export function TalentForm({
   profile,
   admin = false,
   create = false,
+  category,
   change,
   submit,
   label = 'Save profile',
 }) {
   const { register, handleSubmit, control, getValues } = useForm({
     defaultValues: {
+      categories: profile?.categories ?? (category ? [category] : []),
+      professionalBackground: profile?.professionalBackground ?? '',
+      expertise: profile?.expertise ?? '',
       displayName: profile?.displayName ?? '',
       alternativeName: profile?.alternativeName ?? '',
       introduction: profile?.introduction ?? '',
@@ -280,6 +285,11 @@ export function TalentForm({
         description: optional(entry.description),
         source: optional(entry.source),
       })),
+      ...(admin && {
+        categories: Array.isArray(values.categories) ? values.categories : [],
+        professionalBackground: optional(values.professionalBackground),
+        expertise: optional(values.expertise),
+      }),
       ...(admin && create && { slug: optional(values.slug) }),
     });
   }
@@ -312,6 +322,28 @@ export function TalentForm({
               Submit only information and images you have permission to share
               publicly.
             </p>
+          )}
+          {admin && (
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 font-semibold">Profile categories</legend>
+              {Object.entries(talentCategories).map(([key, name]) => (
+                <label
+                  key={key}
+                  className="flex min-h-11 items-center gap-2 text-sm"
+                >
+                  <Checkbox value={key} {...register('categories')} /> {name}
+                </label>
+              ))}
+              <Field label="Professional background (optional)">
+                <Textarea
+                  maxLength={1500}
+                  {...register('professionalBackground')}
+                />
+              </Field>
+              <Field label="Expertise or topics (optional)">
+                <TextInput maxLength={500} {...register('expertise')} />
+              </Field>
+            </fieldset>
           )}
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <Field label="Display name">

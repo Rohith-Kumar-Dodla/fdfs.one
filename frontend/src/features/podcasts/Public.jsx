@@ -1,3 +1,5 @@
+import { FilmImage } from '../films/FilmImage.jsx';
+import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { languages } from '../../../../shared/films.js';
@@ -33,7 +35,7 @@ function Resources({ links, title }) {
     <section className="grid gap-2 wrap-anywhere">
       <h2 className="text-lg font-semibold">{title}</h2>
       <ul className="flex flex-wrap gap-x-4">
-        {links.map(({ url, label }, index) => (
+        {links.map(({ url, label, description }, index) => (
           <li key={index}>
             <a
               className={navigateLinks}
@@ -43,6 +45,9 @@ function Resources({ links, title }) {
             >
               {label}
             </a>
+            {description && (
+              <p className="text-sm text-muted wrap-anywhere">{description}</p>
+            )}
           </li>
         ))}
       </ul>
@@ -192,6 +197,29 @@ export function EpisodeDetail() {
                 </li>
               ))}
             </ul>
+          )}
+          {episode.gallery?.length > 0 && (
+            <section className="grid gap-3">
+              <h2 className="text-xl font-semibold">Supporting images</h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {episode.gallery.map((item, index) => (
+                  <FilmImage key={item.id ?? index} image={item} landscape />
+                ))}
+              </div>
+            </section>
+          )}
+          {episode.extras?.length > 0 && (
+            <section className="grid gap-3">
+              <h2 className="text-xl font-semibold">Supporting videos</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {episode.extras.map(({ title, video }) => (
+                  <div className="grid gap-2" key={video.providerVideoId}>
+                    <h3 className="font-semibold">{title}</h3>
+                    <YouTubePlayer title={title} video={video} />
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
           <Resources links={episode.links} title="Resources" />
           <Related module="podcasts" id={episode.id} />

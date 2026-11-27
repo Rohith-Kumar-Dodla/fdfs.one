@@ -36,6 +36,7 @@ import {
   mediaMetadataInput,
   saveMediaMetadata,
 } from '../media/assets.js';
+import { mountYouTubeMetadata } from '../media/youtube-metadata.js';
 import { readImage, uploadRateLimit } from '../media/images.js';
 import { mountAdminTalent } from '../talent/routes.js';
 import { getProposalImages, publishTalent } from '../talent/service.js';
@@ -160,6 +161,7 @@ export function mountPhase22(
     supportEmailAvailable,
   });
   admin.use(permit('dashboard'));
+  mountYouTubeMetadata(admin, config?.YOUTUBE_DATA_API_KEY);
   mountReviews(api, admin, authenticate, {
     available,
     notify: noticeNotify,
@@ -251,6 +253,7 @@ export function mountPhase22(
   );
   mountPodcastManagement(api, admin, authenticate);
   mountLiveManagement(api, admin, authenticate, {
+    chatEnabled: config?.LIVE_CHAT_ENABLED,
     available,
     liveNotify,
     reminderLead,

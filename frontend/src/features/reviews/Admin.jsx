@@ -1,19 +1,20 @@
+import {
+  ContentGrid,
+  ContentHeading,
+  RecordFilters,
+} from '../admin/ContentGrid.jsx';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { languages } from '../../../../shared/films.js';
-import { Button, buttonClasses } from '../../components/ui/Button.jsx';
+import { Button } from '../../components/ui/Button.jsx';
 import { Card, SectionHeading } from '../../components/ui/surfaces.jsx';
 import { ErrorState, Spinner } from '../../components/ui/states.jsx';
 import {
   ConfirmAction,
-  control,
-  date,
   DetailLink,
   get,
   readable,
-  Records,
-  Select,
   useChange,
   useRecords,
 } from '../admin/common.jsx';
@@ -25,81 +26,43 @@ const keys = [path, '/admin/audit', 'talent', '/admin/overview'];
 const options = (values) => values.map((value) => [value, readable(value)]);
 export function MoviesAdmin() {
   const records = useRecords(path);
-  const columns = [
-    {
-      title: 'Title',
-      render: (row) => (
-        <DetailLink to={path + '/' + row.id}>{row.title}</DetailLink>
-      ),
-    },
-    { title: 'Status', render: (row) => readable(row.status) },
-    { title: 'Release year', render: (row) => row.releaseYear ?? 'Unknown' },
-    { title: 'Last changed', render: (row) => date(row.updatedAt) },
-  ];
   return (
     <>
-      <SectionHeading as="h1">Movie catalogue</SectionHeading>
-      <Link
-        to={path + '/new'}
-        className={buttonClasses('primary', 'justify-self-start')}
+      <ContentHeading
+        title="Movie Catalogue"
+        create={path + '/new'}
+        action="Add Movie"
       >
-        Create movie
-      </Link>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
-      >
-        <label className="grid flex-1 gap-1 text-sm">
-          Search movies
-          <input type="search" name="q" className={control} maxLength={80} />
-        </label>
-        <Button type="submit" variant="outline">
-          Search
-        </Button>
-      </form>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Select
-          label="Status"
-          options={options(['draft', 'published', 'archived'])}
-          value={records.params.status ?? ''}
-          onChange={(value) => records.filter('status', value)}
+        <RecordFilters
+          records={records}
+          fields={[
+            ['q', 'Search movies'],
+            ['status', 'Status', options(['draft', 'published', 'archived'])],
+            ['genre', 'Genre', Object.entries(movieGenres)],
+            ['language', 'Language', Object.entries(languages)],
+            [
+              'sort',
+              'Sort by',
+              options(['release', 'published', 'title', 'rating', 'popular']),
+            ],
+          ]}
         />
-        <Select
-          label="Genre"
-          options={Object.entries(movieGenres)}
-          value={records.params.genre ?? ''}
-          onChange={(value) => records.filter('genre', value)}
-        />
-        <Select
-          label="Language"
-          options={Object.entries(languages)}
-          value={records.params.language ?? ''}
-          onChange={(value) => records.filter('language', value)}
-        />
-        <Select
-          label="Sort by"
-          options={options([
-            'release',
-            'published',
-            'title',
-            'rating',
-            'popular',
-          ])}
-          value={records.params.sort ?? ''}
-          onChange={(value) => records.filter('sort', value)}
-        />
-      </div>
-      <Records
+      </ContentHeading>
+      <ContentGrid
         records={records}
-        columns={columns}
-        label="Movie catalogue"
         empty="No movies match these filters"
+        entry={(row) => ({
+          title: row.title,
+          image: row.backdrop ?? row.poster,
+          meta: [row.releaseYear, languages[row.language]]
+            .filter(Boolean)
+            .join(' · '),
+          edit: path + '/' + row.id,
+          preview:
+            row.status === 'published'
+              ? '/movies/' + row.slug
+              : path + '/' + row.id + '?preview=1',
+        })}
       />
     </>
   );
@@ -157,7 +120,8 @@ export function ManageMovie() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState(null);
-  const [preview, setPreview] = useState(false);
+  const [params] = useSearchParams();
+  const [preview, setPreview] = useState(params.get('preview') === '1');
   const [feedback, setFeedback] = useState('');
   const url = id ? path + '/' + id : path;
   const query = useQuery({

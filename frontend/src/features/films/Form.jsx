@@ -1,3 +1,9 @@
+import { GalleryOrder } from '../media/GalleryOrder.jsx';
+import {
+  PublicationFields,
+  publicationValues,
+} from '../admin/PublicationFields.jsx';
+import { YouTubeDetails } from '../media/YouTubeDetails.jsx';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -124,33 +130,14 @@ function FilmMedia({ admin, record, images = [], value, change }) {
       </div>
       <Card className="grid min-w-0 gap-3">
         <h3 className="font-semibold">Gallery and supporting images</h3>
-        {value.galleryIds.length > 0 && (
-          <ul className="grid gap-2">
-            {value.galleryIds.map((id, index) => (
-              <li
-                key={id}
-                className="flex min-w-0 flex-wrap items-center gap-2 wrap-anywhere"
-              >
-                <span className="text-sm text-muted">
-                  Gallery image {index + 1}
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    change((current) => ({
-                      ...current,
-                      galleryIds: current.galleryIds.filter(
-                        (entry) => entry !== id,
-                      ),
-                    }))
-                  }
-                >
-                  Remove gallery image {index + 1}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <GalleryOrder
+          ids={value.galleryIds}
+          library={admin}
+          images={uploaded}
+          change={(galleryIds) =>
+            change((current) => ({ ...current, galleryIds }))
+          }
+        />
         <ImageUpload
           label="Choose gallery image"
           onUpload={async (file) => {
@@ -184,6 +171,7 @@ export function FilmCredits({
   remove,
   maximum = 60,
   staffSearch,
+  priorityCategory,
 }) {
   const [search, setSearch] = useState('');
   const [q, setQuery] = useState('');
@@ -192,15 +180,37 @@ export function FilmCredits({
     return () => clearTimeout(timer);
   }, [search]);
   const matches = useQuery({
-    queryKey: ['talent', 'film-credit-selection', q, Boolean(staffSearch)],
+    queryKey: [
+      'talent',
+      'film-credit-selection',
+      q,
+      staffSearch,
+      priorityCategory,
+    ],
     meta: { public: !staffSearch },
     enabled: q.length >= 2,
-    queryFn: ({ signal }) => {
+    queryFn: async ({ signal }) => {
       const params = { q, limit: 8 };
       const request = staffSearch
         ? protectedRequest({ url: staffSearch, params, signal })
         : apiClient.get('/talent', { params, signal });
-      return request.then(({ data }) => data);
+      const preferred =
+        priorityCategory &&
+        apiClient
+          .get('/talent', {
+            params: { ...params, category: priorityCategory },
+            signal,
+          })
+          .catch(() => undefined);
+      const [matching, first] = await Promise.all([request, preferred]);
+      return [
+        ...new Map(
+          [...(first?.data ?? []), ...(matching.data ?? [])].map((person) => [
+            person.id,
+            person,
+          ]),
+        ).values(),
+      ].slice(0, 8);
     },
   });
   return (
@@ -268,7 +278,7 @@ export function FilmCredits({
                 {labels(professions)}
               </Select>
             </Field>
-            <Field label="Character name">
+            <Field label="Custom role or character name">
               <TextInput
                 {...register('credits.' + index + '.character')}
                 maxLength={100}
@@ -315,6 +325,7 @@ export function FilmForm({
   images,
   admin = false,
   creation = false,
+  classification = record?.classification,
   change,
   save,
   button = record?.status === 'published'
@@ -327,7 +338,11 @@ export function FilmForm({
     galleryIds: record?.galleryIds ?? [],
   });
   const [error, setError] = useState('');
-  const { register, handleSubmit, control } = useForm({
+  const [artwork, setArtwork] = useState(() => ({
+    key: record?.videoArtwork,
+    id: parseYouTube(record?.mainUrl)?.providerVideoId,
+  }));
+  const { register, handleSubmit, control, getValues, setValue } = useForm({
     defaultValues: {
       title: record?.title ?? '',
       synopsis: record?.synopsis ?? '',
@@ -354,6 +369,12 @@ export function FilmForm({
   const lockedVideo =
     admin && Boolean(record?.creatorId || record?.status === 'published');
   function submit(values) {
+    let release;
+    try {
+      release = admin && creation ? publicationValues(values) : undefined;
+    } catch (error) {
+      return setError(error.message);
+    }
     const draft = validDraft.safeParse({
       ...values,
       title: values.title.trim(),
@@ -413,6 +434,11 @@ export function FilmForm({
       bannerId: trim(media.bannerId),
       galleryIds: media.galleryIds,
       mainUrl: trim(values.mainUrl),
+      videoArtwork:
+        artwork.id === parseYouTube(trim(values.mainUrl))?.providerVideoId
+          ? artwork.key
+          : undefined,
+      ...(release && { release }),
       trailerUrl: trim(values.trailerUrl),
       credits: prepared,
       extras: values.extras.map(({ title, url, thumbnailId }) => ({
@@ -447,6 +473,46 @@ export function FilmForm({
           className="grid grid-cols-1 gap-5"
           onSubmit={handleSubmit(submit)}
         >
+          <Field label="Main film YouTube URL">
+            <TextInput
+              type="url"
+              maxLength={2048}
+              readOnly={lockedVideo}
+              {...register('mainUrl')}
+            />
+          </Field>
+          {admin && !lockedVideo && (
+            <YouTubeDetails
+              module={classification ?? 'original'}
+              source={() => getValues('mainUrl')}
+              current={getValues}
+              values={(details) => ({
+                title: details.title?.trim().slice(0, 140),
+                synopsis: details.description?.trim().slice(0, 280),
+                description: details.description?.trim().slice(0, 6000),
+                runtimeMinutes:
+                  details.durationSeconds &&
+                  Math.ceil(details.durationSeconds / 60) <= 300
+                    ? Math.ceil(details.durationSeconds / 60)
+                    : undefined,
+                language: Object.hasOwn(
+                  languages,
+                  details.language?.split('-')[0],
+                )
+                  ? details.language.split('-')[0]
+                  : undefined,
+              })}
+              apply={(fields, thumbnail, replace) => {
+                for (const [name, value] of Object.entries(fields))
+                  setValue(name, value, { shouldDirty: true });
+                if (thumbnail && (replace || !artwork.key))
+                  setArtwork({
+                    key: thumbnail.key,
+                    id: parseYouTube(getValues('mainUrl')).providerVideoId,
+                  });
+              }}
+            />
+          )}
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <Field label="Film title">
               <TextInput required maxLength={140} {...register('title')} />
@@ -508,47 +574,49 @@ export function FilmForm({
             items={genres}
             register={register}
           />
-          <RoleChoices
-            title="Subtitle languages"
-            name="subtitles"
-            items={languages}
-            register={register}
-          />
+          <details>
+            <summary className="cursor-pointer py-2 font-semibold">
+              Advanced Settings · Subtitles and trailer
+            </summary>
+            <RoleChoices
+              title="Subtitle languages"
+              name="subtitles"
+              items={languages}
+              register={register}
+            />
+            <fieldset className="grid min-w-0 gap-3">
+              <legend className="mb-2 font-semibold">Trailer</legend>
+              {lockedVideo && (
+                <p className="text-sm text-muted">
+                  {record.creatorId
+                    ? 'Video and rights changes for creator submissions require creator review.'
+                    : 'Unpublish first to change video sources or distribution rights.'}
+                </p>
+              )}
+              <Field label="Trailer YouTube URL">
+                <TextInput
+                  type="url"
+                  maxLength={2048}
+                  readOnly={lockedVideo}
+                  {...register('trailerUrl')}
+                />
+              </Field>
+            </fieldset>
+          </details>
           <fieldset className="grid min-w-0 gap-3">
-            <legend className="mb-2 text-lg font-semibold">Videos</legend>
-            {lockedVideo && (
-              <p className="text-sm text-muted">
-                {record.creatorId
-                  ? 'Video and rights changes for creator submissions require creator review.'
-                  : 'Unpublish first to change video sources or distribution rights.'}
-              </p>
-            )}
-            <Field label="Main film YouTube URL">
-              <TextInput
-                type="url"
-                maxLength={2048}
-                readOnly={lockedVideo}
-                {...register('mainUrl')}
-              />
-            </Field>
-            <Field label="Trailer YouTube URL">
-              <TextInput
-                type="url"
-                maxLength={2048}
-                readOnly={lockedVideo}
-                {...register('trailerUrl')}
-              />
-            </Field>
+            <legend className="mb-2 text-lg font-semibold">
+              Supporting videos
+            </legend>
             {extras.fields.map(({ id }, index) => (
               <Card key={id} className="grid min-w-0 gap-3">
-                <Field label="Behind-the-scenes title">
+                <Field label="Supporting video title">
                   <TextInput
                     required
                     maxLength={100}
                     {...register('extras.' + index + '.title')}
                   />
                 </Field>
-                <Field label="Behind-the-scenes YouTube URL">
+                <Field label="Supporting YouTube URL">
                   <TextInput
                     type="url"
                     required
@@ -563,7 +631,21 @@ export function FilmForm({
                   />
                 </Field>
                 {!lockedVideo && (
-                  <div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={index === 0}
+                      onClick={() => extras.move(index, index - 1)}
+                    >
+                      Move video up
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={index === extras.fields.length - 1}
+                      onClick={() => extras.move(index, index + 1)}
+                    >
+                      Move video down
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => extras.remove(index)}
@@ -581,12 +663,16 @@ export function FilmForm({
                   disabled={extras.fields.length >= 5}
                   onClick={() => extras.append({ title: '', url: '' })}
                 >
-                  Add behind-the-scenes video
+                  Add supporting video
                 </Button>
               </div>
             )}
           </fieldset>
-          <FilmCredits {...credits} register={register} />
+          <FilmCredits
+            {...credits}
+            register={register}
+            priorityCategory={admin ? 'short-films' : undefined}
+          />
           <fieldset className="grid min-w-0 gap-3">
             <legend className="mb-2 text-lg font-semibold">
               Awards and recognitions
@@ -661,6 +747,7 @@ export function FilmForm({
               />
             </Field>
           </fieldset>
+          {admin && creation && <PublicationFields register={register} />}
           {(error || change.isError) && (
             <p role="alert" className="text-sm text-danger-text">
               {error || change.error.message}

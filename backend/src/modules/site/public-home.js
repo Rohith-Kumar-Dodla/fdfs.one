@@ -44,6 +44,7 @@ async function metadata(key, items) {
 }
 export async function refinedSections({
   visible,
+  picks,
   selected,
   promotions,
   hidden,
@@ -72,12 +73,14 @@ export async function refinedSections({
             ),
           ];
           const limit = slots[0]?.limit ?? 8;
-          let featured = curated.flatMap((row) =>
-            row.items
-              .filter((item) => item.module === key)
-              .map(selected)
-              .filter((item) => item && !item.upcoming),
-          );
+          const configured =
+            picks?.[key] ??
+            curated.flatMap((row) =>
+              row.items.filter((item) => item.module === key),
+            );
+          let featured = configured
+            .map(selected)
+            .filter((item) => item && !item.upcoming);
           let items;
           if (key === 'talent') {
             const [picked, fallback] = await Promise.all([
@@ -136,12 +139,13 @@ export async function refinedSections({
           return {
             ...entry,
             items: await metadata(key, output),
+            above: campaigns(promotions, 'above', entry.placementId, 1),
             sponsored: slots.flatMap((row) =>
               campaigns(promotions, 'rail', row.id, 1),
             ),
-            between: slots.flatMap((row) =>
-              campaigns(promotions, 'between', row.id, 1),
-            ),
+            between: slots
+              .flatMap((row) => campaigns(promotions, 'between', row.id, 1))
+              .concat(campaigns(promotions, 'below', entry.placementId, 1)),
           };
         },
         { ...entry, items: [], unavailable: true },

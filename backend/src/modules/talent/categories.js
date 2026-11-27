@@ -7,9 +7,9 @@ import { Personality } from './models.js';
 
 export async function categoryStages(category, now = new Date(), hidden = []) {
   const limit = [{ $limit: 1 }, { $project: { _id: 1 } }];
-  let collection,
-    localField = '_id',
-    foreignField = 'personality',
+  let collection;
+  const localField = '_id';
+  let foreignField = 'personality',
     pipeline;
   if (category === 'movies') {
     collection = Movie.collection.name;
@@ -71,7 +71,14 @@ export async function categoryStages(category, now = new Date(), hidden = []) {
         as: 'categoryMatch',
       },
     },
-    { $match: { 'categoryMatch.0': { $exists: true } } },
+    {
+      $match: {
+        $or: [
+          { categories: category },
+          { 'categoryMatch.0': { $exists: true } },
+        ],
+      },
+    },
     { $unset: 'categoryMatch' },
   ];
 }

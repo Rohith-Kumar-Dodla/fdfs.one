@@ -5,6 +5,7 @@ import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Spinner } from '../../components/ui/states.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
 import { ConfirmDelete, TextEditor } from '../reviews/Community.jsx';
+import { MovieRequestForm } from '../reviews/MovieRequests.jsx';
 import { StarInput } from '../reviews/Rating.jsx';
 import {
   reviewApi,
@@ -16,7 +17,7 @@ import { QueryContent } from '../reviews/common.jsx';
 
 const fieldClass =
   'min-h-11 w-full rounded-control border border-control bg-base px-3 py-2 text-sm';
-function TitlePicker({ type, onSelect }) {
+function TitlePicker({ type, onSelect, onQuery }) {
   const id = useId();
   const [text, setText] = useState('');
   const [q, commit] = useState('');
@@ -64,6 +65,7 @@ function TitlePicker({ type, onSelect }) {
           value={text}
           onChange={(event) => {
             setText(event.target.value);
+            onQuery(event.target.value);
             setActive(-1);
           }}
           autoComplete="off"
@@ -100,12 +102,7 @@ function TitlePicker({ type, onSelect }) {
         </p>
       )}
       {q.length > 1 && q === text.trim() && query.isSuccess && !rows.length && (
-        <p className="text-sm text-muted">
-          No published titles match.{' '}
-          <Link className="text-accent underline" to="/support">
-            Contact the Support Center
-          </Link>
-        </p>
+        <p className="text-sm text-muted">No published titles match.</p>
       )}
       <ul
         role="listbox"
@@ -224,6 +221,8 @@ function Composer({ close }) {
   const [type, setType] = useState('movie');
   const [target, setTarget] = useState(null);
   const [finished, finish] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const [queryTitle, setQueryTitle] = useState('');
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -270,18 +269,28 @@ function Composer({ close }) {
     return (
       <div className="grid gap-3">
         <p role="status" className="font-semibold text-success">
-          Review updated successfully.
+          {missing
+            ? 'Review saved privately for movie verification.'
+            : 'Review updated successfully.'}
         </p>
         <Link
           className="text-accent underline"
-          to={target.path + '#film-community'}
+          to={missing ? '/account/reviews' : target.path + '#film-community'}
         >
-          Open {target.title}
+          {missing ? 'Open My Reviews' : 'Open ' + target.title}
         </Link>
         <div>
           <Button onClick={close}>Done</Button>
         </div>
       </div>
+    );
+  if (missing)
+    return (
+      <MovieRequestForm
+        initialTitle={queryTitle}
+        done={() => finish(true)}
+        cancel={() => setMissing(false)}
+      />
     );
   return (
     <div className="grid gap-4">
@@ -293,6 +302,7 @@ function Composer({ close }) {
           onChange={(event) => {
             setType(event.target.value);
             setTarget(null);
+            setQueryTitle('');
           }}
         >
           <option value="movie">Movie</option>
@@ -307,7 +317,21 @@ function Composer({ close }) {
           </Button>
         </div>
       ) : (
-        <TitlePicker type={type} key={type} onSelect={setTarget} />
+        <TitlePicker
+          type={type}
+          key={type}
+          onSelect={setTarget}
+          onQuery={setQueryTitle}
+        />
+      )}
+      {!target && type === 'movie' && (
+        <Button
+          className="w-fit"
+          variant="outline"
+          onClick={() => setMissing(true)}
+        >
+          Can't Find Your Movie?
+        </Button>
       )}
       {target ? (
         <OwnedReviewForm

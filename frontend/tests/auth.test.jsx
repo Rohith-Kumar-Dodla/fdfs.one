@@ -323,6 +323,27 @@ describe('administration routes', () => {
       );
   }
 
+  it('collapses the sidebar and opens all six Content modules', async () => {
+    authenticate(['super_admin']);
+    const events = userEvent.setup();
+    renderRoute('/admin');
+    await screen.findByRole('heading', { name: 'Overview' });
+    const sidebar = screen.getByRole('navigation', { name: 'Administration' });
+    expect(within(sidebar).getAllByRole('link')).toHaveLength(8);
+    await events.click(
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await events.click(within(sidebar).getByRole('link', { name: 'Content' }));
+    await screen.findByRole('heading', { name: 'Content' });
+    expect(screen.getAllByRole('article')).toHaveLength(6);
+    expect(
+      screen.getByRole('link', { name: 'Manage Movies & Reviews' }),
+    ).toHaveAttribute('href', '/admin/movies');
+  });
+
   it('redirects guests and restricts non-admin accounts', async () => {
     const router = renderRoute('/admin');
     await screen.findByRole('heading', { name: 'Sign in' });
@@ -360,7 +381,9 @@ describe('administration routes', () => {
     const events = userEvent.setup();
     renderRoute('/admin');
     await screen.findByRole('heading', { name: 'Overview' });
-    const toggle = screen.getByRole('button', { name: 'Admin menu' });
+    const toggle = screen.getByRole('button', {
+      name: 'Open administration menu',
+    });
     await events.tab();
     await events.click(toggle);
     const dialog = screen.getByRole('dialog', { name: 'Administration menu' });
@@ -368,7 +391,7 @@ describe('administration routes', () => {
       within(dialog).getByRole('link', { name: 'Overview' }),
     ).toHaveAttribute('aria-current', 'page');
     expect(
-      within(dialog).getByRole('link', { name: 'Media library' }),
+      within(dialog).getByRole('link', { name: 'Media Library' }),
     ).toHaveAttribute('href', '/admin/media');
     await events.click(
       within(dialog).getByRole('button', { name: 'Close dialog' }),

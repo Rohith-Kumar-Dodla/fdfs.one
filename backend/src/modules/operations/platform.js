@@ -177,6 +177,7 @@ export function editAnnouncement(id, input, audit) {
 }
 
 const labels = {
+  movie_request: 'Your movie review request was updated',
   reply: 'Support replied to your ticket',
   status: 'Your support ticket status changed',
   resolved: 'Your support ticket was resolved',
@@ -187,6 +188,7 @@ const labels = {
 };
 export const noticeKinds = {
   reviews: [
+    'movie_request',
     'review_reply',
     'review_comment',
     'review_moderation',

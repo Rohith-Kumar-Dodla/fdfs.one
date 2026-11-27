@@ -56,6 +56,35 @@ export default function PublicHome() {
     (items ?? []).filter(
       (item) => !item.endAt || Date.parse(item.endAt) > Date.now() + offset,
     );
+  return (
+    <>
+      <EntertainmentHome
+        value={data}
+        settings={settings}
+        eligible={eligible}
+        loading={query.isPending}
+        error={query.isError}
+      />
+      {query.isError && (
+        <Container className="pb-8">
+          <Button variant="outline" onClick={() => void query.refetch()}>
+            Retry homepage
+          </Button>
+        </Container>
+      )}
+    </>
+  );
+}
+
+export function EntertainmentHome({
+  value: data,
+  settings,
+  eligible = (items) => items ?? [],
+  loading,
+  error,
+  preview,
+  previewSize,
+}) {
   const slides = Array.isArray(data?.slides)
     ? eligible(data.slides).slice(0, publicHeroLimit)
     : [];
@@ -70,7 +99,9 @@ export default function PublicHome() {
         slides={slides}
         rotationSeconds={data?.rotationSeconds}
         fallback={fallback}
-        loading={query.isPending}
+        loading={loading}
+        preview={preview}
+        previewSize={previewSize}
         editorial
       />
       <Container className="grid max-w-[112rem]! min-w-0 gap-10 pt-7 pb-12 sm:gap-12">
@@ -81,27 +112,28 @@ export default function PublicHome() {
           return (
             <HomeShelf
               key={section.key}
-              loading={query.isPending}
-              error={query.isError}
+              loading={loading}
+              error={error}
+              preview={preview}
+              previewSize={previewSize}
               row={{
                 ...section,
                 ...row,
                 items: row?.items ?? [],
                 sponsored: eligible(row?.sponsored),
+                above: eligible(row?.above),
                 between: eligible(row?.between),
               }}
             />
           );
         })}
-        {query.isError && (
-          <div>
-            <Button variant="outline" onClick={() => void query.refetch()}>
-              Retry homepage
-            </Button>
-          </div>
-        )}
         {eligible(data?.footer).map((item) => (
-          <CampaignBanner key={item.id} item={item} />
+          <CampaignBanner
+            key={item.id}
+            item={item}
+            preview={preview}
+            previewSize={previewSize}
+          />
         ))}
       </Container>
     </>

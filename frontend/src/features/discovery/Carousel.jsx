@@ -135,7 +135,7 @@ export function HeroCarousel({
       <Container
         className={
           editorial
-            ? 'relative grid min-h-[25rem] max-w-[112rem]! content-end gap-5 pt-24 pb-5 sm:min-h-[clamp(30rem,47vw,38rem)] sm:px-16! sm:pt-28 sm:pb-8 lg:px-24!'
+            ? 'relative grid min-h-[25rem] max-w-[112rem]! content-end gap-5 pt-24 pb-5 sm:min-h-[clamp(24rem,calc(60svh-2.4rem),40rem)] sm:px-16! sm:pt-28 sm:pb-8 lg:px-24!'
             : 'relative grid min-h-[26rem] content-end gap-6 pt-28 pb-8 sm:min-h-[32rem] sm:pt-36 sm:pb-10'
         }
       >

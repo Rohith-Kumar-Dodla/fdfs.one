@@ -238,6 +238,39 @@ describe.skipIf(!uri)('Talent Profiles with an isolated replica set', () => {
     expect(sameName.slug).not.toBe(first.slug);
   });
 
+  it('publishes explicit categories before credit association and hides draft profiles', async () => {
+    const draft = await create({
+      displayName: 'Isolated Category Fixture',
+      categories: ['short-films', 'podcast-guests'],
+      professionalBackground: 'Authorized professional background.',
+      expertise: 'Production design',
+    });
+    for (const category of draft.categories) {
+      const path = '/talent?q=Isolated+Category&category=' + category;
+      expect((await api('get', path).expect(200)).body.data).toEqual([]);
+      expect(
+        (await api('get', '/admin' + path, admin).expect(200)).body.data,
+      ).toMatchObject([{ id: draft.id, status: 'draft' }]);
+    }
+    await updateStatus(draft, 'publish').expect(200);
+    for (const category of draft.categories)
+      expect(
+        (
+          await api(
+            'get',
+            '/talent?q=Isolated+Category&category=' + category,
+          ).expect(200)
+        ).body.data,
+      ).toMatchObject([{ id: draft.id }]);
+    const detail = (await api('get', '/talent/' + draft.slug).expect(200)).body
+      .data;
+    expect(detail).toMatchObject({
+      expertise: 'Production design',
+      professionalBackground: 'Authorized professional background.',
+      filmography: [],
+      podcastAppearances: [],
+    });
+  });
   it('enforces admin-only updates and explicit eligible account association', async () => {
     const target = await create();
     const url = '/admin/talent/' + target.id;
