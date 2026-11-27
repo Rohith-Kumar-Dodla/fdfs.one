@@ -134,11 +134,20 @@ function EventActions({ event, admin, path }) {
   const ask = (action, label, details) => {
     change.reset();
     setConfirmation({
-      title: label + '?',
+      title:
+        action === 'archive'
+          ? 'Remove “' + event.title + '”?'
+          : action === 'remove_replay'
+            ? 'Remove replay for “' + event.title + '”?'
+            : label + '?',
       description:
-        action === 'start'
-          ? 'Confirm that the authorized YouTube broadcast is live and ready to embed.'
-          : event.title,
+        action === 'archive'
+          ? 'This archives the event, removes the event and replay from public view, and cancels unsent reminders. Records, artwork and the YouTube video are retained.'
+          : action === 'remove_replay'
+            ? 'The replay will leave public view. The event and externally hosted YouTube video will be retained.'
+            : action === 'start'
+              ? 'Confirm that the authorized YouTube broadcast is live and ready to embed.'
+              : event.title,
       request: {
         url: path + '/status',
         method: 'patch',
@@ -164,12 +173,12 @@ function EventActions({ event, admin, path }) {
             : scheduled || event.moderation === 'approved'
               ? [['publish', 'Approve and publish event']]
               : []),
-          ['archive', 'Archive event'],
           ...(editable ? [['cancel', 'Cancel event']] : []),
           ...(scheduled ? [['postpone', 'Postpone event']] : []),
           ...(event.hasReplay ? [['remove_replay', 'Remove replay']] : []),
         ]
       : []),
+    ...(admin ? [['archive', 'Remove event']] : []),
   ];
   return (
     <>
@@ -669,6 +678,13 @@ export function ManageLiveEvent({ admin = false, correction = false }) {
                   path={path}
                 />
               )}
+              {admin &&
+                event.status !== 'archived' &&
+                event.broadcast === 'live' && (
+                  <p className="text-sm text-muted">
+                    End the live broadcast before removing this event.
+                  </p>
+                )}
               {manageChat && (
                 <ChatSettings event={event} admin={admin} path={path} />
               )}

@@ -16,7 +16,13 @@ import {
   ReviewLike,
   ReviewReport,
 } from './models.js';
-import { resolveTarget, targetKey, writeRating } from './ratings.js';
+import {
+  ratingRestricted,
+  resolveTarget,
+  setReviewRatingVisibility,
+  targetKey,
+  writeRating,
+} from './ratings.js';
 
 const missingItem = () =>
   new AppError(404, 'REVIEW_NOT_FOUND', 'Review or comment not found.');
@@ -78,6 +84,7 @@ async function decorate(rows, target, session = null) {
     ...targetKey(target),
     author: { $in: keys },
     excludedAt: null,
+    reviewHiddenAt: null,
   })
     .select('author units')
     .session(session)
@@ -156,7 +163,7 @@ function rankReview(now) {
     { $sort: { score: -1, createdAt: -1, _id: -1 } },
   ];
 }
-export function publicTargetStages(now) {
+export function publicTargetStages(now, publicOnly = true) {
   const lookup = (model, as, visibility, type) => ({
     $lookup: {
       from: model.collection.name,
@@ -171,13 +178,13 @@ export function publicTargetStages(now) {
     },
   });
   return [
-    lookup(Movie, 'movie', publicMovieFilter(now), {
+    lookup(Movie, 'movie', publicOnly ? publicMovieFilter(now) : {}, {
       $eq: ['$$kind', 'movie'],
     }),
     lookup(
       Film,
       'film',
-      { status: 'published', releaseAt: { $lte: now } },
+      publicOnly ? { status: 'published', releaseAt: { $lte: now } } : {},
       {
         $or: [
           {
@@ -326,6 +333,7 @@ const ratingFilter = (units) => [
           $match: {
             units,
             excludedAt: null,
+            reviewHiddenAt: null,
             $expr: {
               $and: [
                 { $eq: ['$author', '$$authorId'] },
@@ -456,7 +464,7 @@ export async function listComments(res, params, query) {
     (read) => read.populate(authorPublic),
   );
 }
-async function notice(row, account, type, key, session) {
+async function notice(row, account, type, key, session, moderation) {
   const receiver = await User.findOne({
     _id: row.author,
     status: 'active',
@@ -473,6 +481,7 @@ async function notice(row, account, type, key, session) {
         owner: receiver.publicId,
         key,
         type,
+        ...moderation,
         path:
           type === 'review_comment'
             ? '/reviews/' + row.publicId
@@ -720,6 +729,7 @@ async function changeVisibility(row, subject, comment, input, audit, session) {
       { $inc: { commentCount: to === 'published' ? 1 : -1 } },
       { session, timestamps: false },
     );
+  else await setReviewRatingVisibility(row, to === 'hidden', session);
   await recordAudit(
     session,
     audit,
@@ -728,12 +738,24 @@ async function changeVisibility(row, subject, comment, input, audit, session) {
     subject.publicId,
     { field: 'review', from, to, reason: input.reason },
   );
+  const title =
+    !comment &&
+    (await (row.targetType === 'movie' ? Movie : Film)
+      .findById(row.target)
+      .select('title')
+      .session(session)
+      .lean());
   return notice(
     subject,
     audit.actorId,
     'review_moderation',
     'review:moderation:' + subject.publicId + ':' + audit.requestId,
     session,
+    !comment && {
+      reviewedTitle: title?.title ?? 'Title unavailable',
+      moderationReason: input.reason,
+      reviewRemoved: to === 'hidden',
+    },
   );
 }
 export function moderateReview({ id, comment }, input, audit) {
@@ -819,12 +841,15 @@ export async function reviewHistory(res, query, account) {
       type: row.targetType,
       updatedAt: row.updatedAt,
       ...(ratings
-        ? { rating: row.units / 2, restricted: Boolean(row.excludedAt) }
+        ? { rating: row.units / 2, restricted: ratingRestricted(row) }
         : {
             title: row.title,
             body: row.body,
             spoiler: row.spoiler,
             status: row.status,
+            ...(row.status === 'hidden' && {
+              moderationReason: row.moderationReason,
+            }),
           }),
     })),
     {
@@ -832,7 +857,7 @@ export async function reviewHistory(res, query, account) {
     },
   );
 }
-function managedReview(row) {
+function managedReview(row, rating) {
   return {
     id: row.publicId,
     title: row.title,
@@ -842,6 +867,7 @@ function managedReview(row) {
     target: destination(row),
     type: row.targetType,
     author: authors(row),
+    rating: rating?.units / 2 || null,
     createdAt: row.createdAt,
     editedAt: row.editedAt,
     moderationReason: row.moderationReason,
@@ -854,7 +880,7 @@ export async function managedReviews(
   { page, limit, status, type, spoiler, q },
 ) {
   const filter = {
-    ...(status ? { status } : { status: { $ne: 'deleted' } }),
+    ...(status && { status }),
     ...(type && { targetType: type }),
     ...(spoiler !== undefined && { spoiler: spoiler === 'true' }),
   };
@@ -866,6 +892,7 @@ export async function managedReviews(
               { title: searchPattern(q) },
               { body: searchPattern(q) },
               { 'titleRecord.title': searchPattern(q) },
+              { 'reviewer.fullName': searchPattern(q) },
             ],
           },
         },
@@ -874,7 +901,20 @@ export async function managedReviews(
   const [result, totalReviews, openReports] = await Promise.all([
     Review.aggregate([
       { $match: filter },
-      ...publicTargetStages(new Date()),
+      ...publicTargetStages(new Date(), false),
+      ...(q
+        ? [
+            {
+              $lookup: {
+                from: User.collection.name,
+                localField: 'author',
+                foreignField: '_id',
+                pipeline: [{ $project: { fullName: 1 } }],
+                as: 'reviewer',
+              },
+            },
+          ]
+        : []),
       ...patterns,
       { $sort: { createdAt: -1, _id: -1 } },
       {
@@ -884,15 +924,32 @@ export async function managedReviews(
         },
       },
     ]),
-    Review.countDocuments({ status: { $ne: 'deleted' } }),
+    Review.countDocuments(),
     ReviewReport.countDocuments({ status: 'open' }),
   ]);
   const rows = result[0]?.records ?? [];
   const total = result[0]?.totals[0]?.total ?? 0;
   await Review.populate(rows, authorPublic);
+  const ratings = rows.length
+    ? await Rating.find({
+        $or: rows.map((row) => ({
+          ...targetKey(row),
+          author: row.author?._id ?? row.author,
+        })),
+      })
+        .select('author target targetType units')
+        .lean()
+    : [];
+  const ratingKey = (row) =>
+    [row.targetType, row.target, row.author?._id ?? row.author].join(':');
+  const byReview = new Map(ratings.map((row) => [ratingKey(row), row]));
   return sendSuccess(
     res,
-    { rows: rows.map(managedReview), totalReviews, openReports },
+    {
+      rows: rows.map((row) => managedReview(row, byReview.get(ratingKey(row)))),
+      totalReviews,
+      openReports,
+    },
     {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     },
@@ -901,12 +958,12 @@ export async function managedReviews(
 export async function managedReviewDetail(id, { page, limit }) {
   const [row] = await Review.aggregate([
     { $match: { publicId: id } },
-    ...publicTargetStages(new Date()),
+    ...publicTargetStages(new Date(), false),
   ]);
   if (!row) throw missingItem();
   await Review.populate(row, authorPublic);
   const filter = { review: row._id };
-  const [comments, total, reports] = await Promise.all([
+  const [comments, total, reports, rating] = await Promise.all([
     ReviewComment.find(filter)
       .select('+moderationReason')
       .sort({ createdAt: -1, _id: -1 })
@@ -916,9 +973,13 @@ export async function managedReviewDetail(id, { page, limit }) {
       .lean(),
     ReviewComment.countDocuments(filter),
     ReviewReport.countDocuments({ ...filter, status: 'open' }),
+    row.author &&
+      Rating.findOne({ ...targetKey(row), author: row.author._id })
+        .select('units')
+        .lean(),
   ]);
   return {
-    review: managedReview(row),
+    review: managedReview(row, rating),
     comments: comments.map((comment) => ({
       ...displayComment(comment),
       status: comment.status,

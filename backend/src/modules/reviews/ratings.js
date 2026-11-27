@@ -57,6 +57,8 @@ export async function resolveTarget(
   };
 }
 export const targetKey = ({ target, targetType }) => ({ target, targetType });
+export const ratingRestricted = (rating) =>
+  Boolean(rating?.excludedAt || rating?.reviewHiddenAt);
 export async function ratingSummary(target) {
   return ratingView(await RatingTotals.findOne(targetKey(target)).lean());
 }
@@ -66,8 +68,8 @@ export async function accountRating(target, account) {
     author: account._id,
   }).lean();
   return {
-    rating: rating && !rating.excludedAt ? rating.units / 2 : null,
-    restricted: Boolean(rating?.excludedAt),
+    rating: rating && !ratingRestricted(rating) ? rating.units / 2 : null,
+    restricted: ratingRestricted(rating),
     ...(await ratingSummary(target)),
   };
 }
@@ -108,7 +110,7 @@ export async function updateTotals(target, before, after, session) {
 export async function writeRating(target, account, stars, session) {
   const key = { ...targetKey(target), author: account._id };
   const original = await Rating.findOne(key).session(session);
-  if (original?.excludedAt) throw unavailable();
+  if (ratingRestricted(original)) throw unavailable();
   const units = stars === undefined ? null : stars * 2;
   if (units)
     await Rating.updateOne(
@@ -142,7 +144,7 @@ export function deleteOwnedRating(id, account) {
       session,
     );
     if (!row) throw new AppError(404, 'RATING_NOT_FOUND', 'Rating not found.');
-    if (row.excludedAt) throw unavailable();
+    if (ratingRestricted(row)) throw unavailable();
     await modelFor(row.targetType).updateOne(
       { _id: row.target },
       { $inc: { engagementFence: 1 } },
@@ -171,17 +173,18 @@ export function moderateRating(params, input, audit) {
     const exclude = input.action === 'exclude';
     if (Boolean(rating.excludedAt) === exclude)
       return {
-        restricted: exclude,
+        restricted: ratingRestricted(rating),
         ...ratingView(
           await RatingTotals.findOne(targetKey(target)).session(session),
         ),
       };
+    const before = ratingRestricted(rating) ? null : rating.units;
     rating.excludedAt = exclude ? new Date() : undefined;
     await rating.save({ session });
     const summary = await updateTotals(
       target,
-      exclude ? rating.units : null,
-      exclude ? null : rating.units,
+      before,
+      ratingRestricted(rating) ? null : rating.units,
       session,
     );
     await recordAudit(
@@ -192,6 +195,23 @@ export function moderateRating(params, input, audit) {
       target.id,
       { field: 'rating', reason: input.reason, to: params.account },
     );
-    return { restricted: exclude, ...ratingView(summary) };
+    return { restricted: ratingRestricted(rating), ...ratingView(summary) };
   });
+}
+
+export async function setReviewRatingVisibility(review, hidden, session) {
+  const rating = await Rating.findOne({
+    ...targetKey(review),
+    author: review.author,
+  }).session(session);
+  if (!rating || Boolean(rating.reviewHiddenAt) === hidden) return;
+  const before = ratingRestricted(rating) ? null : rating.units;
+  rating.reviewHiddenAt = hidden ? new Date() : undefined;
+  await rating.save({ session });
+  await updateTotals(
+    review,
+    before,
+    ratingRestricted(rating) ? null : rating.units,
+    session,
+  );
 }

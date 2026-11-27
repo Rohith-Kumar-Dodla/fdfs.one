@@ -27,7 +27,7 @@ export function LoginPage() {
         state.from,
       ))
       ? state.from
-      : '/account';
+      : '/';
 
   const administrator = /^\/admin(?:\/|\?|$)/.test(target);
   return (
@@ -45,7 +45,10 @@ export function LoginPage() {
         action="Sign in"
         submit={async (values) => {
           await accounts.login(values);
-          navigate(target, { replace: true });
+          const { data: account } = await accounts.me();
+          navigate(account.roles.includes('super_admin') ? '/admin' : target, {
+            replace: true,
+          });
         }}
       />
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

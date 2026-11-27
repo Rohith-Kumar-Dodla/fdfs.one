@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { apiClient } from '../src/api/client.js';
+import { useAuthStore } from '../src/features/auth/state.js';
 import { publicRoutes } from '../src/routes/public-routes.jsx';
 
 const defaultAdapter = apiClient.defaults.adapter;
 beforeEach(() => {
+  useAuthStore.setState({ ...useAuthStore.getInitialState(), status: 'guest' });
   apiClient.defaults.adapter = async (config) => ({
     status: 200,
     headers: {},
@@ -31,6 +33,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  useAuthStore.setState(useAuthStore.getInitialState());
   apiClient.defaults.adapter = defaultAdapter;
 });
 

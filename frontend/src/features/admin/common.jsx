@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useLocation, useOutletContext } from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
@@ -152,6 +152,16 @@ export function Records({ records, columns, label, empty }) {
 }
 
 export function DetailLink({ to, children }) {
+  const account = useOutletContext();
+  const { pathname } = useLocation();
+  if (
+    account?.roles?.includes('super_admin') &&
+    /^\/admin(?:\/|$)/.test(pathname) &&
+    typeof to === 'string' &&
+    /^\//.test(to) &&
+    !/^\/admin(?:[/?#]|$)/.test(to)
+  )
+    return null;
   return (
     <Link
       to={to}

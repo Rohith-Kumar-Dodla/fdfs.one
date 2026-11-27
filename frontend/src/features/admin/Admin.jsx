@@ -9,6 +9,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessageSquareText,
   Settings,
   Ticket,
   Users,
@@ -35,6 +36,7 @@ import { useOverview } from './Workspace.jsx';
 const icons = {
   Overview: LayoutDashboard,
   Content: Clapperboard,
+  Reviews: MessageSquareText,
   Community: Users,
   'Support Tickets': Ticket,
   'Media Library': Images,
@@ -80,8 +82,12 @@ function Sidebar({ account, active, collapsed, onNavigate }) {
   return (
     <>
       <Link
-        to="/"
-        aria-label="FDFS.ONE public website"
+        to={account.roles.includes('super_admin') ? '/admin' : '/'}
+        aria-label={
+          account.roles.includes('super_admin')
+            ? 'FDFS.ONE administration'
+            : 'FDFS.ONE public website'
+        }
         className="flex min-h-16 items-center gap-3 border-b border-line px-5 font-bold"
         onClick={onNavigate}
       >
@@ -163,6 +169,8 @@ export function AdminLayout() {
         open={open}
         onClose={() => setDrawer(null)}
         title="Administration menu"
+        closeLabel="Close administration menu"
+        closeIcon={Menu}
         className="top-0! right-auto! bottom-auto! left-0! m-0! h-dvh max-h-dvh! w-[min(20rem,90vw)]! max-w-none! rounded-none!"
         contentClassName="flex h-full min-h-0 flex-col"
       >
@@ -179,7 +187,7 @@ export function AdminLayout() {
         <header className="sticky top-0 z-20 flex min-h-16 min-w-0 items-center justify-between gap-2 border-b border-line bg-nav px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2">
             <IconButton
-              className="hidden lg:inline-flex"
+              className="hidden! lg:inline-flex!"
               label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-controls="admin-sidebar"
               aria-expanded={!collapsed}
@@ -189,7 +197,7 @@ export function AdminLayout() {
             </IconButton>
             <IconButton
               ref={menu}
-              className="lg:hidden"
+              className={open ? 'invisible lg:hidden!' : 'lg:hidden!'}
               label="Open administration menu"
               aria-haspopup="dialog"
               aria-expanded={open}
@@ -202,6 +210,7 @@ export function AdminLayout() {
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <NotificationsLink
               icon
+              administrator={account.roles.includes('super_admin')}
               className="relative grid size-11 place-items-center rounded-control hover:bg-surface"
             />
             <AccountNavigation administrator />

@@ -184,12 +184,12 @@ function ProfileActions({ profile }) {
             onClick={() =>
               changeStatus(
                 'archive',
-                'Archive profile?',
-                'The profile will become read-only and disappear from the directory.',
+                'Remove “' + profile.displayName + '”?',
+                'This archives the read-only profile and removes it from public view. Existing credits, follows and artwork are retained.',
               )
             }
           >
-            Archive
+            Remove profile
           </Button>
         </div>
         {profile.status === 'published' && (

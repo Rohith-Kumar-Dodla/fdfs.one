@@ -3,6 +3,7 @@ import { can } from '../../../../shared/admin.js';
 import { EmptyState } from '../../components/ui/states.jsx';
 import { ContentWorkspace, SystemWorkspace } from './Workspace.jsx';
 import { AccountGuard } from '../auth/guards.jsx';
+import { NotificationsPage } from '../operations/Notices.jsx';
 
 const submissionPage = (name) => async () => ({
   Component: (await import('./Submissions.jsx'))[name],
@@ -148,6 +149,10 @@ export const administrationRoutes = [
             },
           },
           { path: 'system', Component: SystemWorkspace },
+          {
+            path: 'notifications',
+            element: <NotificationsPage administrator />,
+          },
           {
             path: 'movies/requests',
             lazy: async () => {
@@ -337,6 +342,10 @@ export const administrationRoutes = [
             lazy: async () => ({
               Component: (await import('./Admin.jsx')).AuditPage,
             }),
+          },
+          {
+            path: '*',
+            element: <EmptyState title="Administration page unavailable" />,
           },
         ],
       },

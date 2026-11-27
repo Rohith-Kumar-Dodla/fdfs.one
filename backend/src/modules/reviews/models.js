@@ -152,6 +152,7 @@ const rating = new Schema(
       validate: Number.isInteger,
     },
     excludedAt: Date,
+    reviewHiddenAt: Date,
   },
   timestamps,
 );

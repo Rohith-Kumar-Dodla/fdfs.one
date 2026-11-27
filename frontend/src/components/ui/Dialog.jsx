@@ -9,6 +9,8 @@ export function Dialog({
   children,
   className = '',
   contentClassName = '',
+  closeLabel = 'Close dialog',
+  closeIcon: CloseIcon = X,
 }) {
   const ref = useRef(null);
   const titleId = useId();
@@ -48,8 +50,8 @@ export function Dialog({
           <h2 id={titleId} className="text-xl font-semibold">
             {title}
           </h2>
-          <IconButton label="Close dialog" onClick={onClose}>
-            <X aria-hidden="true" className="size-5" />
+          <IconButton label={closeLabel} onClick={onClose}>
+            <CloseIcon aria-hidden="true" className="size-5" />
           </IconButton>
         </header>
         {children}

@@ -2,6 +2,7 @@
 import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button.jsx';
+import { Dialog } from '../../components/ui/Dialog.jsx';
 import { SectionHeading } from '../../components/ui/surfaces.jsx';
 import { EmptyState } from '../../components/ui/states.jsx';
 import {
@@ -94,12 +95,31 @@ export function ManagedReviewListing() {
                   {row.target?.title ?? 'Title unavailable'}
                 </h3>
                 <p className="text-sm text-muted wrap-anywhere">
-                  {row.author.name} · {kinds[row.type]} · {readable(row.status)}
+                  {row.author.name} · {kinds[row.type]} ·{' '}
+                  {row.status === 'hidden' ? 'Removed' : readable(row.status)}
                   {row.spoiler ? ' · Spoiler flagged' : ''}
                 </p>
-                <Link className={linkText} to={path + '/' + row.id}>
-                  Inspect review
-                </Link>
+                <p className="text-sm text-muted">
+                  {date(row.createdAt)} ·{' '}
+                  {row.rating === null ? 'Unrated' : row.rating + ' / 5'}
+                </p>
+                {row.body && (
+                  <p className="whitespace-pre-wrap wrap-anywhere">
+                    {row.body}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link className={linkText} to={path + '/' + row.id}>
+                    View review
+                  </Link>
+                  {row.status === 'published' && (
+                    <ModerationAction
+                      row={row}
+                      url={path + '/' + row.id}
+                      kind="review"
+                    />
+                  )}
+                </div>
               </article>
             ))}
             <PageMore pagination={pagination} onChange={changePage} />
@@ -110,6 +130,7 @@ export function ManagedReviewListing() {
   );
 }
 function ModerationAction({ row, url, kind }) {
+  const [open, setOpen] = useState(false);
   const action = useChange([
     path,
     base + '/reports',
@@ -118,47 +139,88 @@ function ModerationAction({ row, url, kind }) {
   ]);
   if (row.status === 'deleted') return null;
   const hide = row.status === 'published';
+  const label = (hide ? 'Remove ' : 'Restore ') + kind;
   return (
-    <form
-      className="flex min-w-0 flex-wrap items-end gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        action.mutate(
-          {
-            url,
-            method: 'patch',
-            data: {
-              action: hide ? 'hide' : 'restore',
-              reason: new FormData(form).get('reason').trim(),
-            },
-          },
-          { onSuccess: () => form.reset() },
-        );
-      }}
-    >
-      <label className={field + ' flex-1 basis-44'}>
-        Moderation reason for this {kind}
-        <input
-          className={control}
-          name="reason"
-          minLength={3}
-          maxLength={300}
-          required
-        />
-      </label>
-      <Button variant="outline" type="submit" loading={action.isPending}>
-        {hide ? 'Hide' : 'Restore'} {kind}
+    <>
+      <Button
+        variant="outline"
+        onClick={() => {
+          action.reset();
+          setOpen(true);
+        }}
+      >
+        {label}
       </Button>
-      <MutationError action={action} />
-    </form>
+      <Dialog
+        open={open}
+        title={label + '?'}
+        onClose={() => !action.isPending && setOpen(false)}
+      >
+        {row.target?.title && (
+          <p className="mb-2 font-semibold wrap-anywhere">{row.target.title}</p>
+        )}
+        {hide && (
+          <p className="mb-4 text-sm text-muted">
+            This {kind} will leave public view. The record and reason will be
+            kept, and the author will receive an in-app notification.
+          </p>
+        )}
+        {open && (
+          <form
+            className="grid min-w-0 gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              action.mutate(
+                {
+                  url,
+                  method: 'patch',
+                  data: {
+                    action: hide ? 'hide' : 'restore',
+                    reason: new FormData(form).get('reason').trim(),
+                  },
+                },
+                { onSuccess: () => setOpen(false) },
+              );
+            }}
+          >
+            <label className={field + ' flex-1 basis-44'}>
+              Moderation reason for this {kind}
+              <textarea
+                className={control}
+                name="reason"
+                minLength={3}
+                maxLength={300}
+                required
+              />
+            </label>
+            <MutationError action={action} />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                disabled={action.isPending}
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={action.isPending}>
+                {label}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
+    </>
   );
 }
 function ManagedItem({ row, url, kind }) {
   return (
     <article className={panel + ' wrap-anywhere'}>
       <p className="text-sm text-muted">
-        {row.author.name} · {readable(row.status)} · {date(row.createdAt)}
+        {row.author.name} ·{' '}
+        {row.status === 'hidden' ? 'Removed' : readable(row.status)} ·{' '}
+        {date(row.createdAt)}
+        {row.rating != null && ' · ' + row.rating + ' / 5'}
       </p>
       {(row.title || row.body) && (
         <Reveal spoiler={row.spoiler}>

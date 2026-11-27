@@ -501,6 +501,12 @@ async function transition(event, input, context, session) {
       break;
     case 'unpublish':
     case 'archive':
+      if (action === 'archive' && event.broadcast === 'live')
+        throw new AppError(
+          409,
+          'LIVE_CONFLICT',
+          'End the live broadcast before removing this event.',
+        );
       if (
         event.broadcast === 'live' ||
         (action === 'unpublish' && event.status !== 'published')

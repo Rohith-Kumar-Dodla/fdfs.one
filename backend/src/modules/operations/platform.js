@@ -207,13 +207,24 @@ export async function listNotices(res, query, user) {
       ...(query.unread && { readAt: null }),
     },
     query,
-    ({ publicId, type, ticket, path, createdAt, readAt }) => ({
+    ({
+      publicId,
+      type,
+      ticket,
+      path,
+      createdAt,
+      readAt,
+      reviewedTitle,
+      moderationReason,
+      reviewRemoved,
+    }) => ({
       id: publicId,
       type,
       label: labels[type] ?? 'Support update',
       destination: path ?? '/support/tickets/' + ticket,
       createdAt,
       readAt,
+      ...(reviewedTitle && { reviewedTitle, moderationReason, reviewRemoved }),
     }),
   );
 }

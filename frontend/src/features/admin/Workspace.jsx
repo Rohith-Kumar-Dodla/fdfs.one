@@ -79,8 +79,8 @@ export function ContentWorkspace() {
                 )}
                 {!allowed &&
                   module === 'movies' &&
-                  access[2].some(
-                    ([path]) => path === '/admin/review-moderation',
+                  visibleGroups(account).some(
+                    ([name]) => name === 'Reviews',
                   ) && (
                     <Link
                       to="/admin/review-moderation"

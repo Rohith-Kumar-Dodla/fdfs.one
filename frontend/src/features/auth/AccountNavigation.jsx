@@ -178,17 +178,20 @@ export function AccountNavigation({
         )}
       </summary>
       <div className="absolute right-0 z-30 mt-2 grid max-h-[calc(100dvh-5rem)] min-w-48 overflow-y-auto rounded-panel border border-line bg-nav p-2">
-        {destinations.map(([to, label]) => (
-          <Link
-            key={to}
-            to={to}
-            className={buttonClasses('ghost', 'justify-start!')}
-            onClick={close}
-          >
-            {label}
-          </Link>
-        ))}
-        <AccountFeatureLinks onNavigate={close} />
+        {!account?.roles.includes('super_admin') &&
+          destinations.map(([to, label]) => (
+            <Link
+              key={to}
+              to={to}
+              className={buttonClasses('ghost', 'justify-start!')}
+              onClick={close}
+            >
+              {label}
+            </Link>
+          ))}
+        {!account?.roles.includes('super_admin') && (
+          <AccountFeatureLinks onNavigate={close} />
+        )}
         <Button
           variant="ghost"
           className="justify-start!"

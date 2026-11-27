@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link, useOutletContext } from 'react-router';
 import { buttonClasses } from '../../components/ui/Button.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
 import { Badge, Card, SectionHeading } from '../../components/ui/surfaces.jsx';
@@ -47,6 +47,7 @@ export function ContentHeading({ title, create, action, children }) {
 }
 
 export function ContentGrid({ records, empty, entry }) {
+  const adminOnly = useOutletContext()?.roles?.includes('super_admin');
   const { query, params, changePage } = records;
   return (
     <>
@@ -94,7 +95,11 @@ export function ContentGrid({ records, empty, entry }) {
                     </Link>
                     <Link
                       className={buttonClasses('ghost')}
-                      to={preview}
+                      to={
+                        adminOnly && !preview?.startsWith('/admin/')
+                          ? edit + '#preview'
+                          : preview
+                      }
                       aria-label={'Preview ' + title}
                     >
                       Preview

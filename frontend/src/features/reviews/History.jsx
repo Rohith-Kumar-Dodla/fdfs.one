@@ -54,9 +54,14 @@ function OwnedEntry({ row, kind, access }) {
         <>
           <p className="text-sm text-muted">
             {row.status === 'hidden'
-              ? 'Hidden by moderation'
+              ? 'Removed by moderation'
               : 'Published review'}
           </p>
+          {row.moderationReason && (
+            <p className="whitespace-pre-wrap">
+              Moderation reason · {row.moderationReason}
+            </p>
+          )}
           <Reveal spoiler={row.spoiler}>
             <div className="grid gap-1 wrap-anywhere">
               {row.title && <h3 className="font-semibold">{row.title}</h3>}

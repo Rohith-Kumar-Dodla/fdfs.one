@@ -558,12 +558,12 @@ function FilmStatus({ film }) {
           onClick={() =>
             confirm(
               'archive',
-              'Archive film?',
-              'The record and its relationships will be retained and public access will end.',
+              'Remove “' + film.title + '”?',
+              'This archives the film and removes it from public view. Reviews, credits, viewing records, artwork and the YouTube video are retained.',
             )
           }
         >
-          Archive
+          Remove film
         </Button>
       </div>
       <ConfirmAction

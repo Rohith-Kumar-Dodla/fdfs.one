@@ -656,7 +656,7 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
     expect(
       data(await requestFor('get', '/ratings/movie/' + movie.slug).expect(200))
         .count,
-    ).toBe(2);
+    ).toBe(1);
     await decide(reviewReport.id, 'restore').expect(200);
     view = data(await requestFor('get', path).expect(200));
     expect(view.likes).toBe(1);
@@ -762,26 +762,56 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
         reportsStaff,
       ).expect(200),
     );
-    expect(filtered.rows.map((row) => row.id)).toContain(mine.id);
+    expect(filtered.rows.find((row) => row.id === mine.id)).toMatchObject({
+      rating: 4.5,
+      author: { name: second.user.fullName },
+      target: { title: movie.title },
+    });
     const url = moderation + '/' + mine.id;
+    await requestFor('patch', url, reportsStaff)
+      .send({ action: 'hide', reason: '' })
+      .expect(400);
+    const aggregate = '/ratings/movie/' + movie.slug;
+    const before = data(await requestFor('get', aggregate).expect(200)).count;
     await requestFor('patch', url, reportsStaff)
       .send({ action: 'hide', reason: 'Verified report fixture.' })
       .expect(200);
     await requestFor('get', permalink + '?reveal=true').expect(404);
     expect(
-      data(await requestFor('get', history, second).expect(200))[0].status,
-    ).toBe('hidden');
+      data(await requestFor('get', history, second).expect(200))[0],
+    ).toMatchObject({
+      status: 'hidden',
+      moderationReason: 'Verified report fixture.',
+    });
+    expect(
+      data(
+        await requestFor('get', '/notifications?kind=reviews', second).expect(
+          200,
+        ),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reviewedTitle: movie.title,
+          moderationReason: 'Verified report fixture.',
+          reviewRemoved: true,
+          destination: '/account/reviews',
+        }),
+      ]),
+    );
     expect(
       data(await requestFor('get', url + '/audit', reportsStaff).expect(200))[0]
         .summary.reason,
     ).toBe('Verified report fixture.');
-    expect(
-      data(await requestFor('get', '/ratings/movie/' + movie.slug).expect(200))
-        .count,
-    ).toBe(2);
+    expect(data(await requestFor('get', aggregate).expect(200)).count).toBe(
+      before - 1,
+    );
     await requestFor('patch', url, reportsStaff)
       .send({ action: 'restore', reason: 'Restored report fixture.' })
       .expect(200);
+    expect(data(await requestFor('get', aggregate).expect(200)).count).toBe(
+      before,
+    );
     await requestFor('put', base + '/' + mine.id + '/like', viewer).expect(200);
     const likedPath = '/reviews/likes?ids=' + mine.id;
     expect(

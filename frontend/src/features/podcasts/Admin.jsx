@@ -112,8 +112,14 @@ function StatusActions({ record, url, episode = false }) {
     change.reset();
     const verb = action[0].toUpperCase() + action.slice(1);
     setSelected({
-      title: verb + ' ' + type + '?',
-      description: record.title ?? record.name,
+      title:
+        action === 'archive' && episode
+          ? 'Remove “' + record.title + '”?'
+          : verb + ' ' + type + '?',
+      description:
+        action === 'archive' && episode
+          ? 'This archives the episode and removes it from public view. Comments, guest credits, viewing records, artwork and the YouTube video are retained.'
+          : (record.title ?? record.name),
       request: {
         url: url + '/status',
         method: 'post',
@@ -157,7 +163,7 @@ function StatusActions({ record, url, episode = false }) {
             </Button>
           )}
           <Button variant="outline" onClick={() => confirm('archive')}>
-            Archive
+            {episode ? 'Remove episode' : 'Archive'}
           </Button>
         </div>
       )}

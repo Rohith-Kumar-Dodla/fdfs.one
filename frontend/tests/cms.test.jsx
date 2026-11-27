@@ -7,12 +7,13 @@ const paths = (account) =>
   );
 
 describe('CMS navigation', () => {
-  it('shows exactly eight primary workspaces for the owner', () => {
+  it('gives the owner a dedicated Reviews workspace', () => {
     expect(
       visibleGroups({ roles: ['super_admin'] }).map(([name]) => name),
     ).toEqual([
       'Overview',
       'Content',
+      'Reviews',
       'Community',
       'Support Tickets',
       'Media Library',

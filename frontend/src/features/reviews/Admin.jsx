@@ -196,8 +196,14 @@ export function ManageMovie() {
                     const label =
                       action[0].toUpperCase() + action.slice(1) + ' movie';
                     setConfirm({
-                      title: label + '?',
-                      description: record.title,
+                      title:
+                        action === 'archive'
+                          ? 'Remove “' + record.title + '”?'
+                          : label + '?',
+                      description:
+                        action === 'archive'
+                          ? 'This archives the catalogue record and removes it and its reviews from public view. Reviews, ratings, credits and artwork are retained.'
+                          : record.title,
                       request: {
                         url: url + '/status',
                         method: 'post',
@@ -206,7 +212,10 @@ export function ManageMovie() {
                     });
                   }}
                 >
-                  {action[0].toUpperCase() + action.slice(1)} movie
+                  {action === 'archive'
+                    ? 'Remove'
+                    : action[0].toUpperCase() + action.slice(1)}{' '}
+                  movie
                 </Button>
               ))}
           </div>

@@ -222,3 +222,9 @@ After the owner configures both hosts, verify both backend health paths return J
 Check credentialed login preflight and session rotation on the exact HTTPS frontend. Confirm sign-in persists after hard refresh, logout invalidates the session, a different Origin fails CSRF, and authorized Socket.IO connects directly to Render. Confirm the proxy boundary with a staging-only probe using two client networks and confirm that synthetic forwarded values cannot change which rate-limit bucket receives the request. Do not log authentication headers or cookies. Run the physical browser checks in MOBILE.md.
 
 Use staging-only fixtures to test automatic YouTube metadata, artwork upload and reuse, and provider-backed mail with controlled recipients. Verify a live reminder while the Free service is awake, then check worker recovery after a restart. Free instance sleep can delay or miss time-sensitive reminders. Hosted results remain pending until these checks run on the configured services.
+
+## Pre-Phase 7 refinement verification
+
+Isolated Chrome checked the administration shell and mobile drawer at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568 by 320 and 844 by 390 landscape. The run covered owner sign-in, public-route redirection, session restoration, logout, and normal account registration and homepage redirection with controlled verification mail.
+
+The browser submitted reviews for known and missing titles, followed the existing movie-association workflow, and removed a published review after entering a reason. My Reviews, the private in-app notification and public rating totals reflected the removal. Chrome used named confirmations for Cinema, Originals, Podcast, Live, Movies and Talent, and the public endpoints rejected the archived records. Destructive checks used disposable fixtures. Check the deployed shell and sign-in flows on physical devices.

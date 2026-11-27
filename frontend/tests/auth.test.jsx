@@ -329,7 +329,7 @@ describe('administration routes', () => {
     renderRoute('/admin');
     await screen.findByRole('heading', { name: 'Overview' });
     const sidebar = screen.getByRole('navigation', { name: 'Administration' });
-    expect(within(sidebar).getAllByRole('link')).toHaveLength(8);
+    expect(within(sidebar).getAllByRole('link')).toHaveLength(9);
     await events.click(
       screen.getByRole('button', { name: 'Collapse sidebar' }),
     );
@@ -394,8 +394,18 @@ describe('administration routes', () => {
       within(dialog).getByRole('link', { name: 'Media Library' }),
     ).toHaveAttribute('href', '/admin/media');
     await events.click(
-      within(dialog).getByRole('button', { name: 'Close dialog' }),
+      within(dialog).getByRole('button', { name: 'Close administration menu' }),
     );
     expect(dialog).not.toHaveAttribute('open');
+  });
+  it('keeps the Super Administrator on administrative routes', async () => {
+    authenticate(['super_admin']);
+    const router = renderRoute('/account');
+    await screen.findByRole('heading', { name: 'Overview' });
+    expect(router.state.location.pathname).toBe('/admin');
+    expect(screen.queryByRole('contentinfo')).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'FDFS.ONE public website' }),
+    ).toBeNull();
   });
 });

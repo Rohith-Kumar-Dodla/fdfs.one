@@ -18,8 +18,12 @@ export const groups = [
       ['/admin/live', 'FDFS Live', 'content', 'live'],
       ['/admin/movies', 'Movies & Reviews', 'content', 'movies'],
       ['/admin/talent', 'Talent Profiles', 'content', 'talent'],
-      ['/admin/review-moderation', 'Reports and Moderation', 'moderation'],
     ],
+  ],
+  [
+    'Reviews',
+    '/admin/review-moderation?view=reviews',
+    [['/admin/review-moderation', 'Reports and Moderation', 'moderation']],
   ],
   [
     'Community',

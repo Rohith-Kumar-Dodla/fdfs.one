@@ -65,7 +65,12 @@ export function AnnouncementBanners() {
   );
 }
 
-export function NotificationsLink({ onNavigate, className, icon = false }) {
+export function NotificationsLink({
+  onNavigate,
+  className,
+  icon = false,
+  administrator = false,
+}) {
   const query = useQuery({
     queryKey: ['notices', 'unread'],
     refetchInterval: 60000,
@@ -76,7 +81,7 @@ export function NotificationsLink({ onNavigate, className, icon = false }) {
   });
   return (
     <Link
-      to="/account/notifications"
+      to={administrator ? '/admin/notifications' : '/account/notifications'}
       onClick={onNavigate}
       className={className}
       aria-label={
@@ -105,7 +110,7 @@ export function NotificationsLink({ onNavigate, className, icon = false }) {
   );
 }
 
-export function NotificationsPage() {
+export function NotificationsPage({ administrator = false }) {
   const [page, setPage] = useState(1);
   const [kind, setKind] = useState('');
   const [unread, setUnread] = useState(false);
@@ -135,7 +140,9 @@ export function NotificationsPage() {
   return (
     <Container className="grid min-w-0 gap-4 py-8 sm:py-12">
       <SectionHeading as="h1">Notifications</SectionHeading>
-      <DetailLink to="/dashboard">Back to dashboard</DetailLink>
+      <DetailLink to={administrator ? '/admin' : '/dashboard'}>
+        Back to dashboard
+      </DetailLink>
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-sm">
           Notification category
@@ -192,7 +199,26 @@ export function NotificationsPage() {
                   className="grid min-w-0 gap-2 wrap-anywhere"
                   key={entry.id}
                 >
-                  <DetailLink to={entry.destination}>{entry.label}</DetailLink>
+                  {administrator && !entry.destination.startsWith('/admin/') ? (
+                    <strong>{entry.label}</strong>
+                  ) : (
+                    <DetailLink to={entry.destination}>
+                      {entry.label}
+                    </DetailLink>
+                  )}
+                  {entry.reviewedTitle && (
+                    <p>
+                      {entry.reviewRemoved
+                        ? 'Review removed for'
+                        : 'Review restored for'}{' '}
+                      {entry.reviewedTitle}
+                    </p>
+                  )}
+                  {entry.moderationReason && (
+                    <p className="whitespace-pre-wrap">
+                      {entry.moderationReason}
+                    </p>
+                  )}
                   <p className="text-sm text-muted">
                     {date(entry.createdAt)} · {entry.readAt ? 'Read' : 'Unread'}
                   </p>

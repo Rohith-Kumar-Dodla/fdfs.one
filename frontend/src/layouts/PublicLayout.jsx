@@ -2,6 +2,7 @@ import { PublicFooter } from '../components/common/PublicFooter.jsx';
 import { useEffect, useRef } from 'react';
 import {
   Link,
+  Navigate,
   Outlet,
   ScrollRestoration,
   useLocation,
@@ -13,7 +14,9 @@ import { AnnouncementBanners } from '../features/operations/Notices.jsx';
 import { SiteHeader } from '../components/common/SiteHeader.jsx';
 import { ToastViewport } from '../components/common/ToastViewport.jsx';
 import { Container, SectionHeading } from '../components/ui/surfaces.jsx';
-import { Spinner } from '../components/ui/states.jsx';
+import { ErrorState, Spinner } from '../components/ui/states.jsx';
+import { useAuthStore } from '../features/auth/state.js';
+import { useAccount } from '../features/auth/guards.jsx';
 
 export function PublicLayout() {
   const main = useRef(null);
@@ -21,6 +24,8 @@ export function PublicLayout() {
   const navigation = useNavigation();
   const settings = useSiteSettings();
   const admin = /^\/admin(?:\/|$)/.test(pathname);
+  const status = useAuthStore((state) => state.status);
+  const account = useAccount();
   const accountAccess =
     /^\/(?:login|register|forgot-password|reset-password|verify-email|verification-pending|account|support)(?:\/|$)/.test(
       pathname,
@@ -35,9 +40,26 @@ export function PublicLayout() {
     if (hash) {
       document.getElementById(hash.slice(1))?.focus({ preventScroll: true });
     } else if (changedPage) {
-      main.current.focus({ preventScroll: true });
+      main.current?.focus({ preventScroll: true });
     }
   }, [pathname, hash]);
+
+  if (!admin) {
+    if (
+      status === 'checking' ||
+      (status === 'authenticated' && account.isPending)
+    )
+      return <Spinner label="Checking your account" />;
+    if (status === 'authenticated' && account.isError)
+      return (
+        <ErrorState
+          title="Could not load your account"
+          onRetry={() => void account.refetch()}
+        />
+      );
+    if (account.data?.roles.includes('super_admin'))
+      return <Navigate to="/admin" replace />;
+  }
 
   return (
     <RealtimeProvider>

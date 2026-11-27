@@ -8,7 +8,12 @@ import { Notice } from '../operations/support-models.js';
 import { siteFlags } from '../site/service.js';
 import { slug } from '../films/schemas.js';
 import { MovieRequest, Rating, Review } from './models.js';
-import { resolveTarget, targetKey, updateTotals } from './ratings.js';
+import {
+  ratingRestricted,
+  resolveTarget,
+  targetKey,
+  updateTotals,
+} from './ratings.js';
 import { pendingReviewFields } from './schemas.js';
 
 const revision = z.number().int().nonnegative();
@@ -217,7 +222,7 @@ async function associate(row, movie, session) {
   row.movieSlug = movie;
   if (
     existing ||
-    rating?.excludedAt ||
+    ratingRestricted(rating) ||
     (rating && rating.units !== row.rating * 2)
   ) {
     row.status = 'conflict';
