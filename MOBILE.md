@@ -66,6 +66,6 @@ The web review composer submits selected title, rating and review together. Nati
 
 ## Pre-release mobile-browser testing
 
-Use the canonical staging frontend HTTPS hostname with the Render API on a sibling HTTPS hostname. The vendor temporary domains are cross-site, so they cannot establish this session flow with the current cookie. Keep Safari's normal tracking-prevention settings enabled.
+Use `https://fdfs-one-staging.vercel.app` for staging. The Vercel proxy keeps the HTTP API and refresh cookie on that origin. Realtime traffic connects directly to Render with the access token. Keep Safari's normal tracking-prevention settings enabled.
 
 On physical iOS Safari and Android Chrome, use a fresh browsing session to verify login, hard refresh of a protected route, token refresh, logout, direct deep links, and realtime reconnect and notifications. Exercise a compact admin create form, image selection and upload, and a public review. Include portrait and landscape, and repeat after Render has idled to distinguish cold-start recovery from cookie failure. [WebKit tracking prevention](https://webkit.org/tracking-prevention/)

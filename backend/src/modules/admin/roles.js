@@ -124,11 +124,21 @@ export async function bootstrapSuper(address, { password, bcryptCost } = {}) {
       );
       return accountView(user);
     })
-    .catch((error) => {
-      if (error.code === 11000)
+    .catch(async (error) => {
+      if (
+        error.code === 11000 &&
+        (await User.exists({
+          $or: [{ superSeed: true }, { roles: 'super_admin' }],
+        }))
+      )
         throw conflict(
           'SUPER_BOOTSTRAPPED',
           'Super Administrator bootstrap has already been used.',
+        );
+      if (error.code === 11000 && (await User.exists({ email })))
+        throw conflict(
+          'SUPER_ACCOUNT_EXISTS',
+          'This address belongs to an existing account. Inspect ownership before any privileged recovery.',
         );
       throw error;
     });

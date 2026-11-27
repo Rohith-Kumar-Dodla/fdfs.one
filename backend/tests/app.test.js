@@ -63,7 +63,10 @@ describe('application', () => {
   });
 
   it('returns a standardized response for unknown routes', async () => {
-    const response = await request(app).get('/api/v1/missing').expect(404);
+    const response = await request(app)
+      .get('/api/v1/missing')
+      .expect('Cache-Control', 'no-store')
+      .expect(404);
     expect(response.body).toEqual({
       success: false,
       message: 'Route not found',

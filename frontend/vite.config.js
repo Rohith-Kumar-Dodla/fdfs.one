@@ -7,20 +7,24 @@ import tailwindcss from '@tailwindcss/vite';
 const envDir = fileURLToPath(new URL('../', import.meta.url));
 
 function validateDeploymentUrls(env) {
-  for (const [name, suffix] of [
-    ['VITE_API_BASE_URL', '/api/v1'],
-    ['VITE_SOCKET_URL', ''],
-  ]) {
-    const value = env[name]?.trim();
-    if (!value || (suffix && value === suffix)) continue;
-    const url = URL.parse(value);
-    if (
-      url?.protocol !== 'https:' ||
-      value !== url.origin + suffix ||
-      /(^|\.)localhost\.?$|^127\.|^0\.0\.0\.0$|^\[/.test(url.hostname)
-    ) {
-      throw new Error(name + ' must use a deployed HTTPS URL.');
-    }
+  const apiBase = env.VITE_API_BASE_URL?.trim();
+  if (apiBase && apiBase !== '/api/v1')
+    throw new Error('Production VITE_API_BASE_URL must be /api/v1.');
+
+  const socketOrigin = env.VITE_SOCKET_URL?.trim();
+  if (!socketOrigin) {
+    if (process.env.VERCEL === '1')
+      throw new Error('Set VITE_SOCKET_URL to the Render HTTPS origin.');
+    return;
+  }
+
+  const url = URL.parse(socketOrigin);
+  if (
+    url?.protocol !== 'https:' ||
+    socketOrigin !== url.origin ||
+    /(^|\.)localhost\.?$|^127\.|^0\.0\.0\.0$|^\[/.test(url.hostname)
+  ) {
+    throw new Error('VITE_SOCKET_URL must be a deployed HTTPS origin.');
   }
 }
 

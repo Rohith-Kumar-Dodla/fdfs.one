@@ -39,8 +39,10 @@ export function bootstrapFailure(error, stage) {
     return 'The password failed validation. Use 12 or more characters and no more than 72 UTF-8 bytes.';
   if (error.name === 'ValidationError')
     return 'MongoDB schema validation failed. Verify the application and database schema versions.';
-  if ([85, 86, 11000].includes(error.code) || stage === 'indexes')
+  if ([85, 86].includes(error.code) || stage === 'indexes')
     return 'Required account or audit indexes could not be initialized. Check index compatibility and createIndex permission.';
+  if (error.code === 11000)
+    return 'An account or audit write conflicted with a unique index. No administrator was created by this transaction. Inspect the account and audit indexes.';
   if (
     [20, 112, 251].includes(error.code) ||
     error.hasErrorLabel?.('TransientTransactionError') ||

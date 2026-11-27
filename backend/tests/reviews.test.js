@@ -273,6 +273,35 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
       await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });
+  it('rolls back bootstrap on an unrelated unique audit index conflict', async () => {
+    const index = await AuditLog.collection.createIndex(
+      { action: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { action: 'user.staff_changed' },
+      },
+    );
+    let fixtureAudit;
+    try {
+      fixtureAudit = await AuditLog.create({
+        actorId: regularAdmin.user.publicId,
+        action: 'user.staff_changed',
+        targetType: 'user',
+        targetId: regularAdmin.user.publicId,
+        requestId: id(),
+      });
+      const candidate = 'bootstrap-conflict@example.test';
+      await expect(
+        bootstrapSuper(candidate, { password, bcryptCost: 10 }),
+      ).rejects.toMatchObject({ code: 11000, keyPattern: { action: 1 } });
+      expect(await User.exists({ email: candidate })).toBeNull();
+      expect(await User.exists({ superSeed: true })).toBeNull();
+    } finally {
+      if (fixtureAudit)
+        await AuditLog.collection.deleteOne({ _id: fixtureAudit._id });
+      await AuditLog.collection.dropIndex(index);
+    }
+  });
   it('provisions and hashes a new owner, preserves legacy users and safely handles conflicts and reruns', async () => {
     await expect(
       bootstrapSuper(viewer.user.email, { password, bcryptCost: 10 }),

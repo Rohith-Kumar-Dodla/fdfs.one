@@ -94,6 +94,14 @@ it('gets bootstrap bcrypt from auth config and closes failures without echoing d
   expect(
     bootstrapFailure({ code: 13, message: 'mongodb://private' }),
   ).not.toContain('mongodb://');
+  const duplicate = {
+    code: 11000,
+    message: 'duplicate value private@example.test',
+  };
+  expect(bootstrapFailure(duplicate, 'write')).toMatch(/unique index/i);
+  expect(bootstrapFailure(duplicate, 'write')).not.toContain(
+    'private@example.test',
+  );
   expect(() =>
     bootstrapOptions(config, password, { ...env, BCRYPT_COST: 'invalid' }),
   ).toThrow('Invalid bootstrap configuration');

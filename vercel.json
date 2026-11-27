@@ -8,9 +8,22 @@
     {
       "source": "/(.*)",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/api/v1/:path*",
+      "headers": [
+        { "key": "Cache-Control", "value": "private, no-store" },
+        { "key": "CDN-Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" },
+        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+      ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "https://fdfs-api-6tvg.onrender.com/api/v1/:path*"
+    },
     {
       "source": "/((?!api(?:/|$)|socket\\.io(?:/|$)|assets(?:/|$)).*)",
       "destination": "/index.html"

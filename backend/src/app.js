@@ -53,12 +53,14 @@ export function createApp({
   );
 
   const api = express.Router();
-  api.get('/health', (req, res) => {
+  api.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
+    next();
+  });
+  api.get('/health', (req, res) => {
     return sendSuccess(res, { status: 'ok' });
   });
   api.get('/ready', (req, res) => {
-    res.set('Cache-Control', 'no-store');
     if (!isDatabaseConnected()) {
       return sendError(res, {
         status: 503,
