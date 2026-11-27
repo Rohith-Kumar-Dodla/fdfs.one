@@ -45,7 +45,7 @@ export const filmFields = {
   language,
   subtitles: unique(language, 12).default([]),
   runtimeMinutes: z.number().int().min(1).max(300),
-  releaseYear: year,
+  releaseYear: year.optional(),
   productionCompany: text(120).optional(),
   advisory: text(300).optional(),
   posterId: publicId.optional(),
@@ -60,6 +60,7 @@ export const filmFields = {
         title: text(100),
         url: youtube,
         thumbnailId: publicId.optional(),
+        videoArtwork: artworkKey.optional(),
       }),
     )
     .max(5)
@@ -142,6 +143,7 @@ export const adminCreate = z.object({
     classification,
     slug: slug.optional(),
     release: releaseInput.optional(),
+    originalAttested: z.literal(true).optional(),
   }),
 });
 const revision = z.number().int().nonnegative();

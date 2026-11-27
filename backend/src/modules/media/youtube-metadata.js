@@ -15,6 +15,7 @@ export function mapYouTubeVideo({
   snippet = {},
   contentDetails = {},
   status = {},
+  liveStreamingDetails = {},
 }) {
   const duration = /^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(
     contentDetails.duration,
@@ -61,6 +62,9 @@ export function mapYouTubeVideo({
     privacy: status.privacyStatus,
     uploadStatus: status.uploadStatus,
     broadcast: snippet.liveBroadcastContent,
+    scheduledStartAt: liveStreamingDetails.scheduledStartTime,
+    actualStartAt: liveStreamingDetails.actualStartTime,
+    actualEndAt: liveStreamingDetails.actualEndTime,
     regionRestriction: contentDetails.regionRestriction,
   };
 }
@@ -77,7 +81,10 @@ export function createYouTubeMetadata(apiKey, request = fetch) {
   async function lookup(id) {
     const url = new URL(endpoint);
     url.searchParams.set('id', id);
-    url.searchParams.set('part', 'snippet,contentDetails,status');
+    url.searchParams.set(
+      'part',
+      'snippet,contentDetails,status,liveStreamingDetails',
+    );
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const response = await request(url, {
@@ -85,9 +92,9 @@ export function createYouTubeMetadata(apiKey, request = fetch) {
           signal: AbortSignal.timeout(3500),
           redirect: 'error',
         });
-        if (response.status === 403 || response.status === 429)
+        if ([400, 401, 403, 429].includes(response.status))
           throw unavailable(
-            'YouTube rejected the metadata request or the quota was reached.',
+            'YouTube rejected the metadata request. Check the server API key, API access and quota.',
           );
         if (response.status >= 500 && attempt === 0) continue;
         if (!response.ok)

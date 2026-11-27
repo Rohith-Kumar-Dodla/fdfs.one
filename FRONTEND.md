@@ -154,3 +154,9 @@ Content uses responsive management grids and keeps editing, preview and publicat
 Talent profiles can belong to multiple categories before their first public appearance. Credits edited through the Talent workspace update the same film, movie and podcast relationships used in the content editor. Media Library links back to the canonical record to attach or reuse artwork. Private support attachments stay in the ticket conversation.
 
 The homepage editor shows five configurable slots and previews the saved draft using the public entertainment presentation. The public hero is full width and uses viewport-based height at desktop sizes. Sponsored disclosures and campaign preview isolation apply. The account menu uses the profile image or initials and links to the dashboard, watchlist, watch history, reviews and support. Catalogue filter panels use Apply Filters, Reset Filters, Close and an active filter count. Public catalogue URLs retain the applicable query parameters.
+
+## Final Phase 6 onboarding corrections
+
+The compact creation routes are separate from detailed record editors. Cinema and Originals share YouTube URL, title, genre, description, language, artwork and runtime previews, supporting media, cast and crew, and publication controls. Podcast creation suggests the episode number and keeps chapters in the episode editor. Live reads the provider schedule and asks for scheduling details only when needed. Talent creation uses the current category. Basic movie creation accepts a name and artwork. Creation results return to their management grids.
+
+Media Library categories contain independent image collections. The Add Images form accepts a title and multiple images. Content artwork pickers search matching collections and still support uploading or selecting from Shared Assets. The review composer contains content type, title, rating and written review with Submit and Close.

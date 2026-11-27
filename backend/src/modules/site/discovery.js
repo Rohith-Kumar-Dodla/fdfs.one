@@ -23,7 +23,7 @@ const models = {
 };
 const mediaFields = 'publicId status url alt width height';
 const summaryFields =
-  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration number professions startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount mainVideo.providerVideoId mainVideo.artwork video.providerVideoId video.artwork';
+  'publicId slug title displayName status synopsis summary introduction releaseAt releaseDate releaseYear runtimeMinutes duration number professions startAt broadcast remindersEnabled genres language poster banner backdrop thumbnail profileImage coverImage replayThumbnail replay.provider publishedAt ratingCount mainVideo.providerVideoId mainVideo.artwork video.providerVideoId video.artwork providerArtworkApproved';
 const fieldsByModule = {
   independent: ['poster', 'banner'],
   original: ['poster', 'banner'],
@@ -81,9 +81,10 @@ function feature(row, module, now) {
   const live = module === 'live' && row.broadcast === 'live';
   const providerArt =
     live ||
+    row.providerArtworkApproved ||
     (['independent', 'original', 'podcasts'].includes(module) &&
       row.releaseAt <= now)
-      ? youtubeArtwork(live ? row.video : row.mainVideo)
+      ? youtubeArtwork(module === 'live' ? row.video : row.mainVideo)
       : undefined;
   return {
     id: row.publicId,

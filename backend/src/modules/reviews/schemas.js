@@ -122,7 +122,10 @@ const movieBody = (fields = {}) =>
       { path: ['releaseYear'], message: 'Year must match the release date.' },
     );
 export const movieCreate = z.object({
-  body: movieBody({ slug: slug.optional() }),
+  body: movieBody({
+    slug: slug.optional(),
+    publish: z.literal(true).optional(),
+  }),
 });
 export const movieEdit = z.object({
   params: idParams,
@@ -182,7 +185,7 @@ export const rate = targetInput.extend({
   body: z.strictObject({ rating: halfStar }),
 });
 export const createReview = targetInput.extend({
-  body: z.strictObject(reviewFields),
+  body: z.strictObject({ ...reviewFields, rating: halfStar.optional() }),
 });
 export const editReview = reviewInput.extend({
   body: z.strictObject(reviewFields),

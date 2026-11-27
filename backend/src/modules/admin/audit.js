@@ -34,6 +34,8 @@ export const actions = [
   'site.homepage_save',
   'site.homepage_publish',
   'media.metadata',
+  'media.collection_create',
+  'media.collection_edit',
   'submission.review',
   'submission.approve',
   'submission.reject',

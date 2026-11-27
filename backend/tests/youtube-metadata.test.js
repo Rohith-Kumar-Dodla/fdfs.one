@@ -1,5 +1,19 @@
 import { expect, it, vi } from 'vitest';
 import { createYouTubeMetadata } from '../src/modules/media/youtube-metadata.js';
+import { mapYouTubeVideo } from '../src/modules/media/youtube-metadata.js';
+
+it('maps a provider schedule and keeps unavailable duration unset', () => {
+  const scheduled = '2030-05-25T13:00:00Z';
+  const result = mapYouTubeVideo({
+    id: 'aBCDef123_-',
+    snippet: { liveBroadcastContent: 'upcoming' },
+    contentDetails: { duration: 'PT0S' },
+    liveStreamingDetails: { scheduledStartTime: scheduled },
+  });
+  expect(result.scheduledStartAt).toBe(scheduled);
+  expect(result.durationSeconds).toBeUndefined();
+  expect(result.actualStartAt).toBeUndefined();
+});
 
 const id = 'aBCDef123_-';
 const watch = 'https://www.youtube.com/watch?v=' + id;

@@ -1,3 +1,4 @@
+import { CompactFilmForm } from '../admin/CompactVideoForms.jsx';
 import {
   ContentGrid,
   ContentHeading,
@@ -487,34 +488,12 @@ export function AdminFilms({ classification }) {
 }
 
 export function NewOriginal({ classification = 'original' }) {
-  const independent = classification === 'independent';
-  const navigate = useNavigate();
-  const change = useChange(keys, ({ data }) =>
-    navigate(adminPath + '/' + data.id),
-  );
   return (
     <>
-      <DetailLink to={independent ? '/admin/cinema' : '/admin/originals'}>
-        Back to {filmLabels[classification]}
-      </DetailLink>
       <SectionHeading as="h1">
-        {independent ? 'Add Cinema' : 'Add Original'}
+        {classification === 'original' ? 'Add Original' : 'Add Cinema'}
       </SectionHeading>
-      <DetailLink to="/admin/media">Open media library</DetailLink>
-      <FilmForm
-        admin
-        creation
-        classification={classification}
-        button={independent ? 'Submit Cinema' : 'Submit Original'}
-        change={change}
-        save={(film) =>
-          change.mutate({
-            url: independent ? '/admin/cinema' : adminPath,
-            method: 'post',
-            data: { ...film, classification },
-          })
-        }
-      />
+      <CompactFilmForm classification={classification} />
     </>
   );
 }

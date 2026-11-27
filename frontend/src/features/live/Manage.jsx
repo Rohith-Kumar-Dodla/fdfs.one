@@ -1,3 +1,4 @@
+import { CompactLiveForm } from '../admin/CompactVideoForms.jsx';
 import {
   ContentGrid,
   ContentHeading,
@@ -106,6 +107,13 @@ export function LiveManagement({ admin = false }) {
 }
 
 export function NewLiveEvent({ admin = false }) {
+  if (admin)
+    return (
+      <>
+        <SectionHeading as="h1">Create Live Event</SectionHeading>
+        <CompactLiveForm />
+      </>
+    );
   return (
     <Workspace admin={admin}>
       <DetailLink to={listPath(admin)}>Back to live events</DetailLink>

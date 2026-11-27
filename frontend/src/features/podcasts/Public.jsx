@@ -177,6 +177,9 @@ export function EpisodeDetail() {
                     <p className="whitespace-pre-wrap">{episode.notes}</p>
                   </section>
                 )}
+                {episode.guestName && (
+                  <p className="text-sm">Guest · {episode.guestName}</p>
+                )}
                 <People
                   entries={episode.participants}
                   title="Hosts and guests"

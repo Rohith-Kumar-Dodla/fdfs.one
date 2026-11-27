@@ -418,6 +418,10 @@ export async function writeMovie(id, input, audit, providerSnapshot) {
         if (providerSnapshot)
           row.set('metadata', { ...input.metadata, ...providerSnapshot });
       }
+      if (!id && input.publish) {
+        row.status = 'published';
+        row.publishedAt = new Date();
+      }
       if (row.status === 'published') publishing(row);
       row.updatedBy = audit.actorId;
       if (id) row.increment();
@@ -430,6 +434,15 @@ export async function writeMovie(id, input, audit, providerSnapshot) {
         row.publicId,
         { field: 'movie', from: previous, to: row.status },
       );
+      if (!id && input.publish)
+        await recordAudit(
+          session,
+          audit,
+          'movie.publish',
+          'movie',
+          row.publicId,
+          { field: 'movie', from: 'draft', to: 'published' },
+        );
       return row.publicId;
     });
     return getManagedMovie(publicId);

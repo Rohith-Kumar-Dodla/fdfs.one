@@ -61,6 +61,7 @@ const schema = new Schema(
       immutable: true,
     },
     talent: [{ type: Schema.Types.ObjectId, ref: 'Personality' }],
+    providerArtworkApproved: Boolean,
     poster: media,
     banner: media,
     replayThumbnail: media,

@@ -3,6 +3,7 @@ import { sendSuccess } from '../../utils/responses.js';
 import { readConfig } from '../site/service.js';
 import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
+import { saveTalentCredits } from './credits.js';
 import { AppError } from '../../utils/app-error.js';
 import { movieAppearances } from '../reviews/movies.js';
 import { filmography } from '../films/read.js';
@@ -383,8 +384,8 @@ async function currentProfile(id, revision, session) {
   return record;
 }
 
-export async function createTalent(input, context) {
-  const { slug, ...content } = input;
+export async function createTalent(input, context, actor) {
+  const { slug, publish, associations = [], ...content } = input;
   const id = await talentWrite(async (session) => {
     const record = new Personality({
       createdBy: context.actorId,
@@ -396,6 +397,30 @@ export async function createTalent(input, context) {
       field: 'publication-status',
       to: 'draft',
     });
+    if (publish) {
+      record.status = 'published';
+      record.publishedAt = new Date();
+      await record.save({ session });
+      await profileAudit(session, context, 'publish', record, {
+        field: 'publication-status',
+        from: 'draft',
+        to: 'published',
+      });
+    }
+    for (const { module, target, revision } of associations) {
+      await saveTalentCredits(
+        { module, target, id: record.publicId },
+        {
+          revision,
+          rows: [
+            { role: module === 'podcasts' ? 'guest' : record.professions[0] },
+          ],
+        },
+        actor,
+        context,
+        session,
+      );
+    }
     return record.publicId;
   });
   return getAdminTalent(id);

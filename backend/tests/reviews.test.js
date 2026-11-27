@@ -134,7 +134,11 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
     authConfig: auth,
     logger: createLogger('silent'),
     isDatabaseConnected: () => true,
-    phase22Options: { movieMetadataProvider: source, noticeNotify: notify },
+    phase22Options: {
+      movieMetadataProvider: source,
+      noticeNotify: notify,
+      mediaProvider: { remove: vi.fn() },
+    },
   });
   const noProvider = createApp({
     config,
@@ -947,6 +951,85 @@ describe.skipIf(!uri)('isolated Phase 5.1 HTTP and MongoDB workflows', () => {
       data(await requestFor('get', url, third).expect(200)).map(({ id }) => id),
     ).not.toContain(cancelled.id);
     await status(assigned, 'archive');
+  });
+  it('creates title-based artwork before a catalogue record and submits a rating and review atomically', async () => {
+    const collections = '/admin/media-collections';
+    const collectionId = randomUUID();
+    const title = 'Standalone Artwork Fixture';
+    const image = await MediaAsset.create({
+      owner: person.publicId,
+      providerId: 'isolated/collection/' + collectionId,
+      purpose: 'library',
+      status: 'active',
+      url: artwork.url,
+      width: artwork.width,
+      height: artwork.height,
+      bytes: artwork.bytes,
+    });
+    const changes = {
+      title,
+      id: collectionId,
+      category: 'movies',
+      imageIds: [image.publicId],
+    };
+    await requestFor('post', collections, viewer).send(changes).expect(403);
+    const collection = data(
+      await requestFor('post', collections, operator).send(changes).expect(201),
+    );
+    expect(collection).toMatchObject({
+      id: collectionId,
+      associations: [],
+      images: [{ id: image.publicId }],
+    });
+    expect(
+      data(
+        await requestFor('post', collections, operator)
+          .send(changes)
+          .expect(201),
+      ).id,
+    ).toBe(collectionId);
+    const catalogued = data(
+      await requestFor('post', '/admin/movies', operator)
+        .send({
+          title,
+          posterId: image.publicId,
+          artworkAuthorized: true,
+          publish: true,
+        })
+        .expect(201),
+    );
+    expect(catalogued.status).toBe('published');
+    const matches = data(
+      await requestFor(
+        'get',
+        collections + '?category=movies&q=standalone+artwork',
+        operator,
+      ).expect(200),
+    );
+    expect(matches[0].associations).toContainEqual({
+      kind: 'movie',
+      targetId: catalogued.id,
+    });
+    await requestFor(
+      'delete',
+      '/admin/media/' + image.publicId,
+      operator,
+    ).expect(409);
+    const endpoint = '/reviews/movie/' + catalogued.slug;
+    await requestFor('post', endpoint, third)
+      .send({ body: 'The evidence is in the review.', rating: 4.5 })
+      .expect(201);
+    await requestFor('post', endpoint, third)
+      .send({ body: 'A second review should fail.', rating: 1 })
+      .expect(409);
+    expect(
+      data(
+        await requestFor('get', '/ratings/movie/' + catalogued.slug).expect(
+          200,
+        ),
+      ),
+    ).toMatchObject({ average: 4.5, count: 1 });
+    await status(catalogued, 'archive');
   });
   it('checks reviews analytics visibility, supports maintenance and removes archived targets from all public queries', async () => {
     const route = '/analytics/events';

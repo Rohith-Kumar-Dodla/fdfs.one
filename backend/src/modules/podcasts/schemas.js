@@ -52,7 +52,8 @@ export const showContent = z.strictObject({
 export const episodeFields = {
   title: text(140),
   commentsEnabled: z.boolean().optional(),
-  synopsis: text(280),
+  synopsis: text(280).optional(),
+  guestName: text(240).optional(),
   notes: text(12000).optional(),
   number: z.number().int().min(1).max(9999),
   season: season.default(1),
@@ -62,7 +63,13 @@ export const episodeFields = {
   thumbnailId: publicId.optional(),
   galleryIds: distinct(publicId, 8).default([]),
   extras: z
-    .array(z.strictObject({ title: text(100), url: safeVideo }))
+    .array(
+      z.strictObject({
+        title: text(100),
+        url: safeVideo,
+        videoArtwork: artworkKey.optional(),
+      }),
+    )
     .max(5)
     .default([]),
   bannerId: publicId.optional(),

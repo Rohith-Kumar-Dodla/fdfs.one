@@ -166,11 +166,13 @@ export function mountLiveManagement(
   api.use('/organizer', organizer);
 
   admin.post('/live', validate(adminCreate), async (req, res) => {
+    const { providerArtworkApproved, ...eventInput } = input(res).body;
     const event = await createEvent(
-      input(res).body,
+      eventInput,
       identity(req),
       audit(req, res),
       reminderLead,
+      { providerArtworkApproved },
     );
     if (event.status === 'published')
       liveNotify({ slug: event.slug, status: event.status });

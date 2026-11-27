@@ -1,3 +1,4 @@
+import { CompactEpisodeForm } from '../admin/CompactVideoForms.jsx';
 import {
   ContentGrid,
   ContentHeading,
@@ -5,7 +6,7 @@ import {
 } from '../admin/ContentGrid.jsx';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { languages } from '../../../../shared/films.js';
 import { podcastBrand } from '../../../../shared/podcasts.js';
 import { parseYouTube } from '../../../../shared/youtube.js';
@@ -208,19 +209,10 @@ export function AdminShow() {
 }
 
 export function NewEpisode() {
-  const navigate = useNavigate();
-  const change = useChange(keys, ({ data }) =>
-    navigate(episodes + '/' + data.id),
-  );
   return (
     <>
-      <DetailLink to={root}>Back to episodes</DetailLink>
-      <SectionHeading as="h1">Create podcast episode</SectionHeading>
-      <DetailLink to="/admin/media">Open media library</DetailLink>
-      <EpisodeForm
-        save={(data) => change.mutate({ url: episodes, method: 'post', data })}
-        change={change}
-      />
+      <SectionHeading as="h1">Create Episode</SectionHeading>
+      <CompactEpisodeForm />
     </>
   );
 }

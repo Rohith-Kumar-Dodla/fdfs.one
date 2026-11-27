@@ -36,6 +36,10 @@ import {
   mediaMetadataInput,
   saveMediaMetadata,
 } from '../media/assets.js';
+import {
+  MediaCollection,
+  mountMediaCollections,
+} from '../media/collections.js';
 import { mountYouTubeMetadata } from '../media/youtube-metadata.js';
 import { readImage, uploadRateLimit } from '../media/images.js';
 import { mountAdminTalent } from '../talent/routes.js';
@@ -102,7 +106,9 @@ const publishInput = z.object({
 
 export async function initializePhase22Indexes() {
   await Promise.all(
-    [AuditLog, Submission, MediaAsset].map((model) => model.createIndexes()),
+    [AuditLog, Submission, MediaAsset, MediaCollection].map((model) =>
+      model.createIndexes(),
+    ),
   );
 }
 
@@ -171,6 +177,7 @@ export function mountPhase22(
   admin.use('/users', permit('users'));
   admin.use('/audit', permit('audit'));
   admin.use('/media', permit('media'));
+  mountMediaCollections(admin, context);
   admin.use('/talent', permit('content', 'talent'));
   admin.use('/talent/:id/association', permit('users'));
   admin.use(

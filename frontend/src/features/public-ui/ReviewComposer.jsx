@@ -4,30 +4,26 @@ import { Button, buttonClasses } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Spinner } from '../../components/ui/states.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
-import { ConfirmDelete, TextEditor } from '../reviews/Community.jsx';
-import { MovieRequestForm } from '../reviews/MovieRequests.jsx';
 import { StarInput } from '../reviews/Rating.jsx';
 import {
   reviewApi,
-  rateApi,
+  useReviewAction,
   useParticipation,
   useRead,
 } from '../reviews/client.js';
-import { QueryContent } from '../reviews/common.jsx';
 
 const fieldClass =
   'min-h-11 w-full rounded-control border border-control bg-base px-3 py-2 text-sm';
-function TitlePicker({ type, onSelect, onQuery }) {
+function TitlePicker({ type, text, target, onSelect, onQuery }) {
   const id = useId();
-  const [text, setText] = useState('');
   const [q, commit] = useState('');
   const [active, setActive] = useState(-1);
   useEffect(() => {
-    const timer = setTimeout(() => commit(text.trim()), 230);
+    const timer = setTimeout(() => commit(text.trim().slice(0, 80)), 230);
     return () => clearTimeout(timer);
   }, [text]);
   const query = useRead(type === 'movie' ? '/movies' : '/films', {
-    enabled: q.length > 1 && q === text.trim(),
+    enabled: !target && q.length > 1 && q === text.trim().slice(0, 80),
     params: {
       q,
       limit: 7,
@@ -35,7 +31,9 @@ function TitlePicker({ type, onSelect, onQuery }) {
     },
   });
   const rows =
-    q === text.trim() && Array.isArray(query.data?.data) ? query.data.data : [];
+    !target && q === text.trim().slice(0, 80) && Array.isArray(query.data?.data)
+      ? query.data.data
+      : [];
   function pick(row) {
     const kind =
       type === 'movie'
@@ -60,17 +58,17 @@ function TitlePicker({ type, onSelect, onQuery }) {
   return (
     <div className="grid gap-2">
       <label className="grid gap-1 text-sm font-medium">
-        Content name
+        {type === 'movie' ? 'Movie name' : 'Short film name'}
         <input
           value={text}
           onChange={(event) => {
-            setText(event.target.value);
             onQuery(event.target.value);
             setActive(-1);
           }}
           autoComplete="off"
           type="search"
-          maxLength={80}
+          maxLength={140}
+          required
           role="combobox"
           aria-controls={id}
           aria-expanded={rows.length > 0}
@@ -93,7 +91,7 @@ function TitlePicker({ type, onSelect, onQuery }) {
           }}
         />
       </label>
-      {q.length > 1 && q === text.trim() && query.isFetching && (
+      {q.length > 1 && q === text.trim().slice(0, 80) && query.isFetching && (
         <Spinner label="Searching catalogue" />
       )}
       {query.isError && (
@@ -101,9 +99,14 @@ function TitlePicker({ type, onSelect, onQuery }) {
           Title search is unavailable. Please try again.
         </p>
       )}
-      {q.length > 1 && q === text.trim() && query.isSuccess && !rows.length && (
-        <p className="text-sm text-muted">No published titles match.</p>
-      )}
+      {!target &&
+        type === 'short' &&
+        q.length > 1 &&
+        q === text.trim().slice(0, 80) &&
+        query.isSuccess &&
+        !rows.length && (
+          <p className="text-sm text-muted">No published titles match.</p>
+        )}
       <ul
         role="listbox"
         id={id}
@@ -147,81 +150,15 @@ function TitlePicker({ type, onSelect, onQuery }) {
     </div>
   );
 }
-function OwnedReviewForm({ target, cancel, done }) {
-  const url = reviewApi(target);
-  const mine = useRead(url + '/mine', { privateRead: true });
-  const score = useRead(rateApi(target) + '/mine', { privateRead: true });
-  const [rating, setRating] = useState(null);
-  return (
-    <QueryContent query={mine}>
-      {(current) => (
-        <QueryContent query={score}>
-          {(existing) => {
-            const restricted = !!(existing?.excluded || existing?.restricted);
-            return current?.status === 'hidden' ? (
-              <p role="status">
-                Your review is hidden. Visit{' '}
-                <Link className="text-accent underline" to="/account/reviews">
-                  your reviews
-                </Link>{' '}
-                for its status.
-              </p>
-            ) : (
-              <>
-                {!restricted && (
-                  <div className="grid gap-2">
-                    <StarInput
-                      value={rating ?? existing?.rating}
-                      change={setRating}
-                    />
-                    <p className="text-sm text-muted">
-                      {(rating ?? existing?.rating) != null
-                        ? (rating ?? existing.rating) + ' / 5 selected'
-                        : 'Choose a rating from half a star to five stars.'}
-                    </p>
-                  </div>
-                )}
-                <TextEditor
-                  current={current}
-                  rating={rating ?? existing?.rating}
-                  showRating={restricted}
-                  ratingWrite={
-                    !restricted && rating != null && rating !== existing?.rating
-                      ? {
-                          url: rateApi(target),
-                          method: 'put',
-                          data: { rating },
-                        }
-                      : undefined
-                  }
-                  submitLabel={current ? 'Save Review' : 'Submit Review'}
-                  title={current ? 'Edit your review' : 'Your review'}
-                  method={current ? 'patch' : 'post'}
-                  url={current ? url + '/' + current.id : url}
-                  cancel={cancel}
-                  onSaved={done}
-                />
-                {current && (
-                  <ConfirmDelete
-                    url={url + '/' + current.id}
-                    kind="review"
-                    onDeleted={done}
-                  />
-                )}
-              </>
-            );
-          }}
-        </QueryContent>
-      )}
-    </QueryContent>
-  );
-}
 function Composer({ close }) {
   const access = useParticipation();
   const [type, setType] = useState('movie');
   const [target, setTarget] = useState(null);
   const [finished, finish] = useState(false);
-  const [missing, setMissing] = useState(false);
+  const [rating, setRating] = useState(null);
+  const [body, setBody] = useState('');
+  const [error, setError] = useState('');
+  const change = useReviewAction();
   const [queryTitle, setQueryTitle] = useState('');
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -265,35 +202,44 @@ function Composer({ close }) {
           )}
       </div>
     );
+  function submit(event) {
+    event.preventDefault();
+    if (change.isPending) return;
+    if (type === 'short' && !target)
+      return setError('Select a published short film.');
+    if (rating == null) return setError('Choose a rating.');
+    setError('');
+    change.mutate(
+      {
+        url: target ? reviewApi(target) : '/account/movie-requests',
+        method: 'post',
+        data: {
+          rating,
+          body: body.trim(),
+          ...(!target && { title: queryTitle.trim() }),
+        },
+      },
+      { onSuccess: () => finish(true) },
+    );
+  }
   if (finished)
     return (
       <div className="grid gap-3">
-        <p role="status" className="font-semibold text-success">
-          {missing
-            ? 'Review saved privately for movie verification.'
-            : 'Review updated successfully.'}
+        <p role="status" className="text-success">
+          {target
+            ? 'Review published.'
+            : 'Review saved privately for movie verification.'}
         </p>
-        <Link
-          className="text-accent underline"
-          to={missing ? '/account/reviews' : target.path + '#film-community'}
-        >
-          {missing ? 'Open My Reviews' : 'Open ' + target.title}
+        <Link className="text-accent underline" to="/account/reviews">
+          My Reviews
         </Link>
-        <div>
-          <Button onClick={close}>Done</Button>
-        </div>
+        <Button className="w-fit" variant="outline" onClick={close}>
+          Close
+        </Button>
       </div>
     );
-  if (missing)
-    return (
-      <MovieRequestForm
-        initialTitle={queryTitle}
-        done={() => finish(true)}
-        cancel={() => setMissing(false)}
-      />
-    );
   return (
-    <div className="grid gap-4">
+    <form className="grid gap-4" onSubmit={submit}>
       <label className="grid gap-1 text-sm font-medium">
         Content type
         <select
@@ -303,51 +249,59 @@ function Composer({ close }) {
             setType(event.target.value);
             setTarget(null);
             setQueryTitle('');
+            setError('');
+            change.reset();
           }}
         >
           <option value="movie">Movie</option>
           <option value="short">Short Film</option>
         </select>
       </label>
-      {target ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <strong>{target.title}</strong>
-          <Button variant="outline" onClick={() => setTarget(null)}>
-            Change title
-          </Button>
-        </div>
-      ) : (
-        <TitlePicker
-          type={type}
-          key={type}
-          onSelect={setTarget}
-          onQuery={setQueryTitle}
+      <TitlePicker
+        key={type}
+        type={type}
+        target={target}
+        text={queryTitle}
+        onSelect={(row) => {
+          setTarget(row);
+          setQueryTitle(row.title);
+          setError('');
+          change.reset();
+        }}
+        onQuery={(value) => {
+          setTarget(null);
+          setQueryTitle(value);
+          setError('');
+          change.reset();
+        }}
+      />
+      <StarInput value={rating} change={setRating} />
+      <label className="grid gap-1 text-sm font-medium">
+        Written review
+        <textarea
+          className={fieldClass}
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={5}
+          minLength={5}
+          maxLength={6000}
+          required
         />
+      </label>
+      {(error || change.isError) && (
+        <p role="alert" className="text-sm text-danger-text">
+          {error || change.error.message}
+        </p>
       )}
-      {!target && type === 'movie' && (
-        <Button
-          className="w-fit"
-          variant="outline"
-          onClick={() => setMissing(true)}
-        >
-          Can't Find Your Movie?
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" loading={change.isPending}>
+          Submit
         </Button>
-      )}
-      {target ? (
-        <OwnedReviewForm
-          key={target.type + target.slug}
-          target={target}
-          cancel={close}
-          done={() => finish(true)}
-        />
-      ) : (
-        <div>
-          <Button variant="outline" onClick={close}>
-            Cancel
-          </Button>
-        </div>
-      )}
-    </div>
+        <Button variant="outline" onClick={close}>
+          Close
+        </Button>
+      </div>
+    </form>
   );
 }
 export function ReviewComposer({ open, close }) {

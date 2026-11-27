@@ -72,6 +72,7 @@ export const adminCreate = z.object({
     plannedReplayUrl: youtubeUrl.optional(),
     chatEnabled: z.boolean().optional(),
     remindersEnabled: z.boolean().optional(),
+    providerArtworkApproved: z.literal(true).optional(),
     publication: z
       .discriminatedUnion('mode', [
         z.strictObject({ mode: z.literal('upcoming') }),

@@ -41,7 +41,7 @@ const validDraft = z.object({
     .min(1)
     .max(5),
   runtimeMinutes: z.number().int().min(1).max(300),
-  releaseYear: z.number().int().min(1888).max(2100),
+  releaseYear: z.number().int().min(1888).max(2100).optional(),
 });
 
 function Field({ label, children }) {
@@ -380,11 +380,11 @@ export function FilmForm({
       title: values.title.trim(),
       synopsis: values.synopsis.trim(),
       runtimeMinutes: Number(values.runtimeMinutes),
-      releaseYear: Number(values.releaseYear),
+      releaseYear: values.releaseYear ? Number(values.releaseYear) : undefined,
     });
     if (!draft.success)
       return setError(
-        'Enter a title, synopsis, one to five genres, runtime, and release year.',
+        'Enter a title, synopsis, one to five genres, and runtime.',
       );
     if (
       [
@@ -441,11 +441,14 @@ export function FilmForm({
       ...(release && { release }),
       trailerUrl: trim(values.trailerUrl),
       credits: prepared,
-      extras: values.extras.map(({ title, url, thumbnailId }) => ({
-        title: title.trim(),
-        url: url.trim(),
-        thumbnailId: trim(thumbnailId),
-      })),
+      extras: values.extras.map(
+        ({ title, url, thumbnailId, videoArtwork }) => ({
+          title: title.trim(),
+          url: url.trim(),
+          thumbnailId: trim(thumbnailId),
+          videoArtwork,
+        }),
+      ),
       awards: values.awards.map(({ title, organization, year, source }) => ({
         title: title.trim(),
         organization: trim(organization),
@@ -546,7 +549,6 @@ export function FilmForm({
                 type="number"
                 min={1888}
                 max={2100}
-                required
                 {...register('releaseYear')}
               />
             </Field>

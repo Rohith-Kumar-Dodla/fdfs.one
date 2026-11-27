@@ -172,7 +172,7 @@ export const administrationRoutes = [
             },
           },
           { path: 'movies', lazy: moviePage('MoviesAdmin') },
-          { path: 'movies/new', lazy: moviePage('ManageMovie') },
+          { path: 'movies/new', lazy: moviePage('NewMovie') },
           { path: 'movies/:id', lazy: moviePage('ManageMovie') },
           {
             path: 'review-moderation/reviews/:id',

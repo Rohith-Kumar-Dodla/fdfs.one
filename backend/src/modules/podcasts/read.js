@@ -11,7 +11,7 @@ const mediaFields =
   'publicId purpose url width height bytes references createdAt alt';
 const peopleFields = 'publicId displayName slug status';
 const cardFields =
-  'publicId slug title synopsis number season language topics duration thumbnail releaseAt teaser.provider mainVideo.providerVideoId mainVideo.artwork';
+  'publicId slug title synopsis guestName number season language topics duration thumbnail releaseAt teaser.provider mainVideo.providerVideoId mainVideo.artwork';
 export const missingEpisode = () =>
   new AppError(404, 'EPISODE_NOT_FOUND', 'Episode not found.');
 export const missingShow = () =>
@@ -101,6 +101,7 @@ function card(episode, now, show, admin = false) {
     slug,
     title,
     synopsis,
+    guestName,
     number,
     season,
     language,
@@ -115,6 +116,7 @@ function card(episode, now, show, admin = false) {
     slug,
     title,
     synopsis,
+    guestName,
     number,
     season,
     language,

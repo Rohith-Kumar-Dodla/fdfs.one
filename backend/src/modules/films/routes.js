@@ -97,9 +97,10 @@ export function mountAdminFilms(admin) {
           'INVALID_CLASSIFICATION',
           'This form uses a different film classification.',
         );
+      const { originalAttested, ...film } = data(res).body;
       return sendSuccess(
         res,
-        await createAdminFilm(data(res).body, context(req, res)),
+        await createAdminFilm(film, context(req, res), { originalAttested }),
         { status: 201 },
       );
     });

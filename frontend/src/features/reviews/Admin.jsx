@@ -1,3 +1,4 @@
+import { CompactMovieForm } from '../admin/CompactCatalogueForms.jsx';
 import {
   ContentGrid,
   ContentHeading,
@@ -116,6 +117,15 @@ function MoviePreview({ record }) {
     </Card>
   );
 }
+export function NewMovie() {
+  return (
+    <>
+      <SectionHeading as="h1">Add Movie</SectionHeading>
+      <CompactMovieForm />
+    </>
+  );
+}
+
 export function ManageMovie() {
   const { id } = useParams();
   const navigate = useNavigate();

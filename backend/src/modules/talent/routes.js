@@ -102,9 +102,13 @@ export function mountAdminTalent(admin) {
     listTalent(res, data(res).query, true),
   );
   admin.post('/talent', validate(adminCreateInput), async (req, res) =>
-    sendSuccess(res, await createTalent(data(res).body, context(req, res)), {
-      status: 201,
-    }),
+    sendSuccess(
+      res,
+      await createTalent(data(res).body, context(req, res), req.auth.user),
+      {
+        status: 201,
+      },
+    ),
   );
   admin.get(
     '/talent/:id',

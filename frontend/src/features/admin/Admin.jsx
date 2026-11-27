@@ -285,6 +285,11 @@ export function AdminLayout() {
               Back to System
             </Link>
           )}
+          {location.state?.contentNotice && (
+            <p role="status" className="text-success">
+              {location.state.contentNotice}
+            </p>
+          )}
           <Outlet context={account} />
         </div>
       </div>

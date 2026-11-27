@@ -16,7 +16,7 @@ import {
   ReviewLike,
   ReviewReport,
 } from './models.js';
-import { resolveTarget, targetKey } from './ratings.js';
+import { resolveTarget, targetKey, writeRating } from './ratings.js';
 
 const missingItem = () =>
   new AppError(404, 'REVIEW_NOT_FOUND', 'Review or comment not found.');
@@ -399,6 +399,7 @@ export async function listReviews(res, target, query, now = new Date()) {
 export function writeReview(params, account, input, action) {
   return mongoose.connection
     .transaction(async (session) => {
+      const { rating, ...review } = input ?? {};
       const target = await resolveTarget(params, session, true);
       const key = { ...targetKey(target), author: account._id };
       if (action === 'create') {
@@ -409,7 +410,9 @@ export function writeReview(params, account, input, action) {
           }).session(session)
         )
           throw duplicate();
-        const [row] = await Review.create([{ ...key, ...input }], { session });
+        if (rating !== undefined)
+          await writeRating(target, account, rating, session);
+        const [row] = await Review.create([{ ...key, ...review }], { session });
         return { id: row.publicId };
       }
       const row = await content(target, params.id, session, account);

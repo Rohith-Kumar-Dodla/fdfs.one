@@ -1,3 +1,4 @@
+import { CompactTalentForm } from '../admin/CompactCatalogueForms.jsx';
 import {
   ContentGrid,
   ContentHeading,
@@ -9,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 import { can } from '../../../../shared/admin.js';
 import {
   Link,
-  useNavigate,
   useOutletContext,
   useParams,
   useSearchParams,
@@ -253,23 +253,11 @@ function ProfileActions({ profile }) {
 
 export function AdminNewTalent() {
   const category = useCategory();
-  const navigate = useNavigate();
-  const change = useChange(invalidationKeys, ({ data }) =>
-    navigate(base + '/' + data.id),
-  );
+  if (!category) return <AdminTalentList />;
   return (
     <>
-      <DetailLink to={base}>Back to Talent Profiles</DetailLink>
-      <SectionHeading as="h1">Create talent profile</SectionHeading>
-      <DetailLink to="/admin/media">Open media library</DetailLink>
-      <TalentForm
-        admin
-        create
-        category={category}
-        change={change}
-        label="Create draft"
-        submit={(data) => change.mutate({ url: base, method: 'post', data })}
-      />
+      <SectionHeading as="h1">Create Profile</SectionHeading>
+      <CompactTalentForm category={category} />
     </>
   );
 }

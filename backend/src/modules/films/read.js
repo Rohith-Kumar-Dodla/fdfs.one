@@ -246,7 +246,7 @@ export async function getPublicFilm(slug, classification) {
       extras: extras.map(({ title, video, thumbnail }) => ({
         title,
         video,
-        thumbnail: viewImage(thumbnail),
+        thumbnail: viewImage(thumbnail) ?? youtubeArtwork(video),
       })),
     }),
   };
@@ -287,6 +287,7 @@ export async function getManagedFilm(id, creatorId) {
       title,
       url: video.sourceUrl,
       thumbnailId: thumbnail?.publicId,
+      videoArtwork: video.artwork,
     })),
     rightsConfirmedAt: film.rightsConfirmedAt,
     authorizedAt: film.authorizedAt,

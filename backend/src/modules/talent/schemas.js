@@ -1,4 +1,4 @@
-﻿import { talentCategories } from '../../../../shared/public-home.js';
+import { talentCategories } from '../../../../shared/public-home.js';
 import { z } from 'zod';
 import { linkKinds, professions } from '../../../../shared/talent.js';
 import { idParams, listInput, publicId } from '../../utils/list.js';
@@ -97,7 +97,26 @@ export const adminListInput = listInput({
 });
 export const slugInput = z.object({ params: z.object({ slug }) });
 export const adminCreateInput = z.object({
-  body: z.strictObject({ ...adminProfileFields, slug: slug.optional() }),
+  body: z.strictObject({
+    ...adminProfileFields,
+    slug: slug.optional(),
+    publish: z.literal(true).optional(),
+    associations: z
+      .array(
+        z.strictObject({
+          module: z.enum(['movies', 'independent', 'original', 'podcasts']),
+          target: publicId,
+          revision: z.number().int().nonnegative(),
+        }),
+      )
+      .max(30)
+      .refine(
+        (rows) =>
+          new Set(rows.map(({ module, target }) => module + ':' + target))
+            .size === rows.length,
+      )
+      .optional(),
+  }),
 });
 export const adminEditInput = z.object({
   params: idParams,

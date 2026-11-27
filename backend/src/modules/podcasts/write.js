@@ -224,7 +224,10 @@ async function setEpisode(record, input, context, session) {
     titlePrefixes: words.map((_, index) => words.slice(index).join(' ')),
     mainVideo: video(mainUrl, videoArtwork),
     teaser: video(teaserUrl),
-    extras: extras.map(({ title, url }) => ({ title, video: video(url) })),
+    extras: extras.map(({ title, url, videoArtwork }) => ({
+      title,
+      video: video(url, videoArtwork),
+    })),
     releaseAt: published
       ? record.releaseAt
       : releaseAt

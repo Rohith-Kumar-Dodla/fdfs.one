@@ -87,7 +87,8 @@ const episode = new Schema(
     title: { type: String, required: true, maxlength: 140 },
     titlePrefixes: [String],
     commentsEnabled: { type: Boolean, default: true },
-    synopsis: { type: String, required: true, maxlength: 280 },
+    guestName: String,
+    synopsis: { type: String, maxlength: 280 },
     notes: String,
     season: {
       type: Number,

@@ -31,7 +31,7 @@ const field = 'grid min-w-0 gap-1 text-sm';
 const pickId = z.uuid();
 const validEpisode = z.object({
   title: z.string().min(1).max(140),
-  synopsis: z.string().min(1).max(280),
+  synopsis: z.string().max(280).optional(),
   number: z.number().int().min(1).max(9999),
   season: z.number().int().min(1).max(999),
   duration: z.number().int().min(1).max(28800),
@@ -565,15 +565,13 @@ export function EpisodeForm({ episode, change, save }) {
     const fields = validEpisode.safeParse({
       ...values,
       title: values.title.trim(),
-      synopsis: values.synopsis.trim(),
+      synopsis: optional(values.synopsis),
       number: Number(values.number),
       season: Number(values.season),
       duration: Number(values.duration),
     });
     if (!fields.success)
-      return setError(
-        'Enter a title, summary, episode number, season and duration.',
-      );
+      return setError('Enter a title, episode number, season and duration.');
     if (
       [art.primary, art.banner]
         .filter(Boolean)
@@ -625,11 +623,13 @@ export function EpisodeForm({ episode, change, save }) {
       thumbnailId: optional(art.primary),
       bannerId: optional(art.banner),
       galleryIds,
-      extras: values.extras.map(({ title, url }) => ({
+      extras: values.extras.map(({ title, url, videoArtwork }) => ({
         title: title.trim(),
         url: url.trim(),
+        videoArtwork,
       })),
       mainUrl: main,
+      guestName: episode?.guestName,
       videoArtwork:
         artwork.id === parseYouTube(main)?.providerVideoId
           ? artwork.key
@@ -779,12 +779,7 @@ export function EpisodeForm({ episode, change, save }) {
             </Field>
           </div>
           <Field label="Short description">
-            <Textarea
-              required
-              maxLength={280}
-              rows={2}
-              {...register('synopsis')}
-            />
+            <Textarea maxLength={280} rows={2} {...register('synopsis')} />
           </Field>
           <Field label="Show notes">
             <Textarea maxLength={12000} rows={6} {...register('notes')} />

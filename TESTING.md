@@ -196,3 +196,13 @@ The test suite retains the three-worker replica-set configuration and covers sta
 Node.js 24 passed lint, formatting and the production build. All 190 automated tests passed, including 76 frontend and 114 backend tests. The production dependency audit found zero vulnerabilities. The configured-secret scan found zero matches in source candidates and build assets, and zero private file candidates.
 
 A configured YouTube Data API key is required for actual metadata retrieval verification. Authorized active YouTube Live playback, external movie metadata licensing and physical-device verification remain pending. Account erasure and retention remain mandatory Phase 7.1 work. Performance optimization remains Phase 7.2 and production onboarding remains Phase 8.
+
+## Final Phase 6 onboarding corrections
+
+Isolated Chrome inspected the exact fields on eight creation views at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568 by 320 and 844 by 390 landscape. Chrome created and published Cinema and Originals, created an episode and an upcoming Live event, and created a profile in each Talent category. It checked automatic metadata with controlled responses, missing-key fallback, preservation of manual edits and the existing homepage draft and publication workflow.
+
+Chrome checked the three Media Library upload forms, saved multiple images under an independent title and reused its artwork for a movie. It submitted existing and missing movie reviews through the four-input composer, approved the missing title through administration and verified public visibility after approval. These checks used a disposable MongoDB replica set and a local image test provider.
+
+Node.js 24 passed lint, formatting and the production build. All 192 automated tests passed, including 76 frontend and 116 backend tests. The production dependency audit found zero vulnerabilities, and the configured-secret scan found no matches in source candidates or build assets and no private file candidates.
+
+Owner content onboarding readiness remains pending actual metadata retrieval with a configured server-side `YOUTUBE_DATA_API_KEY`. Controlled responses covered the integration behavior. Authorized active YouTube Live playback and physical-device verification remain pending.

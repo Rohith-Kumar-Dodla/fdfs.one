@@ -36,7 +36,7 @@ const listFields =
   'publicId slug title summary category topic language venue startAt endAt timeZone actualStartAt actualEndAt broadcast chatEnabled slowSeconds remindersEnabled organizer poster banner replayThumbnail replay.provider';
 const detailFields = listFields.replace(
   'replay.provider',
-  'description talent video replay',
+  'description talent video replay providerArtworkApproved',
 );
 const imageFields =
   'publicId purpose url width height bytes references createdAt alt';
@@ -121,11 +121,11 @@ function view(row, managed = false, detail = false) {
           ];
         }),
     ),
+    ...(!row.poster &&
+      (broadcast === 'live' || row.providerArtworkApproved) &&
+      youtubeArtwork(row.video) && { poster: youtubeArtwork(row.video) }),
     ...(detail && {
       description: row.description,
-      ...(!row.poster &&
-        broadcast === 'live' &&
-        youtubeArtwork(row.video) && { poster: youtubeArtwork(row.video) }),
       serverNow: new Date(),
       talent: row.talent.map(({ publicId, slug, displayName }) => ({
         id: publicId,
@@ -205,7 +205,8 @@ export async function listEvents(res, query, scope) {
     filter,
     query,
     (row) => view(row, Boolean(scope)),
-    scope ? listFields + ' status moderation __v' : listFields,
+    (scope ? listFields + ' status moderation __v' : listFields) +
+      ' providerArtworkApproved video.providerVideoId video.artwork',
     { startAt: direction, _id: direction },
     (find) => populate(find, Boolean(scope)),
   );
@@ -260,7 +261,11 @@ export function requireReady(event) {
   if (
     !event.rightsConfirmed ||
     !(event.video || event.videoUrl) ||
-    !(event.poster || event.posterId)
+    !(
+      event.poster ||
+      event.posterId ||
+      (event.providerArtworkApproved && youtubeArtwork(event.video))
+    )
   )
     throw new AppError(
       409,
@@ -345,7 +350,13 @@ async function organizerById(id, session) {
   return organizer;
 }
 
-export function createEvent(input, actor, context, reminderLead) {
+export function createEvent(
+  input,
+  actor,
+  context,
+  reminderLead,
+  { providerArtworkApproved = false } = {},
+) {
   const {
     organizerId,
     slug,
@@ -362,6 +373,7 @@ export function createEvent(input, actor, context, reminderLead) {
     const event = new LiveEvent({
       slug: slug ?? slugFrom(content.title),
       organizer: organizer._id,
+      providerArtworkApproved,
       createdBy: context.actorId,
       plannedReplayUrl: plannedReplayUrl
         ? provider(plannedReplayUrl, 'replay').sourceUrl

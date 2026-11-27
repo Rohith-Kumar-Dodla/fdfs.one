@@ -105,29 +105,36 @@ export async function updateTotals(target, before, after, session) {
   }
   return summary;
 }
-export function saveRating(params, account, stars) {
-  return mongoose.connection.transaction(async (session) => {
-    const target = await resolveTarget(params, session, true);
-    const key = { ...targetKey(target), author: account._id };
-    const original = await Rating.findOne(key).session(session);
-    if (original?.excludedAt) throw unavailable();
-    const units = stars === undefined ? null : stars * 2;
-    if (units)
-      await Rating.updateOne(
-        key,
-        { $set: { units } },
-        { upsert: true, session, runValidators: true },
-      );
-    else if (original)
-      await Rating.deleteOne({ _id: original._id }).session(session);
-    const summary = await updateTotals(
-      target,
-      original?.units ?? null,
-      units,
-      session,
+export async function writeRating(target, account, stars, session) {
+  const key = { ...targetKey(target), author: account._id };
+  const original = await Rating.findOne(key).session(session);
+  if (original?.excludedAt) throw unavailable();
+  const units = stars === undefined ? null : stars * 2;
+  if (units)
+    await Rating.updateOne(
+      key,
+      { $set: { units } },
+      { upsert: true, session, runValidators: true },
     );
-    return { rating: stars ?? null, ...ratingView(summary) };
-  });
+  else if (original)
+    await Rating.deleteOne({ _id: original._id }).session(session);
+  const summary = await updateTotals(
+    target,
+    original?.units ?? null,
+    units,
+    session,
+  );
+  return { rating: stars ?? null, ...ratingView(summary) };
+}
+export function saveRating(params, account, stars) {
+  return mongoose.connection.transaction(async (session) =>
+    writeRating(
+      await resolveTarget(params, session, true),
+      account,
+      stars,
+      session,
+    ),
+  );
 }
 export function deleteOwnedRating(id, account) {
   return mongoose.connection.transaction(async (session) => {

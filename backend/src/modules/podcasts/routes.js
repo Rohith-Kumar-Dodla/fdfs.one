@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { validate } from '../../middlewares/validate.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
 import {
@@ -7,7 +7,13 @@ import {
   mountPodcastComments,
 } from './comments.js';
 import { PodcastShow, PodcastEpisode, EpisodeParticipant } from './models.js';
-import { getEpisode, getShow, listEpisodes, missingShow } from './read.js';
+import {
+  findShow,
+  getEpisode,
+  getShow,
+  listEpisodes,
+  missingShow,
+} from './read.js';
 import {
   adminEpisodeList,
   adminId,
@@ -89,6 +95,19 @@ export function mountPodcastManagement(api, admin, authenticate) {
   admin.get(path + '/episodes', validate(adminEpisodeList), (req, res) =>
     listEpisodes(res, data(res).query, true),
   );
+  admin.get(path + '/episodes/next-number', async (_req, res) => {
+    const show = await findShow(false).select('_id').lean();
+    const last =
+      show &&
+      (await PodcastEpisode.findOne({ show: show._id })
+        .sort({ season: -1, number: -1 })
+        .select('season number')
+        .lean());
+    return sendSuccess(res, {
+      season: last?.season ?? 1,
+      number: (last?.number ?? 0) + 1,
+    });
+  });
   admin.get(path + '/episodes/:id', validate(adminId), async (req, res) =>
     sendSuccess(res, await getEpisode(id(res), true)),
   );

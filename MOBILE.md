@@ -59,3 +59,7 @@ The web discovery order is cinematic hero, Cinema, Originals, 404 Reality Not Fo
 Use one filter trigger for each catalogue or management list. Show the active count, open a bottom sheet or full-height panel on smaller screens, and provide Apply Filters, Reset Filters and Close. Preserve dedicated catalogue and entity searches. Keep list pagination and URL parameters where the web routes already use them. Return focus to the trigger after dismissal and allow an Escape equivalent where a keyboard is available.
 
 Private missing-movie reviews use the owned movie-request API. Display the pending verification state without placing it in public feeds or aggregates. Approved requests appear in regular review history once linked to a published movie. Read the Live detail chat flag before rendering chat controls. Talent category pages may include explicitly assigned profiles before any public appearance. Native application and physical-device implementation remain future phases.
+
+## Final Phase 6 onboarding corrections
+
+The web review composer submits selected title, rating and review together. Native clients should require an existing short-film selection and use the private movie-request path for a missing or ambiguous mainstream title. Preserve ownership, existing spoiler flags and separate edit functionality. Upcoming broadcast previews can use a provider-reported schedule and should preserve server-confirmed lifecycle status.

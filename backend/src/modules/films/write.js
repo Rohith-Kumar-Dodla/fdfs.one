@@ -201,9 +201,9 @@ async function setContent(
     gallery: galleryIds.map((id) => assets.get(id)),
     mainVideo: playback(mainUrl, videoArtwork),
     trailer: playback(trailerUrl),
-    extras: extras.map(({ title, url, thumbnailId }) => ({
+    extras: extras.map(({ title, url, thumbnailId, videoArtwork }) => ({
       title,
-      video: playback(url),
+      video: playback(url, videoArtwork),
       thumbnail: assets.get(thumbnailId),
     })),
     rightsConfirmedAt: details.rightsConfirmed
@@ -263,7 +263,11 @@ function authorizeRelease(film, release, context, preserve = false) {
       'Confirm playback and embedding permissions before publishing.',
     );
   requireFilmReady(film);
-  if (film.classification === 'original' && !film.productionCompany) {
+  if (
+    film.classification === 'original' &&
+    !film.productionCompany &&
+    !film.fdfsOriginalAttested
+  ) {
     throw new AppError(
       400,
       'FILM_PRODUCTION_REQUIRED',
@@ -289,10 +293,18 @@ async function currentFilm(id, revision, session) {
   return film;
 }
 
-export async function createAdminFilm(input, context) {
+export async function createAdminFilm(
+  input,
+  context,
+  { originalAttested = false } = {},
+) {
   const { classification, slug, release, ...content } = input;
   const id = await filmWrite(async (session) => {
-    const film = new Film({ classification, createdBy: context.actorId });
+    const film = new Film({
+      classification,
+      createdBy: context.actorId,
+      fdfsOriginalAttested: classification === 'original' && originalAttested,
+    });
     film.slug = slug ?? filmSlug(content.title, film.publicId);
     await setContent(film, content, context, session);
     await audit(session, context, 'create', film, {
@@ -356,7 +368,11 @@ export async function editFilm(
     }
     if (film.status === 'published') {
       requireFilmReady(content);
-      if (film.classification === 'original' && !content.productionCompany)
+      if (
+        film.classification === 'original' &&
+        !content.productionCompany &&
+        !film.fdfsOriginalAttested
+      )
         throw new AppError(
           400,
           'FILM_PRODUCTION_REQUIRED',
