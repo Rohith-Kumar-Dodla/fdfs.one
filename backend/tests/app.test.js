@@ -131,6 +131,27 @@ describe('application', () => {
     expect(response.headers.ratelimit).toBeDefined();
     await request(app).get('/api/v1/health').expect(200);
   });
+
+  it('uses the configured proxy boundary for rate limits and marks staging responses noindex', async () => {
+    const staging = createApp({
+      config: {
+        ...config,
+        RATE_LIMIT_MAX: 1,
+        TRUST_PROXY_HOPS: 1,
+        PRE_RELEASE_NOINDEX: true,
+      },
+      logger,
+      isDatabaseConnected,
+    });
+    const attempt = (forwarded) =>
+      request(staging).get('/api/v1/missing').set('X-Forwarded-For', forwarded);
+    await attempt('192.0.2.7, 198.51.100.10')
+      .expect('X-Robots-Tag', 'noindex, nofollow')
+      .expect(404);
+    await attempt('192.0.2.8, 198.51.100.10').expect(429);
+    await attempt('198.51.100.11').expect(404);
+    await request(app).get('/api/v1/health').expect(200);
+  });
 });
 
 describe('validation and error middleware', () => {

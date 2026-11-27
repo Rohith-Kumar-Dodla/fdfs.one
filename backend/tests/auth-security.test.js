@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { loadAuthConfig } from '../src/config/auth.js';
@@ -8,6 +8,7 @@ import { requireNamedDatabase } from '../src/config/env.js';
 import { createLogger } from '../src/config/logger.js';
 import { webSessionCookies } from '../src/modules/auth/cookies.js';
 import { schemas } from '../src/modules/auth/schemas.js';
+import { createEmailService } from '../src/services/email.js';
 import {
   issueAccessToken,
   verifyAccessToken,
@@ -184,5 +185,45 @@ describe('authentication security', () => {
     for (let index = 0; index < 12; index++) await attempt().expect(400);
     const response = await attempt().expect(429);
     expect(response.body.error.code).toBe('AUTH_RATE_LIMIT');
+  });
+
+  it('keeps the API available when account email is disabled or delivery fails', async () => {
+    const app = createApp({
+      config,
+      authConfig,
+      logger: createLogger('silent'),
+      isDatabaseConnected: () => false,
+      authOptions: { available: () => true },
+    });
+    for (const action of [
+      'register',
+      'resend-verification',
+      'forgot-password',
+    ]) {
+      const response = await request(app)
+        .post('/api/v1/auth/' + action)
+        .send({ email: 'reader@example.test' })
+        .expect(503);
+      expect(response.body.error.code).toBe('EMAIL_UNAVAILABLE');
+    }
+    await request(app).get('/api/v1/health').expect(200);
+
+    const warn = vi.fn();
+    const sendMail = vi
+      .fn()
+      .mockResolvedValueOnce({ accepted: [] })
+      .mockRejectedValueOnce(new Error('SMTP connection timed out'))
+      .mockResolvedValueOnce({ accepted: ['reader@example.test'] });
+    const send = createEmailService(authConfig, { warn }, { sendMail });
+    await expect(send('verification', 'reader@example.test')).resolves.toBe(
+      false,
+    );
+    await expect(send('verification', 'reader@example.test')).resolves.toBe(
+      false,
+    );
+    await expect(send('verification', 'reader@example.test')).resolves.toBe(
+      true,
+    );
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });

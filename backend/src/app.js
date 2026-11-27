@@ -25,10 +25,16 @@ export function createApp({
 }) {
   const app = express();
   app.set('env', config.NODE_ENV);
+  app.set('trust proxy', config.TRUST_PROXY_HOPS || false);
   app.disable('x-powered-by');
 
   app.use(requestContext(logger));
   app.use(helmet());
+  if (config.PRE_RELEASE_NOINDEX)
+    app.use((req, res, next) => {
+      res.set('X-Robots-Tag', 'noindex, nofollow');
+      next();
+    });
   app.use(
     cors((req, done) =>
       done(null, {

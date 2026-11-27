@@ -18,6 +18,8 @@ const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(3).default(0),
+  PRE_RELEASE_NOINDEX: z.stringbool().default(false),
   MONGODB_URI: z.string().regex(/^mongodb(?:\+srv)?:\/\/[^\s]+$/),
   CORS_ORIGINS: z
     .string()
@@ -98,6 +100,12 @@ export function loadConfig() {
     .refine(
       (value) => value.PRESENCE_STALE_MS >= value.PRESENCE_HEARTBEAT_MS * 2,
       { path: ['PRESENCE_STALE_MS'] },
+    )
+    .refine(
+      (value) =>
+        value.NODE_ENV !== 'production' ||
+        value.CORS_ORIGINS.every((origin) => origin.startsWith('https://')),
+      { path: ['CORS_ORIGINS'] },
     )
     .safeParse(process.env);
   if (!result.success) {

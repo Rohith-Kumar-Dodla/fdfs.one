@@ -30,6 +30,7 @@ export function createMailTransport(config) {
       secure: config.smtp.secure,
       requireTLS: !config.smtp.secure,
       auth: config.smtp.auth,
+      dnsTimeout: 4000,
       connectionTimeout: 4000,
       greetingTimeout: 4000,
       socketTimeout: 8000,
@@ -50,14 +51,16 @@ export function createEmailService(config, logger, transport) {
     if (token) url.hash = new URLSearchParams({ token }).toString();
 
     try {
-      await mail.sendMail({
+      const result = await mail.sendMail({
         from: config.smtp?.from,
         to,
         subject: template.subject,
         text: `${template.copy}\n\n${url.href}`,
         html: `<div style="background:#111827;color:#fff;padding:24px;font-family:system-ui"><p style="color:#facc15;font-weight:bold">FDFS.ONE</p><p>${template.copy}</p><a style="color:#facc15" href="${url.href}">${template.action}</a></div>`,
       });
-      return true;
+      if (result?.accepted?.length) return true;
+      logger.warn({ kind }, 'Transactional email was not accepted');
+      return false;
     } catch {
       logger.warn({ kind }, 'Transactional email delivery failed');
       return false;

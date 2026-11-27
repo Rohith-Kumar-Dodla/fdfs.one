@@ -124,10 +124,11 @@ export function RealtimeProvider({ children }) {
   const client = useQueryClient();
   const [allowed, setAllowed] = useState(initialConsent);
   const [socket] = useState(() =>
-    io(new URL(apiClient.defaults.baseURL, window.location.origin).origin, {
-      autoConnect: false,
-      withCredentials: false,
-    }),
+    io(
+      import.meta.env.VITE_SOCKET_URL?.trim() ||
+        new URL(apiClient.defaults.baseURL, window.location.origin).origin,
+      { autoConnect: false, withCredentials: false },
+    ),
   );
   const scope = routeCategory(pathname);
   const module = scope?.module;

@@ -206,3 +206,17 @@ Chrome checked the three Media Library upload forms, saved multiple images under
 Node.js 24 passed lint, formatting and the production build. All 192 automated tests passed, including 76 frontend and 116 backend tests. The production dependency audit found zero vulnerabilities, and the configured-secret scan found no matches in source candidates or build assets and no private file candidates.
 
 Owner content onboarding readiness remains pending actual metadata retrieval with a configured server-side `YOUTUBE_DATA_API_KEY`. Controlled responses covered the integration behavior. Authorized active YouTube Live playback and physical-device verification remain pending.
+
+## Pre-release deployment verification
+
+Local verification passed 194 tests against a disposable MongoDB replica set, including 76 frontend and 118 backend cases. The added cases cover rate-limit behavior at a bounded proxy hop, the staging indexing header, disabled email and provider rejection or timeout. Lint, formatting and the production build passed. The production dependency audit found zero vulnerabilities. The configured-secret scan found no matches in Git candidates or built assets and no private files in Git candidates. The production bundles used the configured HTTPS API origin and contained no hardcoded localhost API destination.
+
+Node.js 24.22.3 passed both clean install commands on Windows. The backend-only install loaded the runtime dependencies, and the Vercel configuration built the frontend to `frontend/dist`. The actual production backend entry point served liveness and index readiness on the injected port with SMTP disabled.
+
+Compiled Chrome verification used two separate local HTTPS origins on the same site, a disposable staging owner and a mobile viewport. It covered login, secure host-only cookie rotation after a hard reload, protected and public deep links, direct authenticated WebSocket connectivity, and logout. The local frontend server exercised the Vercel rewrite pattern against the compiled static output.
+
+After the owner configures both hosts, verify both backend health paths return JSON and the readiness response reports MongoDB connected. Confirm an uninvited browser is gated on Vercel. For an invited tester, hard-refresh the six modules, `/admin` and an account route, and inspect both hosts for the configured noindex headers. Check that static files load with their expected content types.
+
+Check credentialed login preflight and session rotation on the exact HTTPS frontend. Confirm sign-in persists after hard refresh, logout invalidates the session, a different Origin fails CSRF, and authorized Socket.IO connects directly to Render. Confirm the proxy boundary with a staging-only probe using two client networks and confirm that synthetic forwarded values cannot change which rate-limit bucket receives the request. Do not log authentication headers or cookies. Run the physical browser checks in MOBILE.md.
+
+Use staging-only fixtures to test automatic YouTube metadata, artwork upload and reuse, and provider-backed mail with controlled recipients. Verify a live reminder while the Free service is awake, then check worker recovery after a restart. Free instance sleep can delay or miss time-sensitive reminders. Hosted results remain pending until these checks run on the configured services.

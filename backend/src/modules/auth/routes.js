@@ -38,7 +38,7 @@ const emailResponse = (res) =>
     {
       status: 202,
       message:
-        'If the account is eligible, we will send an email with next steps.',
+        'Request received. If the account is eligible, check your inbox for next steps. If no email arrives, try again later.',
     },
   );
 
@@ -61,6 +61,15 @@ export function createAuthRoutes(
   ];
   const emailLimiter = authLimiter(10);
   const passwordLimiter = authLimiter(12);
+  const emailAvailable = (req, res, next) => {
+    if (!config.smtp && !mailTransport)
+      return sendError(res, {
+        status: 503,
+        code: 'EMAIL_UNAVAILABLE',
+        message: 'Account email is temporarily unavailable. Try again later.',
+      });
+    next();
+  };
 
   for (const router of [auth, users]) {
     router.use((req, res, next) => {
@@ -79,6 +88,7 @@ export function createAuthRoutes(
   auth.post(
     '/register',
     emailLimiter,
+    emailAvailable,
     validate(schemas.register),
     async (req, res) => {
       await accounts.register(body(res));
@@ -172,6 +182,7 @@ export function createAuthRoutes(
   auth.post(
     '/resend-verification',
     emailLimiter,
+    emailAvailable,
     validate(schemas.email),
     async (req, res) => {
       await accounts.resendVerification(body(res).email);
@@ -182,6 +193,7 @@ export function createAuthRoutes(
   auth.post(
     '/forgot-password',
     emailLimiter,
+    emailAvailable,
     validate(schemas.email),
     async (req, res) => {
       await accounts.forgotPassword(body(res).email);

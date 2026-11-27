@@ -163,7 +163,7 @@ async function start() {
     void shutdown('http_error', 1);
   });
 
-  server.listen(config.PORT, () => {
+  server.listen(config.PORT, '0.0.0.0', () => {
     if (stopping) return;
     health.set('sockets', 'healthy');
     logger.info({ port: config.PORT }, 'HTTP server listening');

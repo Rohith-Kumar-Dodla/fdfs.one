@@ -160,3 +160,27 @@ The homepage editor shows five configurable slots and previews the saved draft u
 The compact creation routes are separate from detailed record editors. Cinema and Originals share YouTube URL, title, genre, description, language, artwork and runtime previews, supporting media, cast and crew, and publication controls. Podcast creation suggests the episode number and keeps chapters in the episode editor. Live reads the provider schedule and asks for scheduling details only when needed. Talent creation uses the current category. Basic movie creation accepts a name and artwork. Creation results return to their management grids.
 
 Media Library categories contain independent image collections. The Add Images form accepts a title and multiple images. Content artwork pickers search matching collections and still support uploading or selecting from Shared Assets. The review composer contains content type, title, rating and written review with Submit and Close.
+
+## Pre-release Vercel project
+
+| Setting          | Value                              |
+| ---------------- | ---------------------------------- |
+| Framework Preset | Vite                               |
+| Root Directory   | Repository root, displayed as `./` |
+| Install Command  | `npm ci --include=dev`             |
+| Build Command    | `npm run build`                    |
+| Output Directory | `frontend/dist`                    |
+| Node.js Version  | 24.x                               |
+
+Both hosts install from the single root `package-lock.json`. The root npm workspaces are `frontend` and `backend`. Both import source from `shared/` by relative path, so the hosts must build from the repository root. `shared/` has no independent install step.
+
+| Vercel variable     | Value for this deployment                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `VITE_API_BASE_URL` | Required. `https://preview-api.fdfs.one/api/v1`                                                                                                  |
+| `VITE_SOCKET_URL`   | Deployment-specific. Set `https://preview-api.fdfs.one` to keep Socket.IO on Render. If omitted, the client derives the origin from the API URL. |
+
+Use the actual certified Render custom origin in both values. These variables are public build settings. Put database, signing, email, YouTube and Cloudinary credentials in Render only. Changing Vite variables requires rebuilding the Vercel deployment. Local Vite development still defaults to `http://localhost:5000/api/v1`. For a production build from a development checkout, override a local `VITE_API_BASE_URL` in the shell with the intended HTTPS target.
+
+The root `vercel.json` rewrites client routes to `/index.html`, including direct requests to `/admin`, the six modules and account pages. It excludes `/api`, `/socket.io` and `/assets` from the SPA rule. Vercel sends `X-Robots-Tag: noindex, nofollow` for the staging project. Enable Vercel Authentication on all deployments and verify the custom hostname and generated URLs are protected. Remove the staging indexing setting only as part of the authorized public release. [Vercel Vite guide](https://vercel.com/docs/frameworks/frontend/vite) · [Vercel deployment protection](https://vercel.com/changelog/protect-production-deployments-for-free-on-every-plan)
+
+For the first-party setup, the frontend and backend use distinct HTTPS origins on the same site. Only browser login, refresh and logout attach cookies. The refresh cookie is host-only, Secure, HttpOnly and SameSite=Lax, scoped to `/api/v1/auth`. These operations require the exact `APP_WEB_URL` origin and `X-FDFS-CSRF`. Access tokens remain in memory and authenticate direct Socket.IO connections. If custom domains are unavailable, authenticated testing on the two temporary vendor domains is pending a same-origin HTTP proxy. A future proxy would need to preserve the frontend Origin, Cookie and Set-Cookie, avoid caching session routes, and keep the separate Socket.IO origin on Render. [Vercel external rewrites](https://vercel.com/docs/routing/rewrites)

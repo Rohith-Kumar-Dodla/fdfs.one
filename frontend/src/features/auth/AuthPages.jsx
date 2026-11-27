@@ -101,7 +101,7 @@ export function VerificationPendingPage() {
   return (
     <AuthPage
       title="Check your email"
-      description="If the address is eligible, you’ll receive a verification link. You can sign in while you wait."
+      description="Check your inbox for a verification link. If no email arrives, you can request another link."
     >
       <AuthForm
         fields={[emailField]}

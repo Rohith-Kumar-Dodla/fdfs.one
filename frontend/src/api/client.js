@@ -56,7 +56,8 @@ export function normalizeApiError(error) {
 
 export const apiClient = axios.create({
   baseURL:
-    import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:5000/api/v1',
+    import.meta.env.VITE_API_BASE_URL?.trim() ||
+    (import.meta.env.DEV ? 'http://localhost:5000/api/v1' : '/api/v1'),
   timeout: 8000,
   allowAbsoluteUrls: false,
   headers: { Accept: 'application/json' },

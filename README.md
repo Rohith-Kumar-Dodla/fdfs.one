@@ -1,5 +1,15 @@
 # FDFS.ONE
 
+## Pre-release testing deployment
+
+Use a separate Vercel project and a single Render Web Service for owner onboarding and mobile-browser testing. Start with an isolated Atlas database and staging-only credentials. Use two HTTPS subdomains under the same registrable domain, such as `preview.fdfs.one` and `preview-api.fdfs.one`. Keep the production domain, database and permanent Super Administrator out of this setup.
+
+1. After the deployment commit is available on an authorized GitHub branch, configure the [Render service](BACKEND.md#pre-release-render-service) and add its outbound CIDRs in Atlas. Check both health endpoints.
+2. Configure the [Vercel project](FRONTEND.md#pre-release-vercel-project), add the staging DNS records and verify both TLS certificates. Enable Vercel Authentication for all deployments in the staging project. Verify that an incognito browser cannot load the staging site without an invitation. Share the preview with named testers only.
+3. Bootstrap the separate [staging owner account](BACKEND.md#staging-administrator), then use the [deployment and device checklist](TESTING.md#pre-release-deployment-verification) before adding content. Use test content that can be exposed if a public catalogue endpoint or artwork URL is shared. Vercel protection gates the frontend and the Render API remains publicly reachable with application authentication and authorization on protected operations. The pre-release noindex headers are an additional indexing control.
+
+This environment is for testing before Phase 7 and the Web V1 release.
+
 FDFS is an entertainment, streaming and cinema community platform. Web development comes first. A React Native app will use the same API and database.
 
 | Locked module         | Scope                                                    |
