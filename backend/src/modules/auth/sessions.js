@@ -1,4 +1,8 @@
 import { AppError } from '../../utils/app-error.js';
+import {
+  beginAccountWrite,
+  requireCurrentAccount,
+} from './account-mutations.js';
 import { Session, User } from './models.js';
 import {
   issueAccessToken,
@@ -25,23 +29,29 @@ export function createSessionService(config) {
 
   return {
     async open(user, userAgent = '') {
-      const secret = randomToken();
-      const now = new Date();
-      const session = await Session.create({
-        userId: user._id,
-        authVersion: user.authVersion,
-        refreshHash: tokenHash(secret),
-        userAgent: userAgent.slice(0, 240),
-        lastSeenAt: now,
-        expiresAt: new Date(now.getTime() + config.sessionMs),
-      });
-      return credentials(user, session, secret);
+      const release = beginAccountWrite(user.publicId);
+      try {
+        await requireCurrentAccount(user);
+        const secret = randomToken();
+        const now = new Date();
+        const session = await Session.create({
+          userId: user._id,
+          authVersion: user.authVersion,
+          refreshHash: tokenHash(secret),
+          userAgent: userAgent.slice(0, 240),
+          lastSeenAt: now,
+          expiresAt: new Date(now.getTime() + config.sessionMs),
+        });
+        return credentials(user, session, secret);
+      } finally {
+        release();
+      }
     },
 
     async authenticate(token) {
       const { sub, sid } = verifyAccessToken(config, token);
       const user = await User.findOne({ publicId: sub }).select('+authVersion');
-      if (!user) throw unauthorized();
+      if (!user || user.status === 'deleted') throw unauthorized();
       if (!user.emailVerifiedAt)
         throw new AppError(
           403,

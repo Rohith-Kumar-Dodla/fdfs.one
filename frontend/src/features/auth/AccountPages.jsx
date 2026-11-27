@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { staffRoles } from '../../../../shared/admin.js';
 import { PersonalSettings } from '../personal/Settings.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useOutletContext } from 'react-router';
@@ -279,6 +280,82 @@ export function AccountSettingsPage() {
         />
       </Card>
       <Sessions generation={generation} />
+      {!user.roles.some((role) => staffRoles.includes(role)) && (
+        <DeleteAccount />
+      )}
     </Container>
+  );
+}
+
+function DeleteAccount() {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const navigate = useNavigate();
+  const close = () => {
+    if (!pending) setOpen(false);
+  };
+
+  return (
+    <Card
+      as="section"
+      aria-labelledby="delete-account-heading"
+      className="grid gap-4"
+    >
+      <h2 id="delete-account-heading" className="text-xl font-semibold">
+        Delete account
+      </h2>
+      <p className="text-sm text-muted">
+        Permanently remove your account and sign out on all devices.
+      </p>
+      <Button
+        className="justify-self-start"
+        variant="secondary"
+        onClick={() => setOpen(true)}
+      >
+        Delete account
+      </Button>
+      <Dialog
+        open={open}
+        onClose={close}
+        title="Permanently delete your account"
+      >
+        {open && (
+          <div className="grid gap-4">
+            <p className="text-sm text-muted">
+              We remove your profile details, watch activity, personal settings,
+              ratings, review and comment text, ordinary support tickets and
+              unpublished submissions. Published work, independent Talent
+              profiles and credits remain. We keep limited audit, moderation and
+              rights records, including copyright cases. Backup copies can
+              remain until they expire.
+            </p>
+            <AuthForm
+              fields={[
+                { ...passwordField, label: 'Current password' },
+                {
+                  name: 'confirmation',
+                  label: 'Type DELETE to confirm',
+                  autoComplete: 'off',
+                },
+              ]}
+              schema={forms.removeAccount}
+              action="Permanently delete account"
+              submit={async (values) => {
+                setPending(true);
+                try {
+                  await accounts.deleteAccount(values);
+                  navigate('/', { replace: true });
+                } finally {
+                  setPending(false);
+                }
+              }}
+            />
+            <Button variant="secondary" onClick={close} disabled={pending}>
+              Cancel
+            </Button>
+          </div>
+        )}
+      </Dialog>
+    </Card>
   );
 }

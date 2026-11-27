@@ -3,6 +3,10 @@ import { Server } from 'socket.io';
 import { z } from 'zod';
 import { AppError } from '../../utils/app-error.js';
 import { createSessionService } from '../auth/sessions.js';
+import {
+  beginAccountWrite,
+  requireCurrentAccount,
+} from '../auth/account-mutations.js';
 import { slug } from '../films/schemas.js';
 import { siteFlags } from '../site/service.js';
 import { publicEvent } from './events.js';
@@ -188,11 +192,17 @@ export function attachLiveSockets(
           'EMAIL_NOT_VERIFIED',
           'Verify your email to send messages.',
         );
-      const event = await publicEvent(slug);
-      const sent = await sendChat(event._id, user, message);
-      if (sent.message)
-        io.to(room).emit('chat:message', { slug, ...sent.message });
-      return { id: sent.id, duplicate: sent.duplicate };
+      const release = beginAccountWrite(user.publicId);
+      try {
+        await requireCurrentAccount(user);
+        const event = await publicEvent(slug);
+        const sent = await sendChat(event._id, user, message);
+        if (sent.message)
+          io.to(room).emit('chat:message', { slug, ...sent.message });
+        return { id: sent.id, duplicate: sent.duplicate };
+      } finally {
+        release();
+      }
     });
   });
 

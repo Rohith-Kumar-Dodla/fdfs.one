@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { createEmailService, emailConfigured } from '../../services/email.js';
+import { createMediaService } from '../media/assets.js';
 import { User } from './models.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
@@ -11,6 +12,7 @@ import {
   requireAuthentication,
 } from './authorization.js';
 import { webSessionCookies } from './cookies.js';
+import { deleteAccount } from './delete-account.js';
 import { schemas } from './schemas.js';
 import { createSessionService } from './sessions.js';
 
@@ -46,7 +48,7 @@ const emailResponse = (res) =>
 export function createAuthRoutes(
   config,
   logger,
-  { available, mailTransport } = {},
+  { available, mailTransport, mediaProvider } = {},
 ) {
   const auth = Router();
   const users = Router();
@@ -56,6 +58,7 @@ export function createAuthRoutes(
     createEmailService(config, logger, mailTransport),
   );
   const sessions = createSessionService(config);
+  const media = createMediaService(mediaProvider, logger);
   const protectedRoute = [
     requireAuthentication(sessions),
     requireActiveAccount,
@@ -148,6 +151,26 @@ export function createAuthRoutes(
     async (req, res) => {
       await sessions.closeAll(req.auth.user);
       return sendSuccess(res, {}, { message: 'All sessions were signed out.' });
+    },
+  );
+
+  auth.delete(
+    '/account',
+    cookie.protect,
+    requireAuthentication(sessions, { deleting: true }),
+    requireActiveAccount,
+    passwordLimiter,
+    validate(schemas.removeAccount),
+    async (req, res) => {
+      const assets = await deleteAccount(
+        req.auth.user,
+        body(res).password,
+        config,
+        res.get('X-Request-Id'),
+      );
+      void media.cleanupRetired(assets);
+      cookie.clear(res);
+      return sendSuccess(res, {}, { message: 'Account deleted.' });
     },
   );
 

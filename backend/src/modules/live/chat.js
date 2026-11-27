@@ -263,7 +263,7 @@ export function moderateChat(loadEvent, input, context) {
         event: event._id,
         publicId: input.messageId,
       }).session(session);
-      if (!message) throw unavailable();
+      if (!message?.text) throw unavailable();
       targetId = message.publicId;
       if (input.action === 'hide' || input.action === 'restore') {
         message.hiddenAt = input.action === 'hide' ? now : undefined;

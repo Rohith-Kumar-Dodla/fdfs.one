@@ -34,6 +34,10 @@ export const schemas = {
   verify: body({ token: code, password: currentPassword }),
   reset: body({ token: code, password }),
   change: body({ currentPassword, password }),
+  removeAccount: body({
+    password: currentPassword,
+    confirmation: z.literal('DELETE'),
+  }),
   welcome: body({ action: z.enum(['present', 'acknowledge']) }),
   empty: z.object({ body: z.strictObject({}).optional() }),
   session: z.object({ params: z.object({ sessionId: z.uuid() }) }),

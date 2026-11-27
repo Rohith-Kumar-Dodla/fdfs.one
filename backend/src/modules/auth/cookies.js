@@ -1,7 +1,7 @@
 import { AppError } from '../../utils/app-error.js';
 
 export const isCookieAuthPath = (path) =>
-  /^\/api\/v1\/auth\/(login|refresh|logout)\/?$/i.test(path);
+  /^\/api\/v1\/auth\/(login|refresh|logout|account)\/?$/i.test(path);
 
 export function webSessionCookies(config) {
   const name = config.secure ? '__Secure-fdfs_refresh' : 'fdfs_refresh';

@@ -104,7 +104,7 @@ export async function initializeAuth() {
   }
 }
 
-export async function protectedRequest(config) {
+export async function protectedRequest(config, { cookieLock = false } = {}) {
   const initial = state();
   if (!initial.accessToken)
     throw new ApiError('Please sign in to continue.', {
@@ -112,11 +112,20 @@ export async function protectedRequest(config) {
       status: 401,
     });
 
-  const request = (token) =>
-    apiClient.request({
-      ...config,
-      headers: { ...config.headers, Authorization: `Bearer ${token}` },
-    });
+  const request = (token) => {
+    const send = () => {
+      if (state().generation !== initial.generation)
+        throw new ApiError('Please sign in to continue.', {
+          code: 'AUTH_REQUIRED',
+          status: 401,
+        });
+      return apiClient.request({
+        ...config,
+        headers: { ...config.headers, Authorization: `Bearer ${token}` },
+      });
+    };
+    return cookieLock ? withCookieLock(send) : send();
+  };
 
   try {
     return await request(initial.accessToken);
@@ -166,6 +175,13 @@ export const accounts = {
     protectedRequest({ method: 'patch', url: '/users/me', data }),
   changePassword: (data) =>
     protectedRequest({ method: 'post', url: '/auth/change-password', data }),
+  async deleteAccount(data) {
+    await protectedRequest(
+      { ...cookieConfig, method: 'delete', url: '/auth/account', data },
+      { cookieLock: true },
+    );
+    setIdentity(null);
+  },
   sessions: ({ signal } = {}) =>
     protectedRequest({ method: 'get', url: '/auth/sessions', signal }),
   revoke: (sessionId) =>

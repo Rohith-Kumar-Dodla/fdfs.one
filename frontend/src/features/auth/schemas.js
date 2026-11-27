@@ -34,6 +34,10 @@ export const forms = {
   verify: z.object({ password: currentPassword }),
   reset: z.object({ password }),
   change: z.object({ currentPassword, password }),
+  removeAccount: z.object({
+    password: currentPassword,
+    confirmation: z.literal('DELETE', { error: 'Type DELETE to confirm.' }),
+  }),
   profile: z.object({
     fullName,
     bio: z.string().trim().max(500, 'Use at most 500 characters.'),

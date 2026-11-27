@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router';
-import { legalSections, siteDefaults } from '../../../../shared/site.js';
+import { Link, useParams } from 'react-router';
+import {
+  legalSections,
+  legalServiceInformation,
+  siteDefaults,
+} from '../../../../shared/site.js';
 import { apiClient } from '../../api/client.js';
 import { Container, SectionHeading } from '../../components/ui/surfaces.jsx';
 
@@ -95,9 +99,17 @@ export function LegalPage() {
         {typeof title === 'string' ? title : 'Page unavailable'}
       </SectionHeading>
       <p className="whitespace-pre-wrap wrap-anywhere">
-        {(title && settings.legal[kind]) ||
+        {(title && (settings.legal[kind] || legalServiceInformation[kind])) ||
           'This information has not been published.'}
       </p>
+      {kind === 'copyright' && settings.supportOpen && (
+        <Link
+          to="/support/new"
+          className="w-fit text-sm font-semibold text-accent"
+        >
+          Report a copyright concern
+        </Link>
+      )}
     </Container>
   );
 }

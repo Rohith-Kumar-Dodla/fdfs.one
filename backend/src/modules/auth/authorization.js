@@ -1,12 +1,31 @@
 import { AppError } from '../../utils/app-error.js';
 import { unauthorized } from './tokens.js';
+import {
+  beginAccountWrite,
+  requireCurrentAccount,
+} from './account-mutations.js';
 
-export function requireAuthentication(sessions) {
+export function requireAuthentication(sessions, { deleting = false } = {}) {
   return async (req, res, next) => {
     const value = req.get('Authorization');
     const token = /^Bearer (\S+)$/i.exec(value ?? '')?.[1];
     if (!token) throw unauthorized();
     req.auth = await sessions.authenticate(token);
+    if (!deleting && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      const user = req.auth.user;
+      const release = beginAccountWrite(user.publicId);
+      // A disconnected client does not cancel an ongoing database write.
+      const end = res.end;
+      res.end = function (...args) {
+        res.end = end;
+        try {
+          return end.apply(this, args);
+        } finally {
+          release();
+        }
+      };
+      await requireCurrentAccount(user);
+    }
     next();
   };
 }

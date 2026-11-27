@@ -100,7 +100,10 @@ export function createApp({
   );
 
   if (authConfig) {
-    const { auth, users } = createAuthRoutes(authConfig, logger, authOptions);
+    const { auth, users } = createAuthRoutes(authConfig, logger, {
+      ...authOptions,
+      mediaProvider: phase22Options?.mediaProvider,
+    });
     api.use('/auth', auth);
     mountPhase22(api, authConfig, logger, {
       available: authOptions?.available ?? isDatabaseConnected,

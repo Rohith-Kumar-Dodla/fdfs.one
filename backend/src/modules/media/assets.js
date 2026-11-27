@@ -273,6 +273,11 @@ export function createMediaService(provider, logger) {
   }
 
   return {
+    async cleanupRetired(assetIds) {
+      if (!provider) return;
+      for (const assetId of assetIds) await tryCleanup(assetId);
+    },
+
     async uploadLibrary(user, bytes, type, purpose = 'library') {
       const asset = await stage(user.publicId, purpose, bytes, type);
       const active = await MediaAsset.findOneAndUpdate(

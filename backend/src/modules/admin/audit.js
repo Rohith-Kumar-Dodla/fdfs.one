@@ -7,6 +7,7 @@ export const actions = [
   'user.status_changed',
   'user.sessions_revoked',
   'user.staff_changed',
+  'user.self_deleted',
   'site.settings',
   'site.analytics',
   ...['approved', 'rejected', 'clarification', 'conflict'].map(

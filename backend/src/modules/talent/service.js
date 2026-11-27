@@ -488,6 +488,14 @@ export async function associateTalent(id, { userId, revision }, context) {
         'Select an active, verified account.',
       );
     if (String(record.associatedUser ?? '') === String(user?._id ?? '')) return;
+    if (user) {
+      // Serialize assigning the account with a concurrent account deletion.
+      await User.updateOne(
+        { _id: user._id },
+        { $inc: { __v: 1 } },
+        { session, timestamps: false },
+      );
+    }
     const before = record.associatedUser ? 'associated' : 'unassociated';
     record.associatedUser = user?._id;
     record.updatedBy = context.actorId;

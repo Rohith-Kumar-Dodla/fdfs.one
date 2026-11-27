@@ -55,15 +55,13 @@ export function PublicFooter({ settings }) {
           <nav aria-label="Legal and Support" className="min-w-0">
             <h2 className="mb-2 font-bold">Legal and Support</h2>
             <ul className="grid">
-              {Object.entries(legalSections)
-                .filter(([key]) => settings.legal[key])
-                .map(([key, label]) => (
-                  <li key={key}>
-                    <Link to={'/legal/' + key} className={link}>
-                      {label}
-                    </Link>
-                  </li>
-                ))}
+              {Object.entries(legalSections).map(([key, label]) => (
+                <li key={key}>
+                  <Link to={'/legal/' + key} className={link}>
+                    {label}
+                  </Link>
+                </li>
+              ))}
               <li>
                 <Link to="/support" className={link}>
                   Support Center
