@@ -3,7 +3,7 @@ import { mediaCategories } from '../../../../shared/site.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Pagination } from '../../components/ui/Pagination.jsx';
-import { ImagePreview } from '../media/Images.jsx';
+import { ImagePreview, ImageUpload, uploadImage } from '../media/Images.jsx';
 import { control, QueryState, Select, useRecords } from './common.jsx';
 
 export function MediaFilters({ records }) {
@@ -73,7 +73,7 @@ function LibrarySelection({ onSelect }) {
   );
 }
 
-export function MediaPicker({ label, onSelect }) {
+export function MediaPicker({ label, onSelect, upload = false }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -87,6 +87,22 @@ export function MediaPicker({ label, onSelect }) {
         title={label ?? 'Choose from media library'}
         onClose={() => setOpen(false)}
       >
+        {open && upload && (
+          <div className="mb-4">
+            <ImageUpload
+              label="Upload new library artwork"
+              onUpload={async (file) => {
+                const { data } = await uploadImage(
+                  '/admin/media',
+                  file,
+                  'post',
+                );
+                onSelect(data.image ?? data);
+                setOpen(false);
+              }}
+            />
+          </div>
+        )}
         {open && (
           <LibrarySelection
             onSelect={(image) => {

@@ -43,7 +43,7 @@ Phase 4.1 adds 404 Reality Not Found show and episode management, scheduled rele
 
 Phase 4.2 adds FDFS Live discovery, organizer submissions and approvals, manual broadcast management, replays, chat moderation and email reminders. Authorized broadcasters configure their stream in YouTube Studio and OBS. A verified organizer or administrator starts the FDFS event after the YouTube stream is ready. Phase 4.1 is PASS. Phase 4.2 implementation and isolated checks are complete, and Phase 4.2 and overall Phase 4 are PENDING active YouTube Live playback verification. The supplied link played as a replay. GitHub `main` includes the Phase 4.2 checkpoint `cea3a01`. Physical-device testing and production content onboarding remain open. See [backend operations](BACKEND.md#fdfs-live) and [Phase 4.2 verification](TESTING.md#phase-42-verification).
 
-Phase 4A adds centralized administration and platform management. Open `/admin` with a verified administrator account and select a module to create a draft, review the content and publish it. Use Website Settings for public configuration and Homepage Management for a saved preview, hero publication and Phase 6.1 section configuration. Existing administrator accounts retain access. See the [Super Administrator bootstrap command](BACKEND.md#centralized-administration) for first-time staff-role management.
+Phase 4A adds centralized administration and platform management. Open `/admin` with a verified administrator account and select a module to create a draft, review the content and publish it. Use Website Settings for public configuration and Homepage Management for a saved preview, hero and section publication. Existing administrator accounts retain access. See the [Super Administrator bootstrap command](BACKEND.md#centralized-administration) for first-time staff-role management.
 
 Phase 4A.1 is PASS. See the [isolated CMS verification results](TESTING.md#phase-4a1-verification).
 
@@ -51,11 +51,13 @@ Phase 4A.2 and overall Phase 4A are PASS. Phase 4A.2 implements analytics, live 
 
 Production setup uses a named MongoDB replica-set database with transactions, index creation and TTL support, encrypted storage and backups, a trusted HTTPS frontend URL, a verified transactional SMTP sender, and one backend instance for presence. Review approved privacy and ticket-retention terms before onboarding. A production Super Administrator and approved content onboarding remain separate setup tasks.
 
-Phase 5.1 implementation and isolated verification passed. Production account provisioning remains pending hidden password entry. This phase adds the administrator movie catalogue, the public catalogue API, and shared ratings, reviews, likes, comments and moderation. Open `/admin` to sign in. Use Movies to manage catalogue entries and Review moderation to act on reports. The Phase 4A.2 checkpoint `65bb559` is on GitHub `main`. [Phase 5.1 verification](TESTING.md#phase-51-verification)
+Phase 5.1 implementation and isolated verification passed. Production account provisioning was pending at that checkpoint. This phase adds the administrator movie catalogue, the public catalogue API, and shared ratings, reviews, likes, comments and moderation. Open `/admin` to sign in. Use Movies to manage catalogue entries and Review moderation to act on reports. The Phase 4A.2 checkpoint `65bb559` is on GitHub `main`. [Phase 5.1 verification](TESTING.md#phase-51-verification)
 
-Phase 5.2 and overall Phase 5 are PASS in the isolated environment. The public Reviews catalogue, movie details, ratings, discussions and account history complete the sixth entertainment module in the centralized CMS. Production setup still includes owner bootstrap and approved content onboarding. Licensed provider access is required for external import. [Verification](TESTING.md#phase-52-verification)
+Phase 5.2 and overall Phase 5 are PASS in the isolated environment. The public Reviews catalogue, movie details, ratings, discussions and account history complete the sixth entertainment module in the centralized CMS. Approved production content onboarding remains scheduled for Phase 8. Licensed provider access is required for external import. [Verification](TESTING.md#phase-52-verification)
 
 The permanent Super Administrator uses `admin@fdfs.one`. Run the documented command in a local terminal and enter a fresh password at the hidden prompts. [Owner bootstrap](BACKEND.md#centralized-administration)
+
+Phase 6.1 adds a unified cinematic homepage with ordered CMS sections, scheduled promotions, opt-in campaign reporting, and global search across all six modules. Use Homepage Management and Promotions in `/admin`. The production owner account is active and verified, and the owner confirmed that signing in opens `/admin`. [Phase 6.1 verification](TESTING.md#phase-61-verification)
 
 The roadmap has 11 main phases and 22 subphases.
 

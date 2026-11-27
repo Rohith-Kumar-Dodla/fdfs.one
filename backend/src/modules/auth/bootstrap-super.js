@@ -1,43 +1,18 @@
-﻿import { loadConfig, requireNamedDatabase } from '../../config/env.js';
+import { loadConfig, requireNamedDatabase } from '../../config/env.js';
 import { createLogger } from '../../config/logger.js';
 import {
   connectDatabase,
   disconnectDatabase,
 } from '../../services/database.js';
 import { bootstrapSuper } from '../admin/roles.js';
-import { initializePhase22Indexes } from '../admin/routes.js';
-import { initializeAuthIndexes, User } from './models.js';
+import { AuditLog } from '../admin/audit.js';
+import {
+  bootstrapFailure,
+  bootstrapOptions,
+  hiddenPassword,
+} from './bootstrap-config.js';
+import { User } from './models.js';
 import { normalizedEmail, password } from './schemas.js';
-
-function hidden(prompt) {
-  const { stdin, stderr } = process;
-  return new Promise((resolve, reject) => {
-    const previous = stdin.isRaw;
-    let value = '';
-    function finish(result, cancelled) {
-      stdin.off('data', read);
-      stdin.setRawMode(previous);
-      stdin.pause();
-      stderr.write('\n');
-      if (cancelled) reject(new Error('Cancelled'));
-      else resolve(result);
-    }
-    function read(chunk) {
-      for (const symbol of chunk) {
-        if (symbol === '\u0003' || symbol === '\u0004') return finish('', true);
-        if (symbol === '\r' || symbol === '\n') return finish(value, false);
-        if (symbol === '\u007f' || symbol === '\b')
-          value = [...value].slice(0, -1).join('');
-        else if (symbol >= ' ' && value.length < 256) value += symbol;
-      }
-    }
-    stderr.write(prompt);
-    stdin.setEncoding('utf8');
-    stdin.setRawMode(true);
-    stdin.on('data', read);
-    stdin.resume();
-  });
-}
 
 async function main() {
   const [flag, target, confirmFlag, confirmation, option, ...extra] =
@@ -65,8 +40,11 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+  let stage = 'config';
   try {
     const config = loadConfig();
+    const options = bootstrapOptions(config);
+    stage = 'database';
     requireNamedDatabase(config.MONGODB_URI);
     await connectDatabase(config.MONGODB_URI, createLogger(config.LOG_LEVEL));
     const existing = await User.findOne({ email: email.data })
@@ -102,37 +80,35 @@ async function main() {
       return;
     }
     let secret;
+    stage = 'input';
     if (elevate) {
       if (
-        (await hidden(
+        (await hiddenPassword(
           'Type the existing administrator email to confirm authorized elevation: ',
         )) !== email.data
       )
-        throw new Error('Cancelled');
+        throw Object.assign(new Error('Cancelled'), {
+          code: 'BOOTSTRAP_CANCELLED',
+        });
     } else {
-      secret = await hidden('New unique administrator password: ');
+      secret = await hiddenPassword('New unique administrator password: ');
       if (!password.safeParse(secret).success) {
         console.error('Use at least 12 characters and at most 72 UTF-8 bytes.');
         process.exitCode = 1;
         return;
       }
-      if ((await hidden('Repeat password: ')) !== secret)
-        throw new Error('Cancelled');
+      if ((await hiddenPassword('Repeat password: ')) !== secret)
+        throw Object.assign(new Error('Confirmation failed'), {
+          code: 'BOOTSTRAP_MISMATCH',
+        });
     }
-    await Promise.all([initializeAuthIndexes(), initializePhase22Indexes()]);
-    await bootstrapSuper(email.data, {
-      password: secret,
-      bcryptCost: config.BCRYPT_COST,
-    });
+    stage = 'indexes';
+    await Promise.all([User.createIndexes(), AuditLog.createIndexes()]);
+    stage = 'write';
+    await bootstrapSuper(email.data, { ...options, password: secret });
     console.log('Super Administrator is ready. Sign in through /admin.');
   } catch (error) {
-    console.error(
-      error.code?.startsWith?.('SUPER_')
-        ? error.message
-        : error.message === 'Cancelled'
-          ? 'Bootstrap cancelled.'
-          : 'Super Administrator bootstrap failed. Check database configuration.',
-    );
+    console.error(bootstrapFailure(error, stage));
     process.exitCode = 1;
   } finally {
     await disconnectDatabase();

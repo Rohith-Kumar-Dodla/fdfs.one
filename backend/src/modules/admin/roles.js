@@ -39,6 +39,15 @@ export const staffInput = z.object({
 
 export async function bootstrapSuper(address, { password, bcryptCost } = {}) {
   const email = normalizedEmail.parse(address);
+  if (
+    password !== undefined &&
+    (!Number.isInteger(bcryptCost) || bcryptCost < 10 || bcryptCost > 14)
+  )
+    throw new AppError(
+      500,
+      'SUPER_HASH_CONFIG',
+      'Invalid password hashing configuration.',
+    );
   const passwordHash =
     password === undefined
       ? undefined

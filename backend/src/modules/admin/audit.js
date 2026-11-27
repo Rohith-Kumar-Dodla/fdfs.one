@@ -9,6 +9,9 @@ export const actions = [
   'user.staff_changed',
   'site.settings',
   'site.analytics',
+  ...['create', 'edit', 'publish', 'pause', 'resume', 'archive'].map(
+    (action) => 'promotion.' + action,
+  ),
   ...['create', 'edit', 'publish', 'unpublish', 'archive'].map(
     (action) => 'movie.' + action,
   ),
@@ -98,6 +101,7 @@ const targetTypes = [
   'site',
   'support',
   'announcement',
+  'promotion',
   'movie',
   'review',
   'review-comment',
@@ -134,6 +138,7 @@ const schema = new mongoose.Schema(
           'site',
           'support',
           'announcement',
+          'promotion',
           'creator',
           'organizer',
           'account-status',

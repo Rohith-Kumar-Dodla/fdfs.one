@@ -80,7 +80,7 @@ export function createApp({
     }),
   );
   api.use(express.json({ limit: '100kb' }));
-  mountPublicSite(api, isDatabaseConnected);
+  mountPublicSite(api, isDatabaseConnected, { config, authConfig });
   api.use('/talent', publicTalentRoutes(isDatabaseConnected));
   api.use('/films', publicFilmRoutes(isDatabaseConnected));
   api.use('/podcasts', publicPodcastRoutes(isDatabaseConnected));

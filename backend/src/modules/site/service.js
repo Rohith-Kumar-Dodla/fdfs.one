@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { emptyHomepage, siteDefaults } from '../../../../shared/site.js';
+import { siteDefaults } from '../../../../shared/site.js';
 import { filmPaths } from '../../../../shared/films.js';
 import { searchPattern, sendList } from '../../utils/list.js';
 import { AppError } from '../../utils/app-error.js';
@@ -14,6 +14,8 @@ import {
   imageView,
 } from '../media/assets.js';
 import { PodcastEpisode } from '../podcasts/models.js';
+import { discover, resolveFeatures } from './discovery.js';
+import { defaultHomepage } from '../../../../shared/homepage.js';
 import { findShow } from '../podcasts/read.js';
 import { Personality } from '../talent/models.js';
 
@@ -40,12 +42,21 @@ const lookupKey = ({ module, id }) => module + '/' + id;
 const mediaIds = (key, value) =>
   (key === 'settings'
     ? branding.map((item) => value?.[item + 'Id'])
-    : [value?.hero?.imageId]
+    : [
+        value?.hero?.imageId,
+        ...(value?.heroSlides ?? []).flatMap((slide) => [
+          slide.imageId,
+          slide.mobileId,
+        ]),
+        ...(value?.genres ?? []).map((row) => row.imageId),
+      ]
   ).filter(Boolean);
 const references = (value) =>
-  [value.hero?.featured, ...value.sections.flatMap((row) => row.items)].filter(
-    Boolean,
-  );
+  [
+    value.hero?.featured,
+    ...(value.heroSlides ?? []).map((row) => row.target),
+    ...value.sections.flatMap((row) => row.items),
+  ].filter(Boolean);
 const active = ({ startAt, endAt }, now) =>
   (!startAt || new Date(startAt) <= now) && (!endAt || new Date(endAt) > now);
 
@@ -85,6 +96,26 @@ function featureView(row, module) {
 
 export async function listFeatures(res, query) {
   const { module, q } = query;
+  if (['movies', 'reviews'].includes(module) || query.upcoming === true) {
+    const { items, count } = await discover(module, {
+      mode: query.upcoming ? 'upcoming' : 'released',
+      q,
+      limit: query.limit,
+      page: query.page,
+      withCount: true,
+    });
+    return res.json({
+      success: true,
+      message: 'OK',
+      data: items,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total: count,
+        totalPages: Math.ceil(count / query.limit),
+      },
+    });
+  }
   const { model, filter } = await featureSource(module, new Date());
   if (q)
     filter[module === 'talent' ? 'displayName' : 'title'] = searchPattern(q);
@@ -99,7 +130,18 @@ export async function listFeatures(res, query) {
 }
 
 async function features(items, now, session) {
-  const grouped = Map.groupBy(items, ({ module }) => module);
+  const modern = items.filter(
+    (item) => ['movies', 'reviews'].includes(item.module) || item.upcoming,
+  );
+  const extended = await resolveFeatures(modern, {
+    now,
+    session,
+    allowUpcoming: true,
+  });
+  const grouped = Map.groupBy(
+    items.filter((item) => !modern.includes(item)),
+    ({ module }) => module,
+  );
   const lookup = async ([module, refs]) => {
     const { model, filter } = await featureSource(module, now, session);
     filter.publicId = { $in: refs.map(({ id }) => id) };
@@ -114,8 +156,11 @@ async function features(items, now, session) {
     ]);
   };
   if (!session)
-    return new Map((await Promise.all(Array.from(grouped, lookup))).flat());
-  const results = [];
+    return new Map([
+      ...extended,
+      ...(await Promise.all(Array.from(grouped, lookup))).flat(),
+    ]);
+  const results = [...extended];
   for (const group of grouped) results.push(...(await lookup(group)));
   return new Map(results);
 }
@@ -151,11 +196,13 @@ async function updateReferences(key, previous, next, kind, session) {
       await releaseReference(byId.get(id), ref, session);
 }
 
-export async function readConfig(key) {
-  const row = await SiteConfig.findById(key).lean();
+export async function readConfig(key, session) {
+  const row = await SiteConfig.findById(key)
+    .session(session ?? null)
+    .lean();
   return {
     revision: row?.revision ?? 0,
-    value: row?.value ?? (key === 'settings' ? siteDefaults : emptyHomepage),
+    value: row?.value ?? (key === 'settings' ? siteDefaults : defaultHomepage),
     published: row?.published,
   };
 }

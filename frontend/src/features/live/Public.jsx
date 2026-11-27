@@ -412,7 +412,9 @@ function EventContent({ event, slug }) {
             .filter(Boolean)
             .join(' · ')}
         </p>
-        <ReminderControl event={event} account={account} />
+        <div tabIndex={-1} id="live-reminder">
+          <ReminderControl event={event} account={account} />
+        </div>
       </header>
       <div
         className={

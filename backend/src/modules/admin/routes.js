@@ -163,7 +163,7 @@ export function mountPhase22(
     notify: noticeNotify,
     movieMetadataProvider,
   });
-  mountSiteAdmin(admin);
+  mountSiteAdmin(admin, config);
   admin.use('/users', permit('users'));
   admin.use('/audit', permit('audit'));
   admin.use('/media', permit('media'));

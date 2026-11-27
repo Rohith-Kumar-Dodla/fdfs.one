@@ -156,7 +156,7 @@ function rankReview(now) {
     { $sort: { score: -1, createdAt: -1, _id: -1 } },
   ];
 }
-function publicTargetStages(now) {
+export function publicTargetStages(now) {
   const lookup = (model, as, visibility, type) => ({
     $lookup: {
       from: model.collection.name,

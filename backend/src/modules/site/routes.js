@@ -1,6 +1,28 @@
 import { z } from 'zod';
-import { contentModules } from '../../../../shared/admin.js';
-import { listInput } from '../../utils/list.js';
+import { rateLimit } from 'express-rate-limit';
+import {
+  discoveryModules,
+  homepageSections,
+} from '../../../../shared/homepage.js';
+import { assembledHomepage } from './homepage.js';
+import { globalSearch, searchInput, suggestInput } from './search.js';
+import {
+  getPromotion,
+  listPromotions,
+  promotionAction,
+  promotionCreate,
+  promotionEdit,
+  promotionList,
+  writePromotion,
+} from './promotions.js';
+import {
+  analyticsCampaignInput,
+  campaignMetrics,
+  collectPromotion,
+  promotionRange,
+} from './promotion-analytics.js';
+import { AuditLog } from '../admin/audit.js';
+import { idParams, listInput, sendList } from '../../utils/list.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
 import { validate } from '../../middlewares/validate.js';
@@ -16,7 +38,87 @@ import {
 } from './service.js';
 import { emptyHomepage, siteDefaults } from '../../../../shared/site.js';
 
-export function mountPublicSite(api, available) {
+const contentInput = listInput({
+  module: z.enum(discoveryModules),
+  q: z.string().trim().min(1).max(80).optional(),
+  upcoming: z.stringbool().optional(),
+});
+const anywhere = (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+};
+const throttle = rateLimit({
+  windowMs: 60000,
+  limit: 70,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (_req, res) =>
+    sendError(res, {
+      status: 429,
+      code: 'DISCOVERY_LIMIT',
+      message: 'Try again shortly.',
+    }),
+});
+const data = (res) => res.locals.validated;
+export function mountPublicSite(api, available, { config, authConfig } = {}) {
+  const ready = async (_req, res, next) => {
+    if (!available())
+      return sendError(res, {
+        status: 503,
+        code: 'DEPENDENCY_UNAVAILABLE',
+        message: 'Discovery is temporarily unavailable.',
+      });
+    if ((await siteFlags()).maintenance)
+      return sendError(res, {
+        status: 503,
+        code: 'SITE_MAINTENANCE',
+        message: 'The website is temporarily in maintenance.',
+      });
+    next();
+  };
+  api.get('/homepage', anywhere, ready, async (req, res) =>
+    sendSuccess(res, await assembledHomepage({ logger: req.log })),
+  );
+  for (const [path, schema, suggest] of [
+    ['/search', searchInput, false],
+    ['/search/suggestions', suggestInput, true],
+  ]) {
+    api.get(
+      path,
+      anywhere,
+      ready,
+      throttle,
+      validate(schema),
+      async (_req, res) => {
+        const { value } = await readConfig('settings');
+        return sendSuccess(
+          res,
+          await globalSearch(
+            { ...data(res).query, suggest },
+            value.hiddenModules,
+          ),
+        );
+      },
+    );
+  }
+  if (authConfig)
+    api.post(
+      '/homepage/campaign-events',
+      anywhere,
+      ready,
+      throttle,
+      validate(analyticsCampaignInput),
+      async (_req, res) =>
+        sendSuccess(
+          res,
+          await collectPromotion(
+            data(res).body,
+            config,
+            authConfig.accessSecret,
+          ),
+          { status: 202 },
+        ),
+    );
   api.get('/site/settings', async (_req, res) => {
     res.set('Cache-Control', 'no-store');
     return sendSuccess(
@@ -75,17 +177,10 @@ export function mountPublicSite(api, available) {
   });
 }
 
-export function mountSiteAdmin(admin) {
+export function mountSiteAdmin(admin, config) {
   admin.use('/site', permit('site'));
-  admin.get(
-    '/site/content',
-    validate(
-      listInput({
-        module: z.enum(contentModules),
-        q: z.string().trim().min(1).max(80).optional(),
-      }),
-    ),
-    (_req, res) => listFeatures(res, res.locals.validated.query),
+  admin.get('/site/content', validate(contentInput), (_req, res) =>
+    listFeatures(res, res.locals.validated.query),
   );
   const input = (res) => res.locals.validated.body;
   const context = (req, res) => ({
@@ -108,6 +203,91 @@ export function mountSiteAdmin(admin) {
           input(res)[key],
           context(req, res),
         ),
+      ),
+    );
+  }
+  admin.get('/site/homepage/assembly', async (req, res) =>
+    sendSuccess(
+      res,
+      await assembledHomepage({ preview: true, logger: req.log }),
+    ),
+  );
+  admin.use('/promotions', permit('promotions'));
+  admin.get('/promotions/content', validate(contentInput), (_req, res) =>
+    listFeatures(res, data(res).query),
+  );
+  admin.get('/promotions/placements', async (_req, res) => {
+    const { value, published } = await readConfig('homepage');
+    const sections = new Map(
+      [...homepageSections(published), ...value.sections].map((row) => [
+        row.id,
+        row,
+      ]),
+    );
+    return sendSuccess(
+      res,
+      [...sections.values()].map(({ id, type, heading }) => ({
+        id,
+        type,
+        heading,
+      })),
+    );
+  });
+  admin.get('/promotions', validate(promotionList), (_req, res) =>
+    listPromotions(res, data(res).query),
+  );
+  admin.get(
+    '/promotions/:id/metrics',
+    validate(promotionRange),
+    async (_req, res) => {
+      const result = await campaignMetrics(
+        data(res).params.id,
+        data(res).query,
+        config,
+      );
+      if (!result)
+        throw new AppError(404, 'PROMOTION_NOT_FOUND', 'Campaign not found.');
+      return sendSuccess(res, result);
+    },
+  );
+  admin.get(
+    '/promotions/:id/audit',
+    validate(listInput().extend({ params: idParams })),
+    (_req, res) =>
+      sendList(
+        res,
+        AuditLog,
+        { targetType: 'promotion', targetId: data(res).params.id },
+        data(res).query,
+        (row) => ({
+          id: String(row._id),
+          action: row.action,
+          summary: row.summary,
+          createdAt: row.createdAt,
+        }),
+        'action summary createdAt',
+      ),
+  );
+  admin.get(
+    '/promotions/:id',
+    validate(z.object({ params: idParams })),
+    async (_req, res) =>
+      sendSuccess(res, await getPromotion(data(res).params.id)),
+  );
+  for (const [verb, path, schema] of [
+    ['post', '/promotions', promotionCreate],
+    ['patch', '/promotions/:id', promotionEdit],
+    ['post', '/promotions/:id/status', promotionAction],
+  ]) {
+    admin[verb](path, validate(schema), async (req, res) =>
+      sendSuccess(
+        res,
+        await writePromotion(
+          data(res).params?.id,
+          data(res).body,
+          context(req, res),
+        ),
+        { status: data(res).params ? 200 : 201 },
       ),
     );
   }

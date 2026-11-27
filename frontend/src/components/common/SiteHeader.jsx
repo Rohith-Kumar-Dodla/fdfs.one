@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { GlobalSearchButton } from '../../features/discovery/SearchButton.jsx';
 import { Menu, X } from 'lucide-react';
 import { Link, matchPath, useLocation } from 'react-router';
 import { AccountNavigation } from '../../features/auth/AccountNavigation.jsx';
@@ -67,7 +68,10 @@ export function SiteHeader({
   }
 
   return (
-    <header className="border-b border-line bg-nav" onKeyDown={handleEscape}>
+    <header
+      className="sticky top-0 z-30 border-b border-line bg-nav/95 backdrop-blur-sm"
+      onKeyDown={handleEscape}
+    >
       <Container className="flex min-h-[4.5rem] items-center justify-between gap-4">
         <Link
           to="/"
@@ -102,20 +106,23 @@ export function SiteHeader({
             }
           />
         </div>
-        <IconButton
-          ref={toggle}
-          className="lg:hidden"
-          label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          aria-controls={mobileNavigationId}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? (
-            <X aria-hidden="true" className="size-6" />
-          ) : (
-            <Menu aria-hidden="true" className="size-6" />
-          )}
-        </IconButton>
+        <div className="flex shrink-0 gap-1">
+          {!settings.maintenance && <GlobalSearchButton />}
+          <IconButton
+            ref={toggle}
+            className="lg:hidden"
+            label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            aria-controls={mobileNavigationId}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? (
+              <X aria-hidden="true" className="size-6" />
+            ) : (
+              <Menu aria-hidden="true" className="size-6" />
+            )}
+          </IconButton>
+        </div>
       </Container>
       <div
         id={mobileNavigationId}

@@ -1,8 +1,21 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useBeforeUnload, useBlocker } from 'react-router';
+import { useBeforeUnload, useBlocker } from 'react-router';
 import { supportCategories } from '../../../../shared/operations.js';
-import { contentModules } from '../../../../shared/admin.js';
+import {
+  discoveryModules,
+  layouts,
+  sectionKinds,
+  sources,
+} from '../../../../shared/homepage.js';
+import { HomepageDisplay } from '../../pages/Home.jsx';
+import { useSiteSettings } from '../site/public.jsx';
+import {
+  Choice,
+  HomepageControls,
+  OrderButtons,
+  reordered,
+} from './HomepageControls.jsx';
 import {
   legalSections,
   modulePaths,
@@ -10,28 +23,26 @@ import {
 } from '../../../../shared/site.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
-import { Pagination } from '../../components/ui/Pagination.jsx';
 import { Card, SectionHeading } from '../../components/ui/surfaces.jsx';
-import { ImagePreview } from '../media/Images.jsx';
 import {
   control,
   ConfirmAction,
   get,
   QueryState,
   useChange,
-  useRecords,
 } from './common.jsx';
-import { MediaPicker } from './MediaPicker.jsx';
+import {
+  ArtworkField,
+  ContentPicker,
+  Field,
+  PromotionDates,
+} from './SiteFields.jsx';
 
 const settingsUrl = '/admin/site/settings';
 const homepageUrl = '/admin/site/homepage';
-const moduleNames = {
-  independent: 'Cinema',
-  original: 'Originals',
-  podcasts: '404 Reality Not Found',
-  live: 'Live Events',
-  talent: 'Talent Profiles',
-};
+const moduleNames = Object.fromEntries(
+  Object.entries(sources).map(([key, source]) => [key, source.label]),
+);
 const art = {
   logo: 'Logo',
   favicon: 'Favicon',
@@ -66,36 +77,6 @@ function LeaveWarning({ dirty }) {
         <Button onClick={() => blocker.proceed?.()}>Discard changes</Button>
       </div>
     </Dialog>
-  );
-}
-
-function Field({ label, multiline, ...props }) {
-  const Input = multiline ? 'textarea' : 'input';
-  return (
-    <label className="grid min-w-0 gap-1 text-sm">
-      {label}
-      <Input className={control} {...props} />
-    </label>
-  );
-}
-
-function ArtworkField({ label, image, onChange }) {
-  return (
-    <div className="grid min-w-0 content-start gap-2">
-      <h3 className="text-sm font-semibold">{label}</h3>
-      {image?.url && <ImagePreview image={image} alt={image.alt || label} />}
-      <MediaPicker
-        label={'Choose ' + label.toLowerCase()}
-        onSelect={onChange}
-      />
-      {image && (
-        <div>
-          <Button variant="outline" onClick={() => onChange(undefined)}>
-            Remove {label.toLowerCase()}
-          </Button>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -418,133 +399,6 @@ export function SettingsAdmin() {
   );
 }
 
-function ContentSearch({ onSelect }) {
-  const records = useRecords('/admin/site/content', {
-    module: 'independent',
-    limit: 6,
-  });
-  return (
-    <div className="grid min-w-0 gap-3">
-      <label className="grid gap-1 text-sm">
-        Content module
-        <select
-          className={control}
-          value={records.params.module}
-          onChange={(event) => records.filter('module', event.target.value)}
-        >
-          {Object.entries(moduleNames).map(([module, label]) => (
-            <option value={module} key={module}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <form
-        className="grid min-w-0 gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          records.filter(
-            'q',
-            new FormData(event.currentTarget).get('q').trim(),
-          );
-        }}
-      >
-        <Field
-          name="q"
-          label="Search published content"
-          type="search"
-          maxLength={80}
-        />
-        <div>
-          <Button type="submit" variant="outline">
-            Search
-          </Button>
-        </div>
-      </form>
-      <QueryState query={records.query} empty="No matching published content">
-        {(items) => (
-          <ul className="grid gap-2">
-            {items.map((item) => (
-              <li className="min-w-0 wrap-anywhere" key={item.id}>
-                <Button variant="outline" onClick={() => onSelect(item)}>
-                  {item.title}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </QueryState>
-      {records.query.data && (
-        <Pagination
-          page={records.params.page}
-          totalPages={records.query.data.pagination.totalPages}
-          onPageChange={records.changePage}
-        />
-      )}
-    </div>
-  );
-}
-
-function ContentPicker({ onSelect }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div>
-        <Button variant="outline" onClick={() => setOpen(true)}>
-          Choose published content
-        </Button>
-      </div>
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Choose published content"
-      >
-        {open && (
-          <ContentSearch
-            onSelect={(item) => {
-              onSelect(item);
-              setOpen(false);
-            }}
-          />
-        )}
-      </Dialog>
-    </>
-  );
-}
-
-function wallTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-}
-
-function PromotionDates({ value, update }) {
-  return (
-    <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-      {[
-        ['startAt', 'Promotion starts'],
-        ['endAt', 'Promotion ends'],
-      ].map(([key, label]) => (
-        <Field
-          key={key}
-          label={label}
-          type="datetime-local"
-          value={wallTime(value[key])}
-          onChange={(event) =>
-            update({
-              [key]: event.target.value
-                ? new Date(event.target.value).toISOString()
-                : undefined,
-            })
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
 function HeroEditor({ hero, edit, remove, titles }) {
   const [image, setImage] = useState();
   return (
@@ -610,6 +464,18 @@ function HeroEditor({ hero, edit, remove, titles }) {
   );
 }
 
+const sectionLabels = {
+  explore: 'Explore the modules',
+  featured: 'Featured items',
+  latest: 'Latest from a module',
+  live: 'Live now',
+  upcoming: 'Upcoming events and releases',
+  releases: 'New releases',
+  genres: 'Browse by genre',
+  popular: 'Popular movies',
+  trending: 'Trending reviews',
+  promotion: 'Campaign placement',
+};
 function SectionEditor({ row, move, edit, index, total, titles, remove }) {
   return (
     <Card className="grid min-w-0 gap-3">
@@ -639,14 +505,35 @@ function SectionEditor({ row, move, edit, index, total, titles, remove }) {
               type,
               items: [],
               module: type === 'latest' ? 'independent' : undefined,
-              limit: type === 'latest' ? 4 : undefined,
+              limit: 8,
             });
           }}
         >
-          <option value="featured">Featured items</option>
-          <option value="latest">Latest from a module</option>
+          {sectionKinds.map((type) => (
+            <option key={type} value={type}>
+              {sectionLabels[type]}
+            </option>
+          ))}
         </select>
       </label>
+      {!['explore', 'promotion'].includes(row.type) && (
+        <Choice
+          label="Section layout"
+          value={row.layout ?? 'auto'}
+          options={layouts.map((layout) => [layout, layout])}
+          onChange={(layout) => edit({ layout })}
+        />
+      )}
+      {!['explore', 'promotion', 'latest', 'featured'].includes(row.type) && (
+        <Field
+          label="Item limit"
+          type="number"
+          min="1"
+          max="12"
+          value={row.limit ?? 8}
+          onChange={(event) => edit({ limit: Number(event.target.value) })}
+        />
+      )}
       {row.type === 'latest' ? (
         <div className="grid min-w-0 gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">
@@ -656,7 +543,7 @@ function SectionEditor({ row, move, edit, index, total, titles, remove }) {
               value={row.module}
               onChange={(event) => edit({ module: event.target.value })}
             >
-              {contentModules.map((module) => (
+              {discoveryModules.map((module) => (
                 <option key={module} value={module}>
                   {moduleNames[module]}
                 </option>
@@ -672,26 +559,31 @@ function SectionEditor({ row, move, edit, index, total, titles, remove }) {
             onChange={(event) => edit({ limit: Number(event.target.value) })}
           />
         </div>
-      ) : (
+      ) : row.type === 'featured' ? (
         <>
-          {row.items.map((item) => (
+          {row.items.map((item, index) => (
             <div
               className="flex flex-wrap items-center justify-between gap-2 wrap-anywhere"
               key={item.id}
             >
               <span>{titles[item.id] ?? item.id}</span>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  edit({ items: row.items.filter(({ id }) => id !== item.id) })
+              <OrderButtons
+                index={index}
+                total={row.items.length}
+                move={(target) =>
+                  edit({ items: reordered(row.items, index, target) })
                 }
-              >
-                Remove item
-              </Button>
+                remove={() =>
+                  edit({
+                    items: row.items.filter((other) => other.id !== item.id),
+                  })
+                }
+              />
             </div>
           ))}
           {row.items.length < 12 && (
             <ContentPicker
+              allowUpcoming
               onSelect={(item) => {
                 if (!row.items.some(({ id }) => id === item.id))
                   edit({ items: [...row.items, item] });
@@ -699,7 +591,7 @@ function SectionEditor({ row, move, edit, index, total, titles, remove }) {
             />
           )}
         </>
-      )}
+      ) : null}
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -737,28 +629,54 @@ function HomepageEditor({ record }) {
   const [draft, setDraft] = useState(value);
   const [action, setAction] = useState(null);
   const [preview, setPreview] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const settings = useSiteSettings();
   const [localTitles, setTitles] = useState({});
   const query = useQuery({
-    queryKey: [homepageUrl, 'preview'],
-    queryFn: ({ signal }) => get(homepageUrl + '/preview', signal),
+    queryKey: [homepageUrl, 'assembly'],
+    queryFn: ({ signal }) => get(homepageUrl + '/assembly', signal),
     enabled: Boolean(revision),
   });
-  const change = useChange([homepageUrl, 'site-homepage', '/admin/audit']);
+  const change = useChange([
+    homepageUrl,
+    'site-homepage',
+    'homepage-discovery',
+    '/admin/audit',
+  ]);
   const presentation = query.data?.data;
   const known = [
-    presentation?.hero?.featured,
-    ...(presentation?.sections.flatMap((row) => row.items) ?? []),
+    ...(presentation?.slides ?? []),
+    ...(presentation?.sections.flatMap((row) => row.items ?? []) ?? []),
   ].filter(Boolean);
   const titles = {
     ...Object.fromEntries(known.map((item) => [item.id, item.title])),
     ...localTitles,
   };
+  const placements = [
+    ...(presentation?.slides ?? [])
+      .filter((item) => item.placement)
+      .map((item) => ({ item, label: 'Hero carousel' })),
+    ...(presentation?.sections ?? []).flatMap((section) => [
+      ...(section.sponsored ?? []).map((item) => ({
+        item,
+        label: section.heading + ' rail',
+      })),
+      ...(section.between ?? []).map((item) => ({
+        item,
+        label: 'After ' + section.heading,
+      })),
+    ]),
+    ...(presentation?.footer ?? []).map((item) => ({
+      item,
+      label: 'Before the footer',
+    })),
+  ];
   const dirty = draft !== value;
   function normalize(item) {
     if (!item) return undefined;
-    const { module, id, title } = item;
+    const { module, id, title, upcoming } = item;
     if (title) setTitles((current) => ({ ...current, [id]: title }));
-    return { module, id };
+    return { module, id, upcoming };
   }
   const updateSection = (id, update) =>
     setDraft((current) => ({
@@ -775,6 +693,26 @@ function HomepageEditor({ record }) {
   return (
     <>
       <LeaveWarning dirty={dirty} />
+      {placements.length > 0 && (
+        <Card className="grid gap-2">
+          <h2 className="font-semibold">
+            Active campaign placements in the saved preview
+          </h2>
+          <ul>
+            {placements.map(({ item, label }) => (
+              <li key={item.id + item.placement}>
+                {label} ? {item.title}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      <HomepageControls
+        draft={draft}
+        update={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+        normalize={normalize}
+        titles={titles}
+      />
       <HeroEditor
         hero={draft.hero}
         titles={titles}
@@ -815,7 +753,7 @@ function HomepageEditor({ record }) {
           }
         />
       ))}
-      {draft.sections.length < 12 && (
+      {draft.sections.length < 16 && (
         <div>
           <Button
             variant="outline"
@@ -867,7 +805,7 @@ function HomepageEditor({ record }) {
             setAction({
               title: 'Publish homepage configuration?',
               description:
-                'The hero updates on the public homepage. Section configuration is saved for Phase 6.1.',
+                'The hero, section order, and content selections will update on the public homepage.',
               request: {
                 url: homepageUrl + '/publish',
                 method: 'post',
@@ -889,57 +827,39 @@ function HomepageEditor({ record }) {
         open={preview}
         onClose={() => setPreview(false)}
         title="Homepage draft preview"
+        className="max-w-6xl"
       >
         {preview && (
-          <QueryState query={query}>
-            {(data) => (
-              <div className="grid gap-4 wrap-anywhere">
-                {data.hero && (
-                  <div className="grid gap-2">
-                    <h3 className="text-xl font-semibold">{data.hero.title}</h3>
-                    <p>{data.hero.description}</p>
-                    {data.hero.image && (
-                      <ImagePreview
-                        image={data.hero.image}
-                        alt={data.hero.image.alt || 'Hero artwork'}
-                      />
-                    )}
-                    {data.hero.featured && (
-                      <Link
-                        className="text-accent underline"
-                        to={data.hero.featured.path}
-                      >
-                        {data.hero.featured.title}
-                      </Link>
-                    )}
-                  </div>
-                )}
-                {data.sections.map((row) => (
-                  <Card key={row.id} className="grid gap-2">
-                    <h3 className="font-semibold">{row.heading}</h3>
-                    <p className="text-sm text-muted">
-                      {row.visible ? 'Visible' : 'Hidden'}
-                    </p>
-                    <p>{row.description}</p>
-                    {row.type === 'latest' ? (
-                      <p>
-                        Latest {row.limit} from {moduleNames[row.module]}
-                      </p>
-                    ) : (
-                      <ul>
-                        {row.items.map((item) => (
-                          <li key={item.id}>{item.title}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </Card>
-                ))}
-                {!data.hero && !data.sections.length && (
-                  <p>No hero or sections configured.</p>
-                )}
-              </div>
-            )}
-          </QueryState>
+          <>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Button
+                variant={mobile ? 'outline' : 'primary'}
+                onClick={() => setMobile(false)}
+                aria-pressed={!mobile}
+              >
+                Desktop preview
+              </Button>
+              <Button
+                variant={mobile ? 'primary' : 'outline'}
+                onClick={() => setMobile(true)}
+                aria-pressed={mobile}
+              >
+                Mobile preview
+              </Button>
+            </div>
+            <QueryState query={query}>
+              {(data) => (
+                <div className={mobile ? 'mx-auto max-w-[375px]' : ''}>
+                  <HomepageDisplay
+                    value={data}
+                    settings={settings}
+                    preview
+                    previewSize={mobile ? 'mobile' : 'desktop'}
+                  />
+                </div>
+              )}
+            </QueryState>
+          </>
         )}
       </Dialog>
     </>
@@ -952,8 +872,8 @@ export function HomepageAdmin() {
     <>
       <SectionHeading as="h1">Homepage Management</SectionHeading>
       <p className="text-sm text-muted">
-        The published hero appears on the current homepage. Section order and
-        selection will be used by the Phase 6.1 homepage.
+        Manage the public carousel, select featured titles, and arrange homepage
+        sections.
       </p>
       <QueryState query={query}>
         {(record) => (

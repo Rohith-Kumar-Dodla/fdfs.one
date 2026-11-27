@@ -115,4 +115,12 @@ Administrators can open Analytics for date-filtered historical trends, a chart a
 
 The footer Support Center links to ticket creation and guest email access. Signed-in visitors can open their own tickets under `/support/tickets` and view owned notices under `/account/notifications`. Support Agents use `/admin/support` for assignment, replies, private notes, status, priority and audit history. Screenshots use authenticated fetches and local blob previews with cleanup on close. Public and authorized account announcements render as plain-text banners during their publication windows.
 
-Public settings update the site brand, navigation, footer, legal pages, registration entry points and homepage metadata. Homepage Management previews the saved draft and publishes the active hero to the website. Saved sections prepare ordered content for Phase 6.1. The public application renders legal and editorial fields as text.
+Public settings update the site brand, navigation, footer, legal pages, registration entry points and homepage metadata. Homepage Management previews the saved draft and publishes the active hero and ordered sections to the website. The public application renders legal and editorial fields as text.
+
+## Cinematic homepage and discovery
+
+The homepage loads dynamic hero slides and ordered rails through `/api/v1/homepage`. The active slide uses responsive desktop or mobile artwork, with priority on the initial image. Rails use native scroll snapping, arrow controls, responsive image ratios and lazy loading. The hero supports touch swipe, keyboard arrows, indicators and optional rotation. Focus, hover, document invisibility and reduced motion pause rotation. CTAs follow authoritative content availability and route into existing detail and reminder flows.
+
+The sticky navigation opens a keyboard-accessible search dialog. Suggestions use a short debounce and cancel obsolete requests. `/search` provides grouped results, URL-based filters and pagination. Genre cards display calculated published counts and open the corresponding result filter.
+
+Homepage Management configures the ordered hero and sections, featured titles, genre artwork, release windows and layout. Its saved preview uses the public homepage components with mobile or desktop artwork selection. Promotions includes campaign dashboards, artwork upload and selection, scoped content pickers, scheduling, previews, audit history and reporting. Sponsored campaigns display their disclosure in every placement. Preview excludes campaign event collection. The public footer continues to use Website Settings and provides the Support Center and analytics preference.

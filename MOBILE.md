@@ -24,7 +24,7 @@ The reminder endpoint exposes per-account subscription and delivery state, separ
 
 ## Platform configuration
 
-Future clients can read `/api/v1/site/settings` for the public brand, image variants, navigation visibility, contact and legal content, maintenance state and community flags. The active homepage hero is available at `/api/v1/site/homepage`. Its featured link identifies a currently public resource. Phase 6.1 will define the full homepage section rendering contract.
+Future clients can read `/api/v1/site/settings` for the public brand, image variants, navigation visibility, contact and legal content, maintenance state and community flags. The active homepage hero is available at `/api/v1/site/homepage`. Its featured link identifies a currently public resource. The unified homepage is available through the discovery contract below.
 
 Future native clients can use the same `/api/v1/support/config`, ticket list, detail, message and private attachment routes. Send the current account bearer token or a scoped `Guest` token as applicable. Display deadlines from server responses. Fetch private attachments on demand and keep cached copies out of shared media storage.
 
@@ -33,3 +33,11 @@ The shared Socket.IO presence protocol accepts an allowlisted route category, op
 The shared `/api/v1/movies` API lists published movies and exposes slug detail and credits. Talent profiles include `movieAppearances`. `/api/v1/ratings/:type/:slug` returns FDFS totals and the signed-in `/mine` rating. `/api/v1/reviews/:type/:slug` supports reviews, likes, comments and reports. Target types are `movie`, `cinema` and `original`. Display external ratings separately, preserve spoiler flags and use the shared bearer session for writes. Native clients can reuse the summary feed at `/api/v1/reviews/feed`, the permalink API at `/api/v1/reviews/entry/:id`, and private `/api/v1/account/reviews` history. Request `reveal=true` on a review permalink only after a reader chooses to reveal spoilers. Use the owned likes batch and notification destinations. Render upcoming films without rating or review controls. Full account erasure and retention handling is mandatory Phase 7.1 work.
 
 Existing entertainment routes keep the same stable IDs and slugs. Scheduled announcements and releases follow server UTC timestamps. Optional staff roles and module scopes can appear in the private account response. Clients can use them to hide ineligible controls, while the centralized API remains authoritative for every staff operation.
+
+## Homepage and search contracts
+
+Use `GET /api/v1/homepage` for the ordered hero, sections and pre-footer campaigns. Use stable section and content IDs, image variants, the `mobile` artwork when available, and `serverNow` for schedule calculations. Revalidate around `nextChangeAt` and on foreground. Render only eligible returned placements, provide a neutral media fallback, retain sponsored disclosure and route CTA actions to their canonical internal path or approved HTTPS destination. Load the detail route for video availability and preserve viewer-initiated playback.
+
+Use `GET /api/v1/search/suggestions?q=...` for bounded suggestions and `GET /api/v1/search` for grouped results with `q`, optional `genre` or `module`, and pagination. Review entries use spoiler-safe projections. Use the returned stable ID, module and path for navigation.
+
+A future native client may use `POST /api/v1/homepage/campaign-events` after explicit analytics opt-in. Send campaign UUID, stable placement key, a visit UUID and event kind. Apply the same continuous, one-second half-visible exposure definition and respect foreground state, deduplication and user opt-out.

@@ -36,6 +36,7 @@ export const groups = [
     'Platform',
     [
       ['/admin/media', 'Media library', 'media'],
+      ['/admin/promotions', 'Promotions', 'promotions'],
       ['/admin/homepage', 'Homepage Management', 'site'],
       ['/admin/settings', 'Website Settings', 'site'],
       ['/admin/announcements', 'Announcements', 'announcements'],

@@ -1,6 +1,12 @@
 import { supportCategories } from '../../../../shared/operations.js';
 import { z } from 'zod';
-import { contentModules } from '../../../../shared/admin.js';
+import {
+  discoveryModules,
+  layouts,
+  sectionKinds,
+} from '../../../../shared/homepage.js';
+import { genres } from '../../../../shared/films.js';
+import { reviewGenres } from '../../../../shared/reviews.js';
 import { legalSections, modulePaths } from '../../../../shared/site.js';
 import { publicId } from '../../utils/list.js';
 
@@ -57,8 +63,9 @@ export const settings = z.strictObject({
   analyticsOpen: z.boolean().optional(),
 });
 const reference = z.strictObject({
-  module: z.enum(contentModules),
+  module: z.enum(discoveryModules),
   id: publicId,
+  upcoming: z.boolean().optional(),
 });
 const windowFields = { startAt: time, endAt: time };
 const ordered = ({ startAt, endAt }) =>
@@ -66,12 +73,13 @@ const ordered = ({ startAt, endAt }) =>
 const section = z
   .strictObject({
     id: publicId,
-    type: z.enum(['featured', 'latest']),
+    type: z.enum(sectionKinds),
     heading: text(100),
     description: text(280).optional(),
     visible: z.boolean(),
     items: z.array(reference).max(12).default([]),
-    module: z.enum(contentModules).optional(),
+    module: z.enum(discoveryModules).optional(),
+    layout: z.enum(layouts).optional(),
     limit: z.number().int().min(1).max(12).optional(),
     ...windowFields,
   })
@@ -80,7 +88,9 @@ const section = z
     (row) =>
       row.type === 'latest'
         ? row.module && row.limit && !row.items.length
-        : row.items.length > 0 && !row.module && !row.limit,
+        : row.type === 'featured'
+          ? row.items.length > 0 && !row.module
+          : !row.items.length && !row.module,
     {
       message:
         'Choose published items for Featured or a module and limit for Latest.',
@@ -103,10 +113,54 @@ export const homepage = z.strictObject({
     .optional(),
   sections: z
     .array(section)
-    .max(12)
+    .max(16)
     .default([])
     .refine(
       (items) => new Set(items.map(({ id }) => id)).size === items.length,
+    ),
+  heroSlides: z
+    .array(
+      z
+        .strictObject({
+          id: publicId,
+          title: text(100).optional(),
+          description: text(280).optional(),
+          imageId: publicId.optional(),
+          mobileId: publicId.optional(),
+          target: reference,
+          focal: z
+            .enum(['center', 'top', 'bottom', 'left', 'right'])
+            .optional(),
+          ...windowFields,
+        })
+        .refine(ordered),
+    )
+    .max(8)
+    .optional()
+    .refine(
+      (rows) =>
+        !rows || new Set(rows.map((row) => row.id)).size === rows.length,
+    ),
+  rotationSeconds: z
+    .number()
+    .int()
+    .min(0)
+    .max(60)
+    .refine((value) => value === 0 || value >= 5)
+    .optional(),
+  releaseDays: z.number().int().min(1).max(180).optional(),
+  genres: z
+    .array(
+      z.strictObject({
+        genre: z.enum(Object.keys({ ...genres, ...reviewGenres })),
+        imageId: publicId.optional(),
+      }),
+    )
+    .max(16)
+    .optional()
+    .refine(
+      (rows) =>
+        !rows || new Set(rows.map((row) => row.genre)).size === rows.length,
     ),
 });
 export const settingsInput = z.object({

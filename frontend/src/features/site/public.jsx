@@ -18,9 +18,10 @@ export function useSiteSettings() {
     : siteDefaults;
 }
 
-export function useHomepageHero() {
+export function useHomepageHero(enabled = true) {
   const query = useQuery({
     queryKey: ['site-homepage'],
+    enabled,
     queryFn: ({ signal }) =>
       apiClient.get('/site/homepage', { signal }).then((result) => result.data),
     meta: { public: true },

@@ -110,6 +110,7 @@ const schema = new Schema(
 );
 schema.index({ status: 1, broadcast: 1, startAt: 1, _id: 1 });
 schema.index({ status: 1, category: 1, startAt: 1 });
+schema.index({ status: 1, title: 1, _id: 1 });
 
 schema.index({ organizer: 1, startAt: -1 });
 schema.index({ moderation: 1, startAt: 1 });

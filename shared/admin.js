@@ -5,6 +5,7 @@ export const contentModules = [
   'live',
   'talent',
   'movies',
+  'promotions',
 ];
 export const staffRoles = [
   'super_admin',
@@ -37,6 +38,7 @@ const permissions = new Set([
   'analytics',
   'support',
   'announcements',
+  'promotions',
   'operations',
 ]);
 
@@ -49,6 +51,11 @@ export function can(account, permission, module) {
   const roles = account?.roles ?? [];
   if (roles.includes('super_admin')) return true;
   if (permission === 'roles') return false;
+  if (permission === 'promotions')
+    return (
+      roles.includes('content_manager') &&
+      account.cmsModules?.includes('promotions')
+    );
   if (roles.includes('admin')) return true;
   if (permission === 'support') return roles.includes('support_agent');
   if (permission === 'dashboard')

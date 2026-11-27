@@ -201,6 +201,7 @@ review.index({ targetType: 1, target: 1, status: 1, likeCount: -1, _id: -1 });
 review.index({ author: 1, status: 1 });
 review.index({ author: 1, updatedAt: -1, _id: -1 });
 review.index({ status: 1, createdAt: -1, _id: -1 });
+review.index({ status: 1, spoiler: 1, title: 1, _id: 1 });
 const like = new Schema(
   { review: objectRef('Review'), author: currentAuthor },
   timestamps,

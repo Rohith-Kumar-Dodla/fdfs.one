@@ -80,6 +80,13 @@ export const publicRoutes = [
             lazy: reviewsPage('ShortFilmDiscovery'),
           },
           { path: '/reviews/community', lazy: reviewsPage('CommunityFeed') },
+          {
+            path: '/search',
+            lazy: async () => ({
+              Component: (await import('../features/discovery/Search.jsx'))
+                .SearchResults,
+            }),
+          },
           { path: '/legal/:kind', element: <LegalPage /> },
           ...[
             ['/support', 'SupportHome'],

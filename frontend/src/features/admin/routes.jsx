@@ -60,6 +60,17 @@ const operationsPage =
     };
   };
 
+const promotionsPage = (name) => async () => {
+  const Page = (await import('../discovery/PromotionsAdmin.jsx'))[name];
+  return {
+    Component: () => (
+      <StaffPermission permission="promotions">
+        <Page />
+      </StaffPermission>
+    ),
+  };
+};
+
 const moviePage = (name) => async () => {
   const Page = (await import('../reviews/Admin.jsx'))[name];
   return {
@@ -197,6 +208,9 @@ export const administrationRoutes = [
               Component: (await import('./Users.jsx')).UserDetailPage,
             }),
           },
+          { path: 'promotions', lazy: promotionsPage('PromotionsList') },
+          { path: 'promotions/new', lazy: promotionsPage('ManagePromotion') },
+          { path: 'promotions/:id', lazy: promotionsPage('ManagePromotion') },
           { path: 'homepage', lazy: adminPage('Site', 'HomepageAdmin') },
           { path: 'settings', lazy: adminPage('Site', 'SettingsAdmin') },
           {

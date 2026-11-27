@@ -31,6 +31,7 @@ const raw = new mongoose.Schema(
     module: String,
     device: String,
     content: String,
+    placement: String,
     at: Date,
     expiresAt: Date,
   },
@@ -45,6 +46,7 @@ const daily = new mongoose.Schema(
     module: String,
     device: String,
     content: String,
+    placement: String,
     count: Number,
     updatedAt: Date,
     expiresAt: Date,
@@ -61,6 +63,7 @@ const metadata = new mongoose.Schema(
 );
 for (const schema of [raw, daily, activeDay]) ttl(schema);
 daily.index({ timezone: 1, day: 1 });
+daily.index({ timezone: 1, content: 1, kind: 1, day: 1 });
 activeDay.index({ timezone: 1, day: 1, user: 1 });
 export const AnalyticsEvent = mongoose.model('AnalyticsEvent', raw);
 export const AnalyticsDaily = mongoose.model('AnalyticsDaily', daily);
@@ -215,6 +218,16 @@ export async function ingest(input, user, options, secret, now = new Date()) {
       'INVALID_ANALYTICS_CONTENT',
       'Content is unavailable.',
     );
+  return recordAnalytics(input, user, options, secret, now);
+}
+
+export async function recordAnalytics(
+  input,
+  user,
+  options,
+  secret,
+  now = new Date(),
+) {
   const day = calendarDay(now, options.timezone);
   const id = input.id;
   const expiresAt = new Date(+now + options.aggregateDays * dayMs);
@@ -225,6 +238,7 @@ export async function ingest(input, user, options, secret, now = new Date()) {
     module: input.module,
     device: input.device,
     content: input.content ?? '',
+    ...(input.placement && { placement: input.placement }),
   };
   try {
     return await mongoose.connection.transaction(async (session) => {
@@ -265,11 +279,12 @@ export async function ingest(input, user, options, secret, now = new Date()) {
           { upsert: true, session },
         );
       }
-      await AnalyticsClock.updateOne(
-        { _id: options.timezone },
-        { $min: { firstAt: now }, $max: { lastAt: now } },
-        { upsert: true, session },
-      );
+      if (!input.placement)
+        await AnalyticsClock.updateOne(
+          { _id: options.timezone },
+          { $min: { firstAt: now }, $max: { lastAt: now } },
+          { upsert: true, session },
+        );
       return { collected: true };
     });
   } catch (error) {
@@ -279,7 +294,7 @@ export async function ingest(input, user, options, secret, now = new Date()) {
   }
 }
 
-function period(query, options, now) {
+export function period(query, options, now) {
   const today = calendarDay(now, options.timezone);
   const to = query.to ?? today;
   const from = query.from ?? offsetDay(to, 1 - (query.days ?? 30));
@@ -329,7 +344,7 @@ export async function historical(query, options, tickets, now = new Date()) {
     clock,
   ] = await Promise.all([
     AnalyticsDaily.aggregate([
-      { $match: valid },
+      { $match: { ...valid, kind: { $in: ['page', 'playback'] } } },
       {
         $group: {
           _id: '$day',

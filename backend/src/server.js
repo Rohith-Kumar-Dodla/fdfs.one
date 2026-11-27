@@ -1,3 +1,4 @@
+import { Promotion } from './modules/site/promotions.js';
 import { initializeReviewsIndexes } from './modules/reviews/models.js';
 import { createPresenceStore } from './modules/operations/presence.js';
 import { createOperationsHealth } from './modules/operations/platform.js';
@@ -151,6 +152,7 @@ async function start() {
           initializeLiveIndexes(),
           initializeOperationsIndexes(),
           initializeReviewsIndexes(),
+          Promotion.createIndexes(),
         ]);
         indexesReady = true;
       },
