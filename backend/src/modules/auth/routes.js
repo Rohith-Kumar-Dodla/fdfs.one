@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { createEmailService } from '../../services/email.js';
+import { createEmailService, emailConfigured } from '../../services/email.js';
+import { User } from './models.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
 import { validate } from '../../middlewares/validate.js';
@@ -62,7 +63,7 @@ export function createAuthRoutes(
   const emailLimiter = authLimiter(10);
   const passwordLimiter = authLimiter(12);
   const emailAvailable = (req, res, next) => {
-    if (!config.smtp && !mailTransport)
+    if (!emailConfigured(config) && !mailTransport)
       return sendError(res, {
         status: 503,
         code: 'EMAIL_UNAVAILABLE',
@@ -156,6 +157,36 @@ export function createAuthRoutes(
 
   auth.get('/me', ...protectedRoute, me);
   users.get('/me', ...protectedRoute, me);
+  users.post(
+    '/me/welcome',
+    ...protectedRoute,
+    validate(schemas.welcome),
+    async (req, res) => {
+      const user = req.auth.user;
+      if (user.roles.includes('super_admin'))
+        return sendSuccess(res, { show: false });
+      const filter = {
+        _id: user._id,
+        status: 'active',
+        roles: { $ne: 'super_admin' },
+        emailVerifiedAt: { $type: 'date' },
+      };
+      const present = body(res).action === 'present';
+      const field = present ? 'welcomePresentedAt' : 'welcomeAcknowledgedAt';
+      const updated = await User.updateOne(
+        {
+          ...filter,
+          [field]: null,
+          ...(!present && { welcomePresentedAt: { $type: 'date' } }),
+        },
+        { $set: { [field]: new Date() } },
+        { timestamps: false },
+      );
+      return sendSuccess(res, {
+        show: present && Boolean(updated.modifiedCount),
+      });
+    },
+  );
   users.patch(
     '/me',
     ...protectedRoute,

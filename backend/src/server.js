@@ -25,6 +25,7 @@ import { initializeLiveIndexes } from './modules/live/routes.js';
 import { attachLiveSockets } from './modules/live/socket.js';
 import { startReminderWorker } from './modules/live/reminders.js';
 import { createReminderDelivery } from './modules/live/email.js';
+import { createMailTransport } from './services/email.js';
 import { initializePodcastIndexes } from './modules/podcasts/routes.js';
 import {
   createCloudinaryProvider,
@@ -40,6 +41,7 @@ async function start() {
   const config = loadConfig();
   requireNamedDatabase(config.MONGODB_URI);
   const authConfig = loadAuthConfig(config);
+  const mailTransport = createMailTransport(authConfig);
   const logger = createLogger(config.LOG_LEVEL);
   let stopping = false;
   let indexesReady = false;
@@ -56,7 +58,7 @@ async function start() {
     logger,
     isDatabaseConnected: available,
     authConfig,
-    authOptions: { available },
+    authOptions: { available, mailTransport },
     phase22Options: {
       liveNotify: (event) => realtime.notify(event),
       reminderLead: config.LIVE_REMINDER_LEAD_MINUTES,
@@ -78,9 +80,14 @@ async function start() {
     logger,
   });
   const stopSupport = startSupportWorker(
-    supportMailer(authConfig, logger, undefined, config.SUPPORT_STAFF_EMAIL),
+    supportMailer(
+      authConfig,
+      logger,
+      mailTransport,
+      config.SUPPORT_STAFF_EMAIL,
+    ),
     {
-      available: () => Boolean(authConfig.smtp && available()),
+      available: () => Boolean(mailTransport && available()),
       logger,
       attempts: config.SUPPORT_EMAIL_ATTEMPTS,
       health: health.set,
@@ -105,9 +112,9 @@ async function start() {
         logger.warn('Live reminder notification could not be saved'),
       ),
     health: (status) => health.set('reminderWorker', status),
-    deliver: createReminderDelivery(authConfig, logger),
+    deliver: createReminderDelivery(authConfig, logger, mailTransport),
     intervalMs: config.LIVE_REMINDER_INTERVAL_MS,
-    available: () => Boolean(authConfig.smtp && available()),
+    available: () => Boolean(mailTransport && available()),
     logger,
   });
 

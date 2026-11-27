@@ -29,10 +29,18 @@ function validateDeploymentUrls(env) {
 }
 
 export default defineConfig(({ command, isPreview, mode }) => {
-  if (command === 'build') validateDeploymentUrls(loadEnv(mode, envDir));
+  const env = loadEnv(mode, envDir);
+  if (command === 'build') validateDeploymentUrls(env);
   return {
     plugins: [react(), tailwindcss()],
     envDir,
+    server: {
+      proxy: {
+        '/api/v1/playback/artwork':
+          URL.parse(env.VITE_API_BASE_URL?.trim() ?? '')?.origin ??
+          'http://localhost:5000',
+      },
+    },
     define: {
       'import.meta.env.FDFS_DEV_SERVER': JSON.stringify(
         command === 'serve' && isPreview !== true,

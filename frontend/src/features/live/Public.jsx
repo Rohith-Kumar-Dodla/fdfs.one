@@ -5,6 +5,7 @@ import { eventCategories, formatEventTime } from '../../../../shared/live.js';
 import { languages } from '../../../../shared/films.js';
 import { apiClient } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.jsx';
+import { PlaybackGate } from '../media/PlaybackGate.jsx';
 import {
   Badge,
   Container,
@@ -213,18 +214,30 @@ function EventContent({ event, slug }) {
           className="grid min-w-0 scroll-mt-24 gap-4 wrap-anywhere"
         >
           {video ? (
-            <ProgressPlayer
-              item={
-                event.broadcast === 'ended' && event.replay
-                  ? { id: event.id, module: 'live' }
-                  : undefined
+            <PlaybackGate
+              module="live"
+              slug={slug}
+              artwork={event.banner ?? event.poster}
+              id="playback-access"
+            >
+              {({ video, replay }) =>
+                (video || replay) && (
+                  <ProgressPlayer
+                    item={
+                      event.broadcast === 'ended' && event.replay
+                        ? { id: event.id, module: 'live' }
+                        : undefined
+                    }
+                    key={(video ?? replay).playbackType}
+                    video={video ?? replay}
+                    title={
+                      event.title +
+                      (event.replay ? ' replay' : ' live broadcast')
+                    }
+                  />
+                )
               }
-              key={video.playbackType}
-              video={video}
-              title={
-                event.title + (event.replay ? ' replay' : ' live broadcast')
-              }
-            />
+            </PlaybackGate>
           ) : (
             <FilmImage landscape eager image={event.banner || event.poster} />
           )}

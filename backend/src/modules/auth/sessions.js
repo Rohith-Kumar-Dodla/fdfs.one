@@ -42,6 +42,12 @@ export function createSessionService(config) {
       const { sub, sid } = verifyAccessToken(config, token);
       const user = await User.findOne({ publicId: sub }).select('+authVersion');
       if (!user) throw unauthorized();
+      if (!user.emailVerifiedAt)
+        throw new AppError(
+          403,
+          'EMAIL_NOT_VERIFIED',
+          'Verify your email to continue.',
+        );
       const session = await Session.findOne({
         publicId: sid,
         userId: user._id,
@@ -79,6 +85,7 @@ export function createSessionService(config) {
       if (
         !user ||
         user.status !== 'active' ||
+        !user.emailVerifiedAt ||
         user.authVersion !== session.authVersion
       )
         throw unauthorized();

@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { AppError } from '../../utils/app-error.js';
 import { User } from './models.js';
 import { randomToken, tokenHash } from './tokens.js';
+import { canonicalGmail, isGmailAddress } from '../../../../shared/gmail.js';
 
 const verificationMs = 24 * 60 * 60 * 1000;
 const resetMs = 30 * 60 * 1000;
@@ -45,11 +46,21 @@ export function createAccountService(config, sendEmail) {
   const hashPassword = (value) => bcrypt.hash(value, config.bcryptCost);
   let dummyHash;
 
+  async function accountByEmail(email, select) {
+    const lookup = (address) => User.findOne({ email: address }).select(select);
+    return (
+      (await lookup(email)) ??
+      (isGmailAddress(email) ? lookup(canonicalGmail(email)) : null)
+    );
+  }
+
   async function sendChallenge(email, field, kind, lifetime, extra = {}) {
+    const account = await accountByEmail(email, 'email');
+    if (!account) return;
     const token = randomToken();
     const result = await User.updateOne(
       {
-        email,
+        _id: account._id,
         status: 'active',
         ...extra,
         $or: [
@@ -61,13 +72,23 @@ export function createAccountService(config, sendEmail) {
       },
       { $set: { [field]: challenge(token, lifetime) } },
     );
-    if (result.modifiedCount === 1) void sendEmail(kind, email, token);
+    if (result.modifiedCount === 1) void sendEmail(kind, account.email, token);
   }
 
   return {
     async register({ email, fullName, password }) {
       const token = randomToken();
       const passwordHash = await hashPassword(password);
+      const mailbox = email.split('@')[0].split('').join('\\.?');
+      if (
+        await User.exists({
+          email: new RegExp(
+            '^' + mailbox + '(?:\\+[^@]+)?@(?:gmail|googlemail)\\.com$',
+            'i',
+          ),
+        })
+      )
+        return;
       try {
         await User.create({
           email,
@@ -83,14 +104,18 @@ export function createAccountService(config, sendEmail) {
     },
 
     async validateCredentials({ email, password }) {
-      const user = await User.findOne({ email }).select(
-        '+passwordHash +authVersion',
-      );
+      const user = await accountByEmail(email, '+passwordHash +authVersion');
       const hash =
         user?.passwordHash ??
         (await (dummyHash ??= hashPassword(randomToken())));
       const valid = await bcrypt.compare(password, hash);
       if (!valid || user?.status !== 'active') throw invalidCredentials();
+      if (!user.emailVerifiedAt)
+        throw new AppError(
+          403,
+          'EMAIL_NOT_VERIFIED',
+          'Verify your email before signing in. You can request a new verification link.',
+        );
       return user;
     },
 
@@ -115,6 +140,8 @@ export function createAccountService(config, sendEmail) {
         { $set: { emailVerifiedAt: new Date() }, $unset: { verification: 1 } },
       );
       if (!modifiedCount) throw invalidToken();
+      if (!account.roles.includes('super_admin'))
+        void sendEmail('welcome', account.email);
     },
 
     resendVerification(email) {

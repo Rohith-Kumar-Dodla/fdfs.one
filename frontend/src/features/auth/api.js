@@ -23,6 +23,7 @@ function setIdentity(session) {
     sessionId: session?.sessionId ?? null,
     generation: generation + 1,
     status: session ? 'authenticated' : 'guest',
+    welcomePending: false,
   }));
 }
 

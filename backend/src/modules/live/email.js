@@ -1,5 +1,9 @@
 ﻿import { formatEventTime } from '../../../../shared/live.js';
-import { createMailTransport } from '../../services/email.js';
+import {
+  brandedMail,
+  createMailTransport,
+  mailFrom,
+} from '../../services/email.js';
 
 export function createReminderDelivery(
   config,
@@ -11,18 +15,21 @@ export function createReminderDelivery(
     const url = new URL('/live/' + event.slug, config.webOrigin);
     try {
       const { accepted } = await transport.sendMail({
-        from: config.smtp?.from,
+        from: mailFrom(config),
         to: recipient,
         messageId: '<live-' + deliveryId + '@' + url.hostname + '>',
-        subject: 'FDFS Live reminder: ' + event.title,
-        text:
-          event.title +
-          ' is scheduled for ' +
-          formatEventTime(event.startAt, event.timeZone, 'en-IN') +
-          ' (' +
-          event.timeZone +
-          ').\n\n' +
-          url.href,
+        ...brandedMail({
+          subject: 'FDFS Live reminder: ' + event.title,
+          copy:
+            event.title +
+            ' is scheduled for ' +
+            formatEventTime(event.startAt, event.timeZone, 'en-IN') +
+            ' (' +
+            event.timeZone +
+            ').',
+          action: 'View live event',
+          url: url.href,
+        }),
       });
       return accepted?.length ? 'sent' : 'failed';
     } catch (error) {

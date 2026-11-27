@@ -146,11 +146,11 @@ describe('authentication security', () => {
   it('rejects excessive bcrypt byte length and unexpected permissions fields', () => {
     const registration = {
       fullName: 'Local Fixture',
-      email: ' USER@Example.test ',
+      email: ' U.SER+TEST@Gmail.com ',
       password: 'long enough phrase',
     };
     expect(schemas.register.parse({ body: registration }).body.email).toBe(
-      'user@example.test',
+      'user@gmail.com',
     );
     expect(
       schemas.register.safeParse({

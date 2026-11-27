@@ -1,4 +1,8 @@
-import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
+import {
+  isVideoLink,
+  playbackDescriptor,
+  publicVideoArtwork,
+} from '../media/public-video.js';
 import { podcastBrand } from '../../../../shared/podcasts.js';
 import { sendSuccess } from '../../utils/responses.js';
 import { AppError } from '../../utils/app-error.js';
@@ -125,7 +129,9 @@ function card(episode, now, show, admin = false) {
     releaseAt,
     thumbnail:
       image(thumbnail, admin) ??
-      (releaseAt <= now ? youtubeArtwork(episode.mainVideo) : null),
+      (releaseAt <= now
+        ? publicVideoArtwork(episode.mainVideo, 'podcasts', slug)
+        : null),
     show: { name: show.name, slug: show.slug },
     availability: releaseAt <= now ? 'released' : 'upcoming',
     hasTeaser: Boolean(teaser?.provider),
@@ -273,7 +279,7 @@ async function participants(episode, admin) {
   );
 }
 
-export async function getEpisode(identifier, admin = false) {
+export async function getEpisode(identifier, admin = false, playback = false) {
   const now = new Date();
   const show = await findShow(!admin).select('name slug').lean();
   const episode =
@@ -293,25 +299,33 @@ export async function getEpisode(identifier, admin = false) {
   if (!episode) throw missingEpisode();
   const available = episode.releaseAt <= now;
   const { notes, links, advisory, chapters, mainVideo, teaser } = episode;
+  const playable = admin
+    ? (source) => source
+    : playback
+      ? (source) => playbackDescriptor(source) && source
+      : playbackDescriptor;
   const result = {
     ...card(episode, now, show, admin),
     commentsEnabled: episode.commentsEnabled !== false,
     notes,
-    links,
+    links: admin ? links : links?.filter(({ url }) => !isVideoLink(url)),
     advisory,
     banner: image(episode.banner, admin),
     participants: await participants(episode, admin),
     teaser:
       available || teaser?.providerVideoId !== mainVideo?.providerVideoId
-        ? teaser
+        ? playable(teaser)
         : undefined,
     ...((available || admin) && {
-      mainVideo,
+      mainVideo: playable(mainVideo),
       chapters,
       gallery: (episode.gallery ?? [])
         .map((row) => image(row, admin))
         .filter(Boolean),
-      extras: episode.extras ?? [],
+      extras: (episode.extras ?? []).map(({ title, video }) => ({
+        title,
+        video: playable(video),
+      })),
     }),
   };
   if (admin)

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { gmailMessage, isGmailAddress } from '../../../../shared/gmail.js';
 
 const email = z
   .string()
@@ -24,7 +25,11 @@ const password = currentPassword.pipe(
 
 export const forms = {
   login: z.object({ email, password: currentPassword }),
-  register: z.object({ email, fullName, password }),
+  register: z.object({
+    email: email.refine(isGmailAddress, gmailMessage),
+    fullName,
+    password,
+  }),
   email: z.object({ email }),
   verify: z.object({ password: currentPassword }),
   reset: z.object({ password }),

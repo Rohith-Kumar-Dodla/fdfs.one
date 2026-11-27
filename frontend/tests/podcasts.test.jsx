@@ -8,8 +8,9 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { apiClient } from '../src/api/client.js';
+import { useAuthStore } from '../src/features/auth/state.js';
 import { EpisodeForm } from '../src/features/podcasts/Form.jsx';
 import { EpisodePlayer } from '../src/features/podcasts/Player.jsx';
 import {
@@ -18,6 +19,8 @@ import {
 } from '../src/features/podcasts/Public.jsx';
 
 const adapter = apiClient.defaults.adapter;
+beforeEach(() => useAuthStore.setState({ status: 'guest' }));
+afterEach(() => useAuthStore.setState(useAuthStore.getInitialState()));
 const main = {
   provider: 'youtube',
   providerVideoId: 'aB2DefGhi-1',
@@ -160,7 +163,7 @@ it('shows announced teasers and keeps unreleased playback and comments unavailab
     });
   route('/podcasts/:slug', <EpisodeDetail />, '/podcasts/fixture-episode');
   expect(
-    await screen.findByRole('button', { name: 'Watch teaser' }),
+    await screen.findByRole('heading', { name: 'Sign in to watch' }),
   ).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Watch episode' })).toBeNull();
   expect(screen.queryByRole('heading', { name: 'Comments' })).toBeNull();

@@ -225,6 +225,10 @@ Use staging-only fixtures to test automatic YouTube metadata, artwork upload and
 
 ## Pre-Phase 7 refinement verification
 
+The final refinement adds regression coverage for Gmail normalization and alias collisions, verified-session enforcement, protected video source responses and release rules, the once-per-account welcome claim, and mocked Brevo acceptance, timeout and rate limits. Hosted transactional delivery requires the Render Brevo configuration and a controlled Gmail inbox. Verify registration, resend, password recovery and the welcome email in that inbox.
+
+Isolated Chrome checked guest gates and source-free detail responses for Cinema, Originals, Podcasts, Live, replays and movie trailers. It verified Gmail sign-in, playback return and player initialization, WhatsApp link attributes and persisted dismissal. The welcome modal and administrator layout were checked at the nine standard widths and both landscape sizes. Player authorization and initialization used controlled media fixtures.
+
 Isolated Chrome checked the administration shell and mobile drawer at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568 by 320 and 844 by 390 landscape. The run covered owner sign-in, public-route redirection, session restoration, logout, and normal account registration and homepage redirection with controlled verification mail.
 
 The browser submitted reviews for known and missing titles, followed the existing movie-association workflow, and removed a published review after entering a reason. My Reviews, the private in-app notification and public rating totals reflected the removal. Chrome used named confirmations for Cinema, Originals, Podcast, Live, Movies and Talent, and the public endpoints rejected the archived records. Destructive checks used disposable fixtures. Check the deployed shell and sign-in flows on physical devices.

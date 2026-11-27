@@ -1,4 +1,4 @@
-import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
+import { publicVideoArtwork } from '../media/public-video.js';
 import { sources } from '../../../../shared/homepage.js';
 import { filmPaths } from '../../../../shared/films.js';
 import { visibility } from '../live/events.js';
@@ -84,7 +84,11 @@ function feature(row, module, now) {
     row.providerArtworkApproved ||
     (['independent', 'original', 'podcasts'].includes(module) &&
       row.releaseAt <= now)
-      ? youtubeArtwork(module === 'live' ? row.video : row.mainVideo)
+      ? publicVideoArtwork(
+          module === 'live' ? row.video : row.mainVideo,
+          module,
+          row.slug,
+        )
       : undefined;
   return {
     id: row.publicId,

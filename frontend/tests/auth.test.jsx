@@ -160,6 +160,20 @@ describe('frontend authentication', () => {
     await events.type(screen.getByLabelText('Password'), password);
     await events.click(screen.getByRole('button', { name: 'Create account' }));
     expect(
+      await screen.findByText(
+        'Use a valid @gmail.com address to create an account.',
+      ),
+    ).toBeVisible();
+    expect(request).not.toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/auth/register' }),
+    );
+    await events.clear(screen.getByLabelText('Email address'));
+    await events.type(
+      screen.getByLabelText('Email address'),
+      'reader@gmail.com',
+    );
+    await events.click(screen.getByRole('button', { name: 'Create account' }));
+    expect(
       await screen.findByRole('heading', { name: 'Check your email' }),
     ).toBeVisible();
     expect(request.mock.calls[0][0].url).toBe('/auth/register');

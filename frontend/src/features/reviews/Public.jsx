@@ -14,6 +14,7 @@ import { FilmImage } from '../films/FilmImage.jsx';
 import { SaveAction } from '../personal/Actions.jsx';
 import { Related } from '../personal/Related.jsx';
 import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { PlaybackGate } from '../media/PlaybackGate.jsx';
 import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { kinds, useParticipation, useRead } from './client.js';
 import {
@@ -344,7 +345,7 @@ function MovieContent({ movie }) {
       </section>
 
       {movie.trailer && (
-        <section className="grid min-w-0 gap-3">
+        <section id="playback" tabIndex={-1} className="grid min-w-0 gap-3">
           <h2 className="text-xl font-semibold">
             <Film
               aria-hidden="true"
@@ -352,18 +353,27 @@ function MovieContent({ movie }) {
             />
             Official trailer
           </h2>
-          {showTrailer ? (
-            <YouTubePlayer
-              video={movie.trailer}
-              title={movie.title + ' official trailer'}
-            />
-          ) : (
-            <div>
-              <Button onClick={() => setShowTrailer(true)}>
-                Watch trailer
-              </Button>
-            </div>
-          )}
+          <PlaybackGate
+            module="movies"
+            slug={movie.slug}
+            artwork={movie.backdrop ?? movie.poster}
+            id="trailer-access"
+          >
+            {({ trailer }) =>
+              showTrailer ? (
+                <YouTubePlayer
+                  video={trailer}
+                  title={movie.title + ' official trailer'}
+                />
+              ) : (
+                <div>
+                  <Button onClick={() => setShowTrailer(true)}>
+                    Watch trailer
+                  </Button>
+                </div>
+              )
+            }
+          </PlaybackGate>
         </section>
       )}
       {movie.credits?.length > 0 && (

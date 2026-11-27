@@ -262,7 +262,7 @@ describe.skipIf(!uri)('isolated Podcast API and moderation', () => {
       .data;
     expect(detail).toMatchObject({
       availability: 'upcoming',
-      teaser: { providerVideoId: 'aB2DefGhi-2' },
+      teaser: { playbackType: 'on_demand' },
       releaseAt: future,
     });
     for (const key of [
@@ -352,7 +352,13 @@ describe.skipIf(!uri)('isolated Podcast API and moderation', () => {
       'host',
       'guest',
     ]);
-    expect(detail.mainVideo.providerVideoId).toBe('aB2DefGhi-1');
+    expect(JSON.stringify(detail)).not.toContain('aB2DefGhi-1');
+    const playback = '/playback/podcasts/' + draft.slug;
+    await api('get', playback).expect(401);
+    expect(
+      (await api('get', playback, admin).expect(200)).body.data.mainVideo
+        .providerVideoId,
+    ).toBe('aB2DefGhi-1');
     const talent = (await api('get', '/talent/' + person.slug).expect(200)).body
       .data;
     expect(talent.podcastAppearances).toMatchObject([

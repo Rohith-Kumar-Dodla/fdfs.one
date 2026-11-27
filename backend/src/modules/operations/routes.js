@@ -10,6 +10,7 @@ import { AppError } from '../../utils/app-error.js';
 import { idParams, listInput } from '../../utils/list.js';
 import { sendError, sendSuccess } from '../../utils/responses.js';
 import { validate } from '../../middlewares/validate.js';
+import { emailConfigured } from '../../services/email.js';
 import { requireActiveAccount } from '../auth/authorization.js';
 import { permit } from '../admin/policy.js';
 import { readConfig } from '../site/service.js';
@@ -149,7 +150,9 @@ export function mountOperations(api, admin, authenticate, options) {
       categories: value.supportCategories ?? Object.keys(supportCategories),
       email: value.supportEmail,
       contact: value.contact,
-      guestEmail: Boolean(options.supportEmailAvailable ?? authConfig.smtp),
+      guestEmail: Boolean(
+        options.supportEmailAvailable ?? emailConfigured(authConfig),
+      ),
       attachments: config?.SUPPORT_ATTACHMENTS !== false,
       maxBytes: supportMaxBytes,
       attachmentDays: config?.SUPPORT_ATTACHMENT_DAYS ?? 90,
@@ -406,7 +409,7 @@ export function mountOperations(api, admin, authenticate, options) {
         available: available ?? (() => true),
         presence,
         health,
-        smtp: Boolean(authConfig.smtp),
+        smtp: emailConfigured(authConfig),
         analytics: await currentAnalytics(),
         media: Boolean(mediaProvider),
       }),

@@ -183,7 +183,7 @@ const labels = {
   resolved: 'Your support ticket was resolved',
   review_comment: 'Someone commented on your review',
   review_moderation: 'Your review activity was moderated',
-  live_reminder: 'Your live event reminder was sent',
+  live_reminder: 'Your live event reminder was accepted for delivery',
   talent_release: 'A new release features talent you follow',
 };
 export const noticeKinds = {

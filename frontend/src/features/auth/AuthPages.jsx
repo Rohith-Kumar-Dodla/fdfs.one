@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useSiteSettings } from '../site/public.jsx';
 import { accountKeys, accounts } from './api.js';
+import { useAuthStore } from './state.js';
 import {
   AuthForm,
   AuthPage,
@@ -23,7 +24,7 @@ export function LoginPage() {
   const target =
     ['/account', '/account/settings'].includes(state?.from) ||
     (typeof state?.from === 'string' &&
-      /^\/(?:dashboard(?:\/[a-z-]+)?|talent\/[a-z0-9-]+|admin(?:\/[a-z0-9-]+)*|submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|organizer\/live(?:\/new|\/[a-f0-9-]{36}(?:\/correction)?)?|account\/reviews|reviews(?:\/[a-z0-9-]+)?|(?:movies|cinema|originals|podcasts|live)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?|$)/.test(
+      /^\/(?:dashboard(?:\/[a-z-]+)?|talent\/[a-z0-9-]+|admin(?:\/[a-z0-9-]+)*|submissions\/new|creator\/films(?:\/new|\/[a-f0-9-]{36}\/correction)?|organizer\/live(?:\/new|\/[a-f0-9-]{36}(?:\/correction)?)?|account\/reviews|reviews(?:\/[a-z0-9-]+)?|(?:movies|cinema|originals|podcasts|live)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:[?#]|$)/.test(
         state.from,
       ))
       ? state.from
@@ -46,6 +47,8 @@ export function LoginPage() {
         submit={async (values) => {
           await accounts.login(values);
           const { data: account } = await accounts.me();
+          if (account.emailVerified && !account.roles.includes('super_admin'))
+            useAuthStore.setState({ welcomePending: true });
           navigate(account.roles.includes('super_admin') ? '/admin' : target, {
             replace: true,
           });
@@ -54,6 +57,9 @@ export function LoginPage() {
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         <Link to="/forgot-password" className={linkClass}>
           Forgot password?
+        </Link>
+        <Link to="/verification-pending" className={linkClass}>
+          Resend verification email
         </Link>
         {!administrator &&
           settings.registrationOpen &&
@@ -79,7 +85,10 @@ export function RegisterPage() {
       </AuthPage>
     );
   return (
-    <AuthPage title="Create an account">
+    <AuthPage
+      title="Create an account"
+      description="A verified Gmail address is required to join FDFS.ONE."
+    >
       <AuthForm
         fields={[
           fullNameField,

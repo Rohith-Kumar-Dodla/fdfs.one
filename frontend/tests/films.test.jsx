@@ -2,11 +2,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { apiClient } from '../src/api/client.js';
 import { FilmDirectory, FilmDetail } from '../src/features/films/Public.jsx';
 import { FilmForm } from '../src/features/films/Form.jsx';
 import { ReleaseForm } from '../src/features/films/Manage.jsx';
+import { useAuthStore } from '../src/features/auth/state.js';
 
 const adapter = apiClient.defaults.adapter;
 const video = {
@@ -62,7 +63,9 @@ function route(path, element, initial = path) {
   return router;
 }
 
+beforeEach(() => useAuthStore.setState({ status: 'guest' }));
 afterEach(() => {
+  useAuthStore.setState(useAuthStore.getInitialState());
   apiClient.defaults.adapter = adapter;
   delete window.YT;
 });
@@ -119,7 +122,22 @@ it('requests the selected classification and keeps filters and pagination in the
 });
 
 it('renders cast links and initializes a responsive player only after selection', async () => {
-  apiClient.defaults.adapter = async () => response(fixture);
+  useAuthStore.setState({
+    status: 'authenticated',
+    accessToken: 'fixture-access',
+  });
+  apiClient.defaults.adapter = async ({ url }) =>
+    response(
+      url === '/users/me'
+        ? { status: 'active', emailVerified: true, roles: ['viewer'] }
+        : url.startsWith('/playback/')
+          ? { mainVideo: video }
+          : url.startsWith('/personal/progress/')
+            ? { enabled: false }
+            : url === '/personal/watchlist/status'
+              ? []
+              : fixture,
+    );
   window.YT = {
     Player: class {
       constructor(frame, { events }) {
@@ -142,7 +160,7 @@ it('renders cast links and initializes a responsive player only after selection'
     '/talent/test-talent',
   );
   expect(document.querySelector('iframe')).toBeNull();
-  await events.click(screen.getByRole('button', { name: 'Watch film' }));
+  await events.click(await screen.findByRole('button', { name: 'Watch film' }));
   const frame = await screen.findByTitle(fixture.title);
   expect(frame.parentElement).toHaveClass('aspect-video');
   expect(new URL(frame.src).searchParams.has('autoplay')).toBe(false);
@@ -166,7 +184,7 @@ it('displays upcoming availability and trailer controls without a main playback 
     '/originals/example-film',
   );
   expect(
-    await screen.findByRole('button', { name: 'Watch trailer' }),
+    await screen.findByRole('heading', { name: 'Sign in to watch' }),
   ).toBeVisible();
   expect(screen.getByText('Scheduled release')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Watch film' })).toBeNull();

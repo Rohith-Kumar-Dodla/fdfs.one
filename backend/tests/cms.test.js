@@ -226,8 +226,8 @@ describe.skipIf(!uri)('Phase 4A.1 isolated CMS', () => {
           'get',
           '/films/' + film.slug + '?classification=independent',
         ).expect(200),
-      ).mainVideo.providerVideoId,
-    ).toBe('aBCDef123_-');
+      ).mainVideo,
+    ).not.toHaveProperty('providerVideoId');
     await api('get', '/films/' + film.slug + '?classification=original').expect(
       404,
     );

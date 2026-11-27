@@ -11,6 +11,7 @@ import { publicTalentRoutes } from './modules/talent/routes.js';
 import { publicFilmRoutes } from './modules/films/routes.js';
 import { publicLiveRoutes } from './modules/live/routes.js';
 import { publicPodcastRoutes } from './modules/podcasts/routes.js';
+import { playbackRoutes } from './modules/media/playback.js';
 import { requestContext } from './middlewares/request-context.js';
 import { AppError } from './utils/app-error.js';
 import { sendError, sendSuccess } from './utils/responses.js';
@@ -89,6 +90,7 @@ export function createApp({
   );
   api.use(express.json({ limit: '100kb' }));
   mountPublicSite(api, isDatabaseConnected, { config, authConfig });
+  api.use('/playback', playbackRoutes(isDatabaseConnected, authConfig));
   api.use('/talent', publicTalentRoutes(isDatabaseConnected));
   api.use('/films', publicFilmRoutes(isDatabaseConnected));
   api.use('/podcasts', publicPodcastRoutes(isDatabaseConnected));

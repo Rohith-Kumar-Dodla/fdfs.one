@@ -1,5 +1,6 @@
 import { FilmImage } from '../films/FilmImage.jsx';
-import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
+import { PlaybackGate } from '../media/PlaybackGate.jsx';
+import { SupportingVideos } from '../films/Public.jsx';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { languages } from '../../../../shared/films.js';
@@ -132,61 +133,70 @@ export function EpisodeDetail() {
         ))}
       {episode && (
         <>
-          <EpisodePlayer
-            key={episode.id}
-            episode={episode}
-            openMain={params.has('resume') || params.has('start')}
-            artwork={episode.banner ?? episode.thumbnail}
-            information={
-              <>
-                <header className="grid min-w-0 gap-2 wrap-anywhere">
-                  <div>
-                    <Badge>{episode.show.name}</Badge>
-                  </div>
-                  <SectionHeading as="h1" description={episode.synopsis}>
-                    {episode.title}
-                  </SectionHeading>
-                  <p className="text-muted">
-                    Season {episode.season} · Episode {episode.number} ·{' '}
-                    {languages[episode.language]} ·{' '}
-                    {timestamp(episode.duration)}
-                  </p>
-                  {episode.releaseAt && (
-                    <p className="text-sm text-muted">
-                      {episode.availability === 'upcoming'
-                        ? 'Scheduled for'
-                        : 'Released'}{' '}
-                      <time dateTime={episode.releaseAt}>
-                        {formatDate(episode.releaseAt)}
-                      </time>
-                    </p>
-                  )}
-                </header>
-                {episode.advisory && (
-                  <p className="wrap-anywhere text-muted">
-                    Content advisory · {episode.advisory}
-                  </p>
-                )}
-                <div>
-                  <SaveAction item={episode} module="podcasts" />
-                </div>
+          {(episode.mainVideo ||
+            episode.teaser ||
+            episode.extras?.some(({ video }) => video)) && (
+            <PlaybackGate
+              module="podcasts"
+              slug={episode.slug}
+              artwork={episode.banner ?? episode.thumbnail}
+            >
+              {({ mainVideo, teaser, extras }) => (
+                <>
+                  <EpisodePlayer
+                    key={episode.id}
+                    episode={{ ...episode, mainVideo, teaser }}
+                    openMain={params.has('resume') || params.has('start')}
+                    artwork={episode.banner ?? episode.thumbnail}
+                  />
+                  <SupportingVideos extras={extras} />
+                </>
+              )}
+            </PlaybackGate>
+          )}
+          <>
+            <header className="grid min-w-0 gap-2 wrap-anywhere">
+              <div>
+                <Badge>{episode.show.name}</Badge>
+              </div>
+              <SectionHeading as="h1" description={episode.synopsis}>
+                {episode.title}
+              </SectionHeading>
+              <p className="text-muted">
+                Season {episode.season} · Episode {episode.number} ·{' '}
+                {languages[episode.language]} · {timestamp(episode.duration)}
+              </p>
+              {episode.releaseAt && (
+                <p className="text-sm text-muted">
+                  {episode.availability === 'upcoming'
+                    ? 'Scheduled for'
+                    : 'Released'}{' '}
+                  <time dateTime={episode.releaseAt}>
+                    {formatDate(episode.releaseAt)}
+                  </time>
+                </p>
+              )}
+            </header>
+            {episode.advisory && (
+              <p className="wrap-anywhere text-muted">
+                Content advisory · {episode.advisory}
+              </p>
+            )}
+            <div>
+              <SaveAction item={episode} module="podcasts" />
+            </div>
 
-                {episode.notes && (
-                  <section className="grid gap-2 wrap-anywhere">
-                    <h2 className="text-xl font-semibold">Show notes</h2>
-                    <p className="whitespace-pre-wrap">{episode.notes}</p>
-                  </section>
-                )}
-                {episode.guestName && (
-                  <p className="text-sm">Guest · {episode.guestName}</p>
-                )}
-                <People
-                  entries={episode.participants}
-                  title="Hosts and guests"
-                />
-              </>
-            }
-          />
+            {episode.notes && (
+              <section className="grid gap-2 wrap-anywhere">
+                <h2 className="text-xl font-semibold">Show notes</h2>
+                <p className="whitespace-pre-wrap">{episode.notes}</p>
+              </section>
+            )}
+            {episode.guestName && (
+              <p className="text-sm">Guest · {episode.guestName}</p>
+            )}
+            <People entries={episode.participants} title="Hosts and guests" />
+          </>
           {episode.topics.length > 0 && (
             <ul className="flex flex-wrap gap-2" aria-label="Episode topics">
               {episode.topics.map((topic) => (
@@ -207,19 +217,6 @@ export function EpisodeDetail() {
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {episode.gallery.map((item, index) => (
                   <FilmImage key={item.id ?? index} image={item} landscape />
-                ))}
-              </div>
-            </section>
-          )}
-          {episode.extras?.length > 0 && (
-            <section className="grid gap-3">
-              <h2 className="text-xl font-semibold">Supporting videos</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {episode.extras.map(({ title, video }) => (
-                  <div className="grid gap-2" key={video.providerVideoId}>
-                    <h3 className="font-semibold">{title}</h3>
-                    <YouTubePlayer title={title} video={video} />
-                  </div>
                 ))}
               </div>
             </section>

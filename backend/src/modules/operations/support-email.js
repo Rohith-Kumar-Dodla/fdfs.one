@@ -1,5 +1,9 @@
 ﻿import { randomUUID } from 'node:crypto';
-import { createMailTransport } from '../../services/email.js';
+import {
+  brandedMail,
+  createMailTransport,
+  mailFrom,
+} from '../../services/email.js';
 import { User } from '../auth/models.js';
 import { can } from '../../../../shared/admin.js';
 import { GuestChallenge, SupportJob, Ticket } from './support-models.js';
@@ -65,12 +69,16 @@ export function supportMailer(
     if (!recipient) return 'disabled';
     try {
       const result = await transport.sendMail({
-        from: auth.smtp?.from,
+        from: mailFrom(auth),
         to: recipient,
         messageId:
           '<support-' + job.id.replaceAll(':', '.') + '@' + url.hostname + '>',
-        subject: subjects[job.type] + reference,
-        text: subjects[job.type] + reference + '.\n\n' + url.href,
+        ...brandedMail({
+          subject: subjects[job.type] + reference,
+          copy: subjects[job.type] + reference + '.',
+          action: 'Open FDFS.ONE Support',
+          url: url.href,
+        }),
       });
       return result.accepted?.length ? 'accepted' : 'failed';
     } catch (error) {

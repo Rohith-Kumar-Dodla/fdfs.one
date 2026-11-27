@@ -8,6 +8,9 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   BCRYPT_COST: z.coerce.number().int().min(10).max(14).default(12),
   APP_WEB_URL: z.url().default('http://localhost:5173'),
+  EMAIL_PROVIDER: z.enum(['smtp', 'brevo']).default('smtp'),
+  BREVO_API_KEY: z.string().trim().optional(),
+  EMAIL_FROM_NAME: z.string().trim().min(1).max(100).default('FDFS.ONE'),
   SMTP_HOST: z.string().trim().optional(),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
   SMTP_SECURE: z
@@ -43,14 +46,22 @@ export function loadAuthConfig(config, env = process.env) {
   }
 
   if (
-    Boolean(values.SMTP_HOST) !== Boolean(values.EMAIL_FROM) ||
-    Boolean(values.SMTP_USER) !== Boolean(values.SMTP_PASS) ||
-    ((values.SMTP_USER || values.SMTP_PASS) && !values.SMTP_HOST)
+    values.EMAIL_PROVIDER === 'smtp' &&
+    (Boolean(values.SMTP_HOST) !== Boolean(values.EMAIL_FROM) ||
+      Boolean(values.SMTP_USER) !== Boolean(values.SMTP_PASS) ||
+      ((values.SMTP_USER || values.SMTP_PASS) && !values.SMTP_HOST))
   ) {
     throw new Error(
       'SMTP configuration requires SMTP_HOST and EMAIL_FROM, and both SMTP_USER and SMTP_PASS when authenticating.',
     );
   }
+  if (
+    values.EMAIL_PROVIDER === 'brevo' &&
+    (!values.BREVO_API_KEY || !z.email().safeParse(values.EMAIL_FROM).success)
+  )
+    throw new Error(
+      'Brevo configuration requires BREVO_API_KEY and a valid EMAIL_FROM address.',
+    );
 
   return {
     secure,
@@ -61,16 +72,25 @@ export function loadAuthConfig(config, env = process.env) {
     accessTtl: values.JWT_ACCESS_TTL,
     sessionMs: values.REFRESH_TOKEN_TTL_DAYS * 86400000,
     bcryptCost: values.BCRYPT_COST,
-    smtp: values.SMTP_HOST
-      ? {
-          host: values.SMTP_HOST,
-          port: values.SMTP_PORT,
-          secure: values.SMTP_SECURE,
-          from: values.EMAIL_FROM,
-          auth: values.SMTP_USER
-            ? { user: values.SMTP_USER, pass: values.SMTP_PASS }
-            : undefined,
-        }
-      : null,
+    brevo:
+      values.EMAIL_PROVIDER === 'brevo'
+        ? {
+            apiKey: values.BREVO_API_KEY,
+            from: values.EMAIL_FROM,
+            fromName: values.EMAIL_FROM_NAME,
+          }
+        : null,
+    smtp:
+      values.EMAIL_PROVIDER === 'smtp' && values.SMTP_HOST
+        ? {
+            host: values.SMTP_HOST,
+            port: values.SMTP_PORT,
+            secure: values.SMTP_SECURE,
+            from: values.EMAIL_FROM,
+            auth: values.SMTP_USER
+              ? { user: values.SMTP_USER, pass: values.SMTP_PASS }
+              : undefined,
+          }
+        : null,
   };
 }

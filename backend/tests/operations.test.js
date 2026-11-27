@@ -145,7 +145,7 @@ describe.skipIf(!uri)(
       });
       return { user, ...(await createSessionService(auth).open(user)) };
     }
-    async function connect(account) {
+    async function connect(account, event = 'connect') {
       const socket = io('http://127.0.0.1:' + server.address().port, {
         forceNew: true,
         autoConnect: false,
@@ -155,10 +155,10 @@ describe.skipIf(!uri)(
         auth: account && { token: account.accessToken },
       });
       sockets.add(socket);
-      const connected = once(socket, 'connect');
+      const connected = once(socket, event);
       socket.connect();
-      await connected;
-      return socket;
+      const [error] = await connected;
+      return event === 'connect' ? socket : error;
     }
     const emit = (socket, event, payload = {}) =>
       socket.timeout(4000).emitWithAck(event, payload);
@@ -231,10 +231,10 @@ describe.skipIf(!uri)(
       expect((await emit(guest, 'ops:subscribe')).ok).toBe(false);
       await api('get', '/admin/activity', agent).expect(403);
       const unverified = await account('Unverified admin', 'admin', false);
-      const unverifiedSocket = await connect(unverified);
-      expect((await emit(unverifiedSocket, 'ops:subscribe')).ok).toBe(false);
+      expect((await connect(unverified, 'connect_error')).data.code).toBe(
+        'EMAIL_NOT_VERIFIED',
+      );
       await api('get', '/admin/activity', unverified).expect(403);
-      unverifiedSocket.disconnect();
       expect(
         (await emit(one, 'presence:pulse', { ...signal, browser })).ok,
       ).toBe(true);

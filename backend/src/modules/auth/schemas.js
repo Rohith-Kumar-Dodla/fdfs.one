@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  canonicalGmail,
+  gmailMessage,
+  isGmailAddress,
+} from '../../../../shared/gmail.js';
 
 export const normalizedEmail = z
   .string()
@@ -17,12 +22,19 @@ const code = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const body = (fields) => z.object({ body: z.strictObject(fields) });
 
 export const schemas = {
-  register: body({ email: normalizedEmail, fullName, password }),
+  register: body({
+    email: normalizedEmail
+      .refine(isGmailAddress, gmailMessage)
+      .transform(canonicalGmail),
+    fullName,
+    password,
+  }),
   login: body({ email: normalizedEmail, password: currentPassword }),
   email: body({ email: normalizedEmail }),
   verify: body({ token: code, password: currentPassword }),
   reset: body({ token: code, password }),
   change: body({ currentPassword, password }),
+  welcome: body({ action: z.enum(['present', 'acknowledge']) }),
   empty: z.object({ body: z.strictObject({}).optional() }),
   session: z.object({ params: z.object({ sessionId: z.uuid() }) }),
   profile: z.object({

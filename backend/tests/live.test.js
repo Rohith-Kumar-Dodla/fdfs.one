@@ -179,7 +179,7 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
       expect(detail.body.data).toMatchObject({
         broadcast: 'live',
         chatEnabled: false,
-        video: { provider: 'youtube' },
+        video: { playbackType: 'live' },
       });
       await request(disabled)
         .get(path + '/chat')
@@ -412,26 +412,25 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
       [invalid, 'AUTH_REQUIRED'],
       [wrongOrigin, undefined],
       [inactive, 'ACCOUNT_RESTRICTED'],
+      [room(unverified), 'EMAIL_NOT_VERIFIED'],
     ]) {
       const refused = once(socket, 'connect_error');
       socket.connect();
       expect((await refused)[0].data?.code).toBe(code);
     }
-    const [writer, guest, isolated, pending, laterSuspended] =
-      await Promise.all([
-        connect(room(viewer)),
-        connect(room()),
-        connect(room()),
-        connect(room(unverified)),
-        connect(room(other)),
-      ]);
+    const [writer, guest, isolated, laterSuspended] = await Promise.all([
+      connect(room(viewer)),
+      connect(room()),
+      connect(room()),
+      connect(room(other)),
+    ]);
     expect((await emit(guest, 'event:join', { slug: hidden.slug })).code).toBe(
       'LIVE_NOT_FOUND',
     );
     expect(
       (await emit(guest, 'event:join', { slug: event.slug, admin: true })).code,
     ).toBe('INVALID_SOCKET_PAYLOAD');
-    for (const socket of [writer, guest, pending])
+    for (const socket of [writer, guest])
       expect((await emit(socket, 'event:join', { slug: event.slug })).ok).toBe(
         true,
       );
@@ -445,9 +444,6 @@ describe.skipIf(!uri)('isolated live events, sockets and reminders', () => {
     const attempt = (sock, text, clientId = randomUUID()) =>
       emit(sock, 'chat:send', { slug: event.slug, text, clientId });
     expect((await attempt(guest, 'Guest')).code).toBe('AUTH_REQUIRED');
-    expect((await attempt(pending, 'Unverified')).code).toBe(
-      'EMAIL_NOT_VERIFIED',
-    );
     expect((await attempt(isolated, 'Wrong room')).code).toBe('ROOM_REQUIRED');
     await User.updateOne(
       { _id: other.user._id },

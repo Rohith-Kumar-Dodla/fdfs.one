@@ -48,6 +48,8 @@ const userSchema = new Schema(
     },
     bio: { type: String, maxlength: 500, default: '' },
     preferences: { emailUpdates: { type: Boolean, default: false } },
+    welcomePresentedAt: Date,
+    welcomeAcknowledgedAt: Date,
     authVersion: { type: Number, default: 0, select: false },
     verification: { type: challenge, select: false },
     passwordReset: { type: challenge, select: false },

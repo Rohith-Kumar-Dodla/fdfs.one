@@ -13,6 +13,7 @@ import {
   releaseReference,
 } from '../media/assets.js';
 import { videoSource } from '../media/video.js';
+import { isVideoLink } from '../media/public-video.js';
 import { normalizedName, Personality } from '../talent/models.js';
 import { Movie, RatingTotals } from './models.js';
 
@@ -199,7 +200,7 @@ function publicCredits(row) {
     .filter((credit) => credit.personality?.status === 'published')
     .map(creditView);
 }
-export async function getMovie(slug, onlyCredits = false) {
+export async function getMovie(slug, onlyCredits = false, playback = false) {
   const query = Movie.findOne({ ...publicMovieFilter(), slug })
     .select(onlyCredits ? 'credits' : projection)
     .populate({ path: 'credits.personality', select: personFields });
@@ -212,6 +213,10 @@ export async function getMovie(slug, onlyCredits = false) {
     id: row.publicId,
     slug: row.slug,
     ...filmFields(row, fields),
+    links: row.links?.filter(({ url }) => !isVideoLink(url)),
+    awards: row.awards?.map((award) =>
+      isVideoLink(award.source) ? { ...award, source: undefined } : award,
+    ),
     path: moviePath(row.slug),
     publishedAt: row.publishedAt,
     poster: movieImage(row.poster),
@@ -219,10 +224,12 @@ export async function getMovie(slug, onlyCredits = false) {
     gallery: row.gallery.map(movieImage).filter(Boolean),
     trailer:
       row.trailerAuthorized && row.trailer?.providerVideoId
-        ? {
-            provider: row.trailer.provider,
-            providerVideoId: row.trailer.providerVideoId,
-          }
+        ? playback
+          ? {
+              provider: row.trailer.provider,
+              providerVideoId: row.trailer.providerVideoId,
+            }
+          : { available: true }
         : undefined,
     credits,
     rating: ratingView(

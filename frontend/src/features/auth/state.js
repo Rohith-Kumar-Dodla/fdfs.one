@@ -5,4 +5,5 @@ export const useAuthStore = create(() => ({
   sessionId: null,
   status: 'checking',
   generation: 0,
+  welcomePending: false,
 }));

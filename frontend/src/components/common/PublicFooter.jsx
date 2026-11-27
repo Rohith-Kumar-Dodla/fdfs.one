@@ -3,6 +3,7 @@ import { legalSections } from '../../../../shared/site.js';
 import { AnalyticsPreferences } from '../../features/operations/Realtime.jsx';
 import { modules } from '../../routes/modules.js';
 import { Container } from '../ui/surfaces.jsx';
+import { communityChannel } from '../../features/auth/Welcome.jsx';
 
 const link =
   'inline-flex min-h-11 items-center text-sm text-muted hover:text-accent focus-visible:text-accent wrap-anywhere';
@@ -67,6 +68,16 @@ export function PublicFooter({ settings }) {
                 <Link to="/support" className={link}>
                   Support Center
                 </Link>
+              </li>
+              <li>
+                <a
+                  className={link}
+                  href={communityChannel}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp Community
+                </a>
               </li>
               {settings.links.map(({ label, url }) => (
                 <li key={label + url}>

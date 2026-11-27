@@ -1,5 +1,9 @@
 import { ratedPage } from '../reviews/rated-page.js';
-import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
+import {
+  isVideoLink,
+  playbackDescriptor,
+  publicVideoArtwork,
+} from '../media/public-video.js';
 import { genres } from '../../../../shared/films.js';
 import { AppError } from '../../utils/app-error.js';
 import { sendList } from '../../utils/list.js';
@@ -66,7 +70,9 @@ function cardView(film, now) {
     releaseYear,
     poster:
       viewImage(poster) ??
-      (existsNow(film, now) ? youtubeArtwork(film.mainVideo) : null),
+      (existsNow(film, now)
+        ? publicVideoArtwork(film.mainVideo, classification, slug)
+        : null),
     banner: viewImage(film.banner),
     releaseAt,
     availability: existsNow(film, now) ? 'released' : 'upcoming',
@@ -205,7 +211,7 @@ function creditsFor(film, publicOnly) {
     );
 }
 
-export async function getPublicFilm(slug, classification) {
+export async function getPublicFilm(slug, classification, playback = false) {
   const now = new Date();
   const film = await fullFilm({
     slug,
@@ -226,27 +232,39 @@ export async function getPublicFilm(slug, classification) {
     extras,
     mainVideo,
   } = film;
+  const playable = playback
+    ? (source) => playbackDescriptor(source) && source
+    : playbackDescriptor;
   return {
     ...cardView(film, now),
     description,
     subtitles,
     productionCompany,
     advisory,
-    awards,
+    awards: awards.map((award) =>
+      isVideoLink(award.source) ? { ...award, source: undefined } : award,
+    ),
     banner: viewImage(banner),
     gallery: gallery.map(viewImage).filter(Boolean),
     credits: await creditsFor(film, true),
     trailer:
       existsNow(film, now) ||
       trailer?.providerVideoId !== mainVideo?.providerVideoId
-        ? trailer
+        ? playable(trailer)
         : undefined,
     ...(existsNow(film, now) && {
-      mainVideo,
-      extras: extras.map(({ title, video, thumbnail }) => ({
+      mainVideo: playable(mainVideo),
+      extras: extras.map(({ title, video, thumbnail }, index) => ({
         title,
-        video,
-        thumbnail: viewImage(thumbnail) ?? youtubeArtwork(video),
+        video: playable(video),
+        thumbnail:
+          viewImage(thumbnail) ??
+          publicVideoArtwork(
+            video,
+            film.classification,
+            slug,
+            'extra-' + index,
+          ),
       })),
     }),
   };

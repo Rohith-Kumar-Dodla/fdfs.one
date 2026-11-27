@@ -276,7 +276,7 @@ describe.skipIf(!uri)('film workflow on an isolated replica set', () => {
     expect(upcoming.body.data).toMatchObject({
       availability: 'upcoming',
       releaseAt: future,
-      trailer: { providerVideoId: 'zY1XwvUts-2' },
+      trailer: { playbackType: 'on_demand' },
     });
     for (const privateField of [
       'mainVideo',
@@ -288,6 +288,14 @@ describe.skipIf(!uri)('film workflow on an isolated replica set', () => {
     ])
       expect(upcoming.body.data).not.toHaveProperty(privateField);
     expect(JSON.stringify(upcoming.body.data)).not.toContain('aB2DefGhi-1');
+    expect(JSON.stringify(upcoming.body.data)).not.toContain('zY1XwvUts-2');
+    const playback = '/playback/original/' + draft.slug;
+    await api('get', playback).expect(401);
+    const allowed = await api('get', playback, admin)
+      .expect('Cache-Control', 'private, no-store')
+      .expect(200);
+    expect(allowed.body.data.trailer.providerVideoId).toBe('zY1XwvUts-2');
+    expect(allowed.body.data).not.toHaveProperty('mainVideo');
     await api(
       'get',
       '/films/' + draft.slug + '?classification=independent',
@@ -318,8 +326,13 @@ describe.skipIf(!uri)('film workflow on an isolated replica set', () => {
     const released = await api('get', '/films/' + draft.slug).expect(200);
     expect(released.body.data).toMatchObject({
       availability: 'released',
-      mainVideo: { providerVideoId: 'aB2DefGhi-1' },
+      mainVideo: { playbackType: 'on_demand' },
     });
+    expect(JSON.stringify(released.body.data)).not.toContain('aB2DefGhi-1');
+    expect(
+      (await api('get', playback, admin).expect(200)).body.data.mainVideo
+        .providerVideoId,
+    ).toBe('aB2DefGhi-1');
   });
 
   it('requires creator rights, protects ownership and shared assets, and publishes approved credits into filmography', async () => {

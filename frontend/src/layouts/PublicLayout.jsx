@@ -17,6 +17,7 @@ import { Container, SectionHeading } from '../components/ui/surfaces.jsx';
 import { ErrorState, Spinner } from '../components/ui/states.jsx';
 import { useAuthStore } from '../features/auth/state.js';
 import { useAccount } from '../features/auth/guards.jsx';
+import { Welcome } from '../features/auth/Welcome.jsx';
 
 export function PublicLayout() {
   const main = useRef(null);
@@ -97,6 +98,7 @@ export function PublicLayout() {
           )}
         </main>
         {!admin && <PublicFooter settings={settings} />}
+        {!admin && <Welcome />}
         <ToastViewport />
         <ScrollRestoration />
       </div>

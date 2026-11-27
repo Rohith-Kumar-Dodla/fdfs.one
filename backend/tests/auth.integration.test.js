@@ -48,7 +48,7 @@ const authConfig = {
 };
 const registration = {
   fullName: 'Test Account',
-  email: 'fixture@example.test',
+  email: 'fixture@gmail.com',
   password: 'isolated test phrase',
 };
 const newPassword = 'another isolated phrase';
@@ -71,15 +71,29 @@ const mailTransport = {
   async sendMail(message) {
     const result = await mailer.sendMail(message);
     outbox.push(JSON.parse(result.message.toString()));
+    return { accepted: [message.to] };
   },
 };
 
 async function delivered(index = 0) {
-  await expect.poll(() => outbox[index]?.text).toBeTruthy();
-  return outbox[index].text.match(/#token=([A-Za-z0-9_-]{43})/)?.[1];
+  const tokens = () =>
+    outbox
+      .map(({ text }) => text.match(/#token=([A-Za-z0-9_-]{43})/)?.[1])
+      .filter(Boolean);
+  await expect.poll(() => tokens()[index]).toBeTruthy();
+  return tokens()[index];
 }
 
 const register = () => send(app, 'register', registration).expect(202);
+const verify = async () =>
+  send(app, 'verify-email', {
+    token: await delivered(),
+    password: registration.password,
+  }).expect(200);
+const registerVerified = async () => {
+  await register();
+  await verify();
+};
 const login = (
   password = registration.password,
   browser = 'Local test device',
@@ -146,9 +160,13 @@ describe.skipIf(!uri)(
     });
 
     it('registers exactly one normalized viewer under concurrent duplicate submissions', async () => {
+      await send(app, 'register', {
+        ...registration,
+        email: 'fixture@example.test',
+      }).expect(400);
       const first = send(app, 'register', {
         ...registration,
-        email: ' FIXTURE@example.test ',
+        email: ' FIX.TURE+ALIAS@gmail.com ',
       });
       const second = send(app, 'register', registration);
       const results = await Promise.all([
@@ -186,6 +204,15 @@ describe.skipIf(!uri)(
         }),
       ).expect(401);
       expect(rejected.body).toEqual(unknown.body);
+      await login().expect(403);
+      await verify();
+      await expect
+        .poll(
+          () =>
+            outbox.filter(({ subject }) => subject === 'Welcome to FDFS.ONE')
+              .length,
+        )
+        .toBe(1);
       const response = await login().expect(200);
       expect(Object.keys(response.body.data).sort()).toEqual([
         'accessToken',
@@ -197,7 +224,7 @@ describe.skipIf(!uri)(
       expect(user).toMatchObject({
         email: registration.email,
         roles: ['viewer'],
-        emailVerified: false,
+        emailVerified: true,
       });
       for (const field of [
         'passwordHash',
@@ -255,10 +282,10 @@ describe.skipIf(!uri)(
     });
 
     it('expires password reset links and invalidates every prior session after reset', async () => {
-      await register();
+      await registerVerified();
       const session = await login().expect(200);
       const known = await send(app, 'forgot-password', {
-        email: registration.email,
+        email: 'F.IXTURE+RESET@gmail.com',
       }).expect(202);
       const unknown = await send(app, 'forgot-password', {
         email: 'other@example.test',
@@ -296,8 +323,30 @@ describe.skipIf(!uri)(
       await login(newPassword).expect(200);
     });
 
+    it('claims and acknowledges the welcome modal once per verified account', async () => {
+      await registerVerified();
+      const first = await login().expect(200);
+      const second = await login().expect(200);
+      const welcome = (session, action) =>
+        protectedRequest(
+          agent(app).post('/api/v1/users/me/welcome').send({ action }),
+          session.body.data.accessToken,
+        ).expect(200);
+      const responses = await Promise.all([
+        welcome(first, 'present'),
+        welcome(second, 'present'),
+      ]);
+      expect(responses.filter(({ body }) => body.data.show)).toHaveLength(1);
+      await welcome(first, 'acknowledge');
+      expect(
+        (await User.findOne({ email: registration.email }))
+          .welcomeAcknowledgedAt,
+      ).toBeInstanceOf(Date);
+      expect((await welcome(second, 'present')).body.data.show).toBe(false);
+    });
+
     it('requires the current password to change passwords and revokes other logged-in devices', async () => {
-      await register();
+      await registerVerified();
       const first = await login().expect(200);
       const second = await login(
         registration.password,
@@ -319,7 +368,7 @@ describe.skipIf(!uri)(
     });
 
     it('rotates one concurrent refresh and revokes a recognized replay outside the overlap window', async () => {
-      await register();
+      await registerVerified();
       const original = await login().expect(200);
       const otherDevice = await login().expect(200);
       const oldCookie = cookieOf(original);
@@ -344,7 +393,7 @@ describe.skipIf(!uri)(
     });
 
     it('enforces expiry in requests and allows a user to revoke only their own sessions', async () => {
-      await register();
+      await registerVerified();
       const first = await login().expect(200);
       const second = await login().expect(200);
       const token = first.body.data.accessToken;
@@ -368,7 +417,7 @@ describe.skipIf(!uri)(
     });
 
     it('supports current-session logout and invalidates all sessions with logout-all', async () => {
-      await register();
+      await registerVerified();
       const first = await login().expect(200);
       const second = await login().expect(200);
       const single = await withBrowser(
@@ -391,6 +440,8 @@ describe.skipIf(!uri)(
         400,
       );
       await register();
+      await login().expect(403);
+      await verify();
       const session = await login().expect(200);
       const accessToken = session.body.data.accessToken;
       const update = (data) =>
@@ -425,13 +476,11 @@ describe.skipIf(!uri)(
       fixture.use(handleError);
       const authorized = () =>
         protectedRequest(agent(fixture).get('/verified'), accessToken);
+      await User.updateOne({}, { $unset: { emailVerifiedAt: 1 } });
       expect((await authorized().expect(403)).body.error.code).toBe(
         'EMAIL_NOT_VERIFIED',
       );
-      await send(app, 'verify-email', {
-        token: await delivered(),
-        password: registration.password,
-      }).expect(200);
+      await User.updateOne({}, { $set: { emailVerifiedAt: new Date() } });
       expect((await authorized().expect(403)).body.error.code).toBe(
         'FORBIDDEN',
       );
@@ -472,7 +521,7 @@ describe.skipIf(!uri)(
 
       await register();
       expect(await bootstrap(registration.email)).toBe(1);
-      const secondEmail = 'second-admin@example.test';
+      const secondEmail = 'secondadmin@gmail.com';
       await send(app, 'register', {
         ...registration,
         email: secondEmail,

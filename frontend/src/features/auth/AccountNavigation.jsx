@@ -8,6 +8,7 @@ import { accounts, protectedRequest } from './api.js';
 import { useAuthStore } from './state.js';
 import { useUiStore } from '../../stores/ui.js';
 import { useAccount } from './guards.jsx';
+import { communityChannel } from './Welcome.jsx';
 
 function AccountFeatureLinks({ onNavigate }) {
   const { data: account } = useAccount();
@@ -190,7 +191,18 @@ export function AccountNavigation({
             </Link>
           ))}
         {!account?.roles.includes('super_admin') && (
-          <AccountFeatureLinks onNavigate={close} />
+          <>
+            <AccountFeatureLinks onNavigate={close} />
+            <a
+              href={communityChannel}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClasses('ghost', 'justify-start!')}
+              onClick={close}
+            >
+              WhatsApp Community
+            </a>
+          </>
         )}
         <Button
           variant="ghost"

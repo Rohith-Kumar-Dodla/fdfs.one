@@ -1,4 +1,8 @@
 import { youtubeArtwork } from '../../../../shared/youtube-artwork.js';
+import {
+  playbackDescriptor,
+  publicVideoArtwork,
+} from '../media/public-video.js';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { AppError } from '../../utils/app-error.js';
@@ -68,7 +72,7 @@ function videoView(video) {
   };
 }
 
-function view(row, managed = false, detail = false) {
+function view(row, managed = false, detail = false, playback = false) {
   const {
     publicId,
     slug,
@@ -123,7 +127,11 @@ function view(row, managed = false, detail = false) {
     ),
     ...(!row.poster &&
       (broadcast === 'live' || row.providerArtworkApproved) &&
-      youtubeArtwork(row.video) && { poster: youtubeArtwork(row.video) }),
+      youtubeArtwork(row.video) && {
+        poster: managed
+          ? youtubeArtwork(row.video)
+          : publicVideoArtwork(row.video, 'live', slug),
+      }),
     ...(detail && {
       description: row.description,
       serverNow: new Date(),
@@ -133,9 +141,19 @@ function view(row, managed = false, detail = false) {
         displayName,
       })),
       ...((managed || broadcast === 'live') &&
-        row.video && { video: videoView(row.video) }),
+        row.video && {
+          video:
+            managed || playback
+              ? videoView(row.video)
+              : playbackDescriptor(row.video),
+        }),
       ...(broadcast === 'ended' &&
-        row.replay && { replay: videoView(row.replay) }),
+        row.replay && {
+          replay:
+            managed || playback
+              ? videoView(row.replay)
+              : playbackDescriptor(row.replay),
+        }),
     }),
     ...(managed && {
       status: row.status,
@@ -157,12 +175,12 @@ export async function publicEvent(slug) {
   return event;
 }
 
-export async function liveDetails(selector, managed = false) {
+export async function liveDetails(selector, managed = false, playback = false) {
   const query = LiveEvent.findOne(selector);
   if (!managed) query.select(detailFields);
   const row = await populate(query, managed, true).lean();
   if (!row) throw missing();
-  return view(row, managed, true);
+  return view(row, managed, true, playback);
 }
 
 export async function listEvents(res, query, scope) {

@@ -27,6 +27,7 @@ import { rateApi, useRead } from '../reviews/client.js';
 import { RatingText } from '../reviews/common.jsx';
 import { TargetCommunity } from '../reviews/Community.jsx';
 import { FilmImage } from './FilmImage.jsx';
+import { PlaybackGate } from '../media/PlaybackGate.jsx';
 
 export { FilmDirectory } from '../public-ui/Directories.jsx';
 
@@ -36,13 +37,18 @@ export function SupportingVideos({ extras }) {
     <section className="grid gap-3">
       <h2 className="text-xl font-semibold">Supporting Videos</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        {extras.map(({ title, video, thumbnail }, index) => (
-          <div key={video.providerVideoId + ':' + index} className="grid gap-2">
-            <h3 className="font-semibold">{title}</h3>
-            {thumbnail && <FilmImage image={thumbnail} landscape />}
-            <YouTubePlayer video={video} title={title} />
-          </div>
-        ))}
+        {extras
+          .filter(({ video }) => video)
+          .map(({ title, video, thumbnail }, index) => (
+            <div
+              key={video.providerVideoId + ':' + index}
+              className="grid gap-2"
+            >
+              <h3 className="font-semibold">{title}</h3>
+              {thumbnail && <FilmImage image={thumbnail} landscape />}
+              <YouTubePlayer video={video} title={title} />
+            </div>
+          ))}
       </div>
     </section>
   );
@@ -139,7 +145,25 @@ function FilmDetailContent({ film }) {
   });
   return (
     <>
-      <VideoSection key={film.id} film={film} />
+      {(film.mainVideo ||
+        film.trailer ||
+        film.extras?.some(({ video }) => video)) && (
+        <PlaybackGate
+          module={film.classification}
+          slug={film.slug}
+          artwork={film.banner ?? film.poster}
+        >
+          {({ mainVideo, trailer, extras }) => (
+            <>
+              <VideoSection
+                key={film.id}
+                film={{ ...film, mainVideo, trailer }}
+              />
+              <SupportingVideos extras={extras} />
+            </>
+          )}
+        </PlaybackGate>
+      )}
       <header className="flex min-w-0 flex-col items-start gap-4 wrap-anywhere sm:flex-row sm:items-center">
         <div className="w-28 shrink-0 sm:w-36">
           <FilmImage image={film.poster} eager sizes="144px" />
@@ -252,7 +276,6 @@ function FilmDetailContent({ film }) {
         <TargetCommunity key={film.id} target={target} />
       )}
       <Related module={film.classification} id={film.id} />
-      <SupportingVideos extras={film.extras} />
       {film.gallery.length > 0 && (
         <section className="grid gap-3">
           <h2 className="text-xl font-semibold">Gallery</h2>
