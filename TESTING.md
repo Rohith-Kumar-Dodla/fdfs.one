@@ -278,7 +278,9 @@ The comparable isolated homepage fixture used 20 MongoDB operations per request,
 
 ## Phase 8.2 release candidate validation
 
-Three matching cold-browser mobile Lighthouse runs against the Phase 8.1 staging deployment recorded a median performance score of 90, LCP of 3.50 s and total blocking time of 118 ms. The earlier 64–71 scores and high blocking time were not reproduced. The homepage was static HTML throughout. Detail-page metadata generation ran on separate routes. Each baseline visit requested the homepage API once, requiring approximately 1.48 s after the request started. The waterfall showed that the hero artwork arrived after that response. The candidate starts the existing homepage query before route resolution and retains the same data and security policies.
+Three matching cold-browser mobile Lighthouse runs against the Phase 8.1 staging deployment recorded a median performance score of 90, LCP of 3.50 s and total blocking time of 118 ms. The earlier 64–71 scores and high blocking time were not reproduced. The homepage served a static HTML shell. Detail-page metadata generation ran on separate routes. Each baseline visit requested the homepage API once. Its median response time was 1.48 s, and the hero artwork request began after that response.
+
+A three-run trial started the homepage query before route resolution. The median request start moved from 323 ms to 292 ms after navigation, with one successful request per run. The trial recorded a median score of 84, LCP of 3.53 s and total blocking time of 262 ms. The candidate retains the Phase 8.1 request timing because the trial did not improve overall loading metrics.
 
 Public probes cannot establish private provider dashboard settings, production backup operation, the exact hosted database role or whether a given Render response was a cold start. Compare browser results with warmed API samples and verify the owner-managed settings before production activation.
 
