@@ -115,3 +115,56 @@ The Phase 6 onboarding forms retrieve YouTube details automatically. Authorized 
 3. If a frontend deployment fails, keep or restore the last healthy frontend while leaving a compatible backend running. If both need rollback, restore the compatible frontend first, then the backend. If the backend alone fails, restore the supported backend revision that matches the active frontend. Verify saved environment settings, database name, and schema and index compatibility before triggering either host rollback. Use a normal revert commit or the provider’s eligible deployment rollback. Repeat the smoke checks and verify automatic promotion settings afterward. [Vercel rollback](https://vercel.com/docs/instant-rollback) · [Render rollback](https://render.com/docs/rollbacks)
 4. Confirm that backup storage, retention, restore permissions and alerts are approved and operated. Recover an archive only into a separate environment, using the procedure in BACKEND.md. Keep staging noindex and retain the current working URLs through approval.
 5. At Phase 8.2 approval, confirm the domain and hosting eligibility, the production database and environment settings, approved privacy policy, terms, community guidelines and copyright policy, official contacts, backup retention, authorized content, Gmail inbox delivery, active live playback and indexing. Create the Web V1 release tag only after these approvals and the production smoke checks.
+
+## Web V1 candidate release notes for v1.0.0
+
+FDFS.ONE Web V1 brings together FDFS Live, FDFS Cinema, FDFS Originals, 404 Reality Not Found, FDFS Reviews and FDFS Talent Profiles. Verified accounts can manage a private watchlist, playback history, preferences and notifications. The community includes ratings, reviews, reporting and moderated support. Creators and staff use the existing submission, publishing and audit controls.
+
+The React frontend runs on Vercel and uses a same-origin HTTP proxy to the Express API on Render. Socket.IO connects directly to Render. MongoDB Atlas stores application records, Cloudinary serves media, YouTube supplies embedded playback and Brevo handles transactional email. Protected player sources require a verified active session. Session cookies, account deletion and the public SEO routes retain their existing access and cache boundaries.
+
+### Content onboarding
+
+1. In the existing Super Administrator workspace, create or verify independent Talent profiles and link accurate credits. Collect publishing and artwork permissions for each item and keep supporting material private.
+2. Add approved Cinema and Originals films, podcast episodes and Live events. Validate the YouTube link, thumbnail, supporting media, talent associations and release time zone. Confirm catalogue and player behavior from guest and authorized accounts before promoting content.
+3. Add accurate movie catalogue entries for reviews and use moderation and private support to handle reports and copyright concerns. Test edit, reschedule, archive and public disappearance only with an authorized staging item or disposable fixture.
+4. In Homepage Management, preview the carousel, eligible shelves and scheduled promotions. Check destinations, disclosure labels, image fallback and mobile layout before publishing approved changes.
+
+### Mandatory release acceptance
+
+- Approve the final domain, hosting eligibility and runtime configuration. Confirm scoped Atlas credentials, network allowlists, exact database names, required CI checks and an operational owner for deployment alerts and monitoring.
+- Approve the four policy drafts and official contacts. Assign a backup operator and approve the schedule, storage, retention, expiry and account-deletion recovery process.
+- Approve the real catalogue and confirm a published detail page shows the expected raw metadata, canonical and sharing text. Verify the production smoke checks before approving domain cutover and indexing.
+- In one authorized disposable Gmail inbox, register on staging, confirm the initial verification message, request a resend and use the newest link. Check for the welcome email, request a password reset and sign in with the new password. Record actual inbox delivery of all four message types. For YouTube, use an authorized active broadcast with embedding permitted and a verified staging viewer. Confirm that the player shows the active stream and that video advances during the broadcast.
+- Record explicit approval before creating the final v1.0.0 tag. Until then, the deployed web application is a release candidate.
+
+Follow-up optimization can refine lab LCP and measure real-user performance. Native application work begins in the mobile phases using the same API and access control model described in MOBILE.md.
+
+## Web V1 policy drafts for owner review
+
+Approve the operator’s legal name, contact details, effective date, applicable jurisdiction, rights-reporting contact and retention schedule before publishing these drafts. Text in brackets needs an owner decision. The existing public pages continue to use their current wording until approved copy is entered.
+
+### Privacy Policy
+
+FDFS.ONE is operated by [operator name]. You can contact us about privacy at [privacy contact]. When you register with Gmail, we use your address, account details and verification status to create and secure your account, provide support, and send service emails. We store a password hash. Verified sessions use a refresh cookie and short-lived access credentials.
+
+Your watchlists, synchronized viewing history, follows and preferences are account features. You can change supported preferences in Account settings. Reviews, ratings and eligible comments are public, along with their public attribution. Independent Talent profiles and credits are public separately from your private account. Support tickets are visible to the requester and authorized staff.
+
+The footer lets you choose whether to share optional first-party analytics. We also use session and realtime signals to operate the service, manage abuse and maintain reliable connections. YouTube supplies embedded playback and may receive connection or playback information when its player loads. Cloudinary stores and delivers media. Brevo sends transactional email. WhatsApp links take you to a separate service with its own policies.
+
+Delete your account in Account settings. We verify the request, revoke sessions and remove account details, personal activity, contribution text, ratings and ordinary support records. Published work, independent Talent profiles and credits can remain. We may retain limited moderation, audit and rights records, including copyright cases. Backup copies may remain until approved expiry. [Owner to confirm retention periods, backup expiry and the process for other privacy requests.]
+
+### Terms and Conditions
+
+Use FDFS.ONE through your own account and protect your credentials. Public registration uses a Gmail address and verification is required for protected viewing and participation. Access to a video depends on the rights available to FDFS.ONE and YouTube’s availability and embedding controls. Movie catalogue and review entries provide information, discussion and eligible trailers.
+
+Submit only material you are authorized to share, including video, artwork, text and credits. Submissions are subject to review. FDFS.ONE uses approved material to operate, display and promote the relevant publication within the approved permission scope. [Owner to confirm the exact permissions, duration and withdrawal terms.] We may restrict accounts or remove material for policy, rights or safety reasons. Use the Support Center to contact us about an account or publication decision. [Owner to confirm legal operator, contact, applicable terms and effective date.]
+
+### Community Guidelines
+
+Keep discussion relevant and respect the people and work you review. Disclose spoilers with the available controls. Avoid harassment, threats, impersonation, spam, private information and unauthorized media. Use available reporting controls or the Support Center for concerns. Moderators can remove material or restrict participation and may retain limited records to handle reports. Contact [community contact or approved support route] to ask about a moderation decision.
+
+### Copyright Policy
+
+Upload, embed and submit material only when you have the necessary rights. If you believe material on FDFS.ONE infringes your rights, open a private support ticket under Copyright concerns or use [approved copyright contact]. Include the affected FDFS.ONE URL, identify the work, explain your relationship to the rights holder and provide a way to reach you and any relevant supporting information.
+
+We review reports and may restrict access while investigating or remove access after review. When appropriate, we use the private case to request more information or explain the outcome. Keep sensitive supporting material in the private report. [Owner to approve the required notice details, response, review or appeal procedure, official contact and retention of copyright records.]

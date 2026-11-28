@@ -195,6 +195,10 @@ The static shells provide a title, description, canonical and sharing tags. Thei
 
 Use Node.js 24 on Vercel. Keep only `VITE_API_BASE_URL=/api/v1` and `VITE_SOCKET_URL` set to the approved HTTPS Render origin for the frontend build. The detail function and the Vercel rewrites retain the current staging origins. When Phase 8.2 approves a new domain, update both together and verify the static shell, canonical URLs, CORS and cookie scope before public promotion.
 
+For the approved final domain, align the Vercel alias and canonical origin, public-detail function origins, API and sitemap rewrites, Render `APP_WEB_URL` and `CORS_ORIGINS`, and the public `VITE_SOCKET_URL`. Verify HTTPS, fresh sign-in on the new origin, cookie rotation, logout, deep links, raw metadata, the sitemap and playback protection. Staging noindex uses the Vercel response header, the SPA HTML robots tag, `robots.txt`, the detail function header and Render’s pre-release flag. Review each production control together after explicit indexing approval.
+
+The initial homepage starts its existing public TanStack Query request before the route chunk resolves. Navigation and the homepage view share the same query key. Detail-page HTML generation remains scoped to detail routes and the homepage retains its static HTML.
+
 ## Pre-Phase 7 administration refinement
 
 The Super Administrator returns to the administration workspace after sign-in, session restoration or a visit to a public route. The mobile drawer presents one menu control at a time and closes on a selection, backdrop click or Escape. Desktop collapse remains available. Standard sign-in opens the homepage for normal users, with account pages available from the profile menu.
