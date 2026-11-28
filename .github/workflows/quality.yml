@@ -1,0 +1,83 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      VITE_API_BASE_URL: /api/v1
+      VITE_SOCKET_URL: https://fdfs-api-6tvg.onrender.com
+      VERCEL_PROJECT_PRODUCTION_URL: fdfs-one-staging.vercel.app
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/
+      TEST_MONGODB_RS_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24.22.3
+          cache: npm
+      - name: Install and check formatting
+        run: |
+          npm ci --include=dev
+          npm run lint
+          npm run format:check
+      - name: Start isolated MongoDB
+        run: |
+          docker run -d --name fdfs-test-mongo --publish 127.0.0.1:27017:27017 mongo:8.2.6 --replSet rs0 --bind_ip_all
+          for attempt in {1..40}; do
+            if docker exec fdfs-test-mongo mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec fdfs-test-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in {1..40}; do
+            if docker exec fdfs-test-mongo mongosh --quiet --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)'; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: npm test
+      - run: npm run build
+      - name: Verify production startup and shutdown
+        env:
+          NODE_ENV: production
+          PORT: 5100
+          MONGODB_URI: mongodb://127.0.0.1:27017/fdfs_ci_runtime?replicaSet=rs0
+          MONGODB_EXPECTED_DATABASE: fdfs_ci_runtime
+          APP_WEB_URL: https://fdfs-one-staging.vercel.app
+          CORS_ORIGINS: https://fdfs-one-staging.vercel.app
+        run: |
+          export JWT_ACCESS_SECRET="$(node -p "require('node:crypto').randomBytes(48).toString('hex')")"
+          node backend/src/server.js >"$RUNNER_TEMP/fdfs-runtime.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:5100/api/v1/ready >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5100/api/v1/ready >/dev/null
+          kill -TERM "$pid"
+          wait "$pid"
+          grep -q 'Shutdown complete' "$RUNNER_TEMP/fdfs-runtime.log"
+      - run: npm audit --audit-level=high
+      - name: Scan Git history and production files
+        run: |
+          archive=gitleaks_8.30.0_linux_x64.tar.gz
+          curl --fail --silent --show-error --location "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/$archive" -o "$RUNNER_TEMP/$archive"
+          echo "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e  $RUNNER_TEMP/$archive" | sha256sum --check --status
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner .
+          "$RUNNER_TEMP/gitleaks" dir --redact=100 --no-banner frontend/dist
+      - name: Stop isolated MongoDB
+        if: always()
+        run: docker rm -f fdfs-test-mongo 2>/dev/null || true

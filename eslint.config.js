@@ -5,7 +5,12 @@ export default [
   { ignores: ['**/dist/**', '**/coverage/**'] },
   js.configs.recommended,
   {
-    files: ['*.js', 'backend/**/*.js', 'frontend/vite.config.js'],
+    files: [
+      '*.js',
+      'api/**/*.js',
+      'backend/**/*.js',
+      'frontend/vite.config.js',
+    ],
     languageOptions: { globals: globals.node },
     rules: { 'no-unused-vars': ['error', { argsIgnorePattern: '^_' }] },
   },

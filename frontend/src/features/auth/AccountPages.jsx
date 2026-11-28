@@ -311,7 +311,10 @@ function DeleteAccount() {
       <Button
         className="justify-self-start"
         variant="secondary"
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          event.currentTarget.focus();
+          setOpen(true);
+        }}
       >
         Delete account
       </Button>

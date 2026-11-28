@@ -179,6 +179,15 @@ export async function assembledHomepage({
         .map((key) => sources[key].path)[0] ?? '/support');
   const media = (id) => discoveryImage(art.get(id));
   const cache = new Map();
+  const releasedQueries = new Map();
+  const readReleased = async (module, limit) => {
+    if (!releasedQueries.has(module))
+      releasedQueries.set(
+        module,
+        discover(module, { now, ...discovery, limit: Math.max(2, limit) }),
+      );
+    return (await releasedQueries.get(module)).items.slice(0, limit);
+  };
   const rows = (modules, mode, options = {}) => {
     const key = JSON.stringify([modules, mode, options]);
     if (!cache.has(key))
@@ -267,7 +276,8 @@ export async function assembledHomepage({
         now,
         safe,
         campaigns,
-        ...discovery,
+        recordIds: discovery.recordIds,
+        readReleased,
       })
     : undefined;
   if (
@@ -277,7 +287,13 @@ export async function assembledHomepage({
   ) {
     const four = await Promise.all([
       rows(['live'], 'live', { limit: 1 }),
-      rows(released, 'released', { limit: 2 }),
+      refined
+        ? Promise.all(
+            released
+              .filter(allow)
+              .map((module) => safe(() => readReleased(module, 2), [])),
+          ).then((results) => results.flat())
+        : rows(released, 'released', { limit: 2 }),
       rows(upcoming, 'upcoming', { limit: 1 }),
     ]);
     const selectedDefault = [

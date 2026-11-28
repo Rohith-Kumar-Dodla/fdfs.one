@@ -62,6 +62,11 @@ export function createApp({
     return sendSuccess(res, { status: 'ok' });
   });
   api.get('/ready', (req, res) => {
+    if (
+      config.PRE_RELEASE_NOINDEX &&
+      /^[a-f0-9]{40}$/.test(config.RENDER_GIT_COMMIT ?? '')
+    )
+      res.set('X-FDFS-Revision', config.RENDER_GIT_COMMIT);
     if (!isDatabaseConnected()) {
       return sendError(res, {
         status: 503,

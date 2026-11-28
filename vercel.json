@@ -46,6 +46,10 @@
       "destination": "https://fdfs-api-6tvg.onrender.com/api/v1/:path*"
     },
     {
+      "source": "/:section(cinema|originals|podcasts|live|movies|talent|reviews)/:slug",
+      "destination": "/api/public-page?route=/:section/:slug"
+    },
+    {
       "source": "/((?!api(?:/|$)|socket\\.io(?:/|$)|assets(?:/|$)|_pages(?:/|$)|robots\\.txt$|sitemap\\.xml$).+)",
       "destination": "/_pages/spa.html"
     }

@@ -20,7 +20,16 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(3).default(0),
   PRE_RELEASE_NOINDEX: z.stringbool().default(false),
+  RENDER_GIT_COMMIT: z.string().optional(),
   MONGODB_URI: z.string().regex(/^mongodb(?:\+srv)?:\/\/[^\s]+$/),
+  MONGODB_EXPECTED_DATABASE: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,63}$/)
+      .optional(),
+  ),
+  MONGODB_MAX_POOL_SIZE: z.coerce.number().int().min(5).max(100).default(20),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173')
@@ -117,10 +126,13 @@ export function loadConfig() {
   return result.data;
 }
 
-export function requireNamedDatabase(uri) {
-  if (!/^mongodb(?:\+srv)?:\/\/[^/?#]+\/[^/?#]+(?:\?|$)/.test(uri)) {
+export function requireNamedDatabase(uri, expected) {
+  const match = /^mongodb(?:\+srv)?:\/\/[^/?#]+\/([^/?#]+)(?:\?|$)/.exec(uri);
+  if (!match) {
     throw new Error(
       'Specify the intended database in the MONGODB_URI path before enabling accounts.',
     );
   }
+  if (expected && match[1] !== expected)
+    throw new Error('MONGODB_URI does not match MONGODB_EXPECTED_DATABASE.');
 }

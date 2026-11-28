@@ -13,3 +13,7 @@ coverage/
 *.pfx
 credentials.json
 credentials/
+*.archive
+*.archive.gz
+*.gpg
+*.age

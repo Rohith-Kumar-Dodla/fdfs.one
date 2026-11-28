@@ -129,7 +129,7 @@ export function HeroCarousel({
       />
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-linear-to-t from-[#111827] via-[#111827]/75 to-[#111827]/10 sm:bg-linear-to-r sm:from-[#111827] sm:via-[#111827]/80 sm:to-[#111827]/10"
+        className="absolute inset-0 bg-linear-to-t from-[#111827] via-[#111827]/80 to-[#111827]/75 sm:bg-linear-to-r"
       />
       <div
         aria-hidden="true"

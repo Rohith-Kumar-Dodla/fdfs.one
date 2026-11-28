@@ -263,12 +263,10 @@ export function CatalogueCard({
           <span>{metadata.filter(Boolean).join(' · ')}</span>
         )}
         {Number.isFinite(score) && (
-          <span
-            className="inline-flex items-center gap-1 font-semibold text-accent"
-            aria-label={score.toFixed(1) + ' out of 5'}
-          >
+          <span className="inline-flex items-center gap-1 font-semibold text-accent">
             <Star className="size-3.5 fill-current" aria-hidden="true" />
             {score.toFixed(1)}
+            <span className="sr-only"> out of 5</span>
           </span>
         )}
       </div>

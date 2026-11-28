@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export async function connectDatabase(uri, logger) {
+export async function connectDatabase(uri, logger, maxPoolSize = 20) {
   const connection = mongoose.connection;
   connection.on('connected', () => logger.info('MongoDB connected'));
   connection.on('disconnected', () => logger.warn('MongoDB disconnected'));
@@ -8,6 +8,8 @@ export async function connectDatabase(uri, logger) {
 
   return mongoose.connect(uri, {
     serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    maxPoolSize,
     autoIndex: false,
   });
 }

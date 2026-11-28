@@ -41,8 +41,8 @@ export async function refinedSections({
   now,
   safe,
   campaigns,
-  podcastShow,
   recordIds,
+  readReleased,
 }) {
   return Promise.all(
     publicHomeSections.map((entry) =>
@@ -84,7 +84,9 @@ export async function refinedSections({
               eligibleShortFilmProfiles(undefined, now, hidden, limit),
             ]);
             featured = featured.filter((item) => picked.includes(item.id));
-            items = (await discover(key, { ids: fallback, limit, now })).items;
+            items = fallback.length
+              ? (await discover(key, { ids: fallback, limit, now })).items
+              : [];
           } else if (key === 'reviews') {
             const { data } = await trendingReviews(
               {
@@ -97,13 +99,15 @@ export async function refinedSections({
               },
               now,
             );
-            const artwork = (
-              await discover('movies', {
-                slugs: data.map((item) => item.target.slug),
-                limit: data.length || 1,
-                now,
-              })
-            ).items;
+            const artwork = data.length
+              ? (
+                  await discover('movies', {
+                    slugs: data.map((item) => item.target.slug),
+                    limit: data.length,
+                    now,
+                  })
+                ).items
+              : [];
             const images = new Map(
               artwork.map((item) => [item.slug, item.image ?? item.landscape]),
             );
@@ -120,9 +124,7 @@ export async function refinedSections({
             }));
             featured = [];
           } else {
-            items = (
-              await discover(key, { limit, now, podcastShow, recordIds })
-            ).items;
+            items = await readReleased(key, limit);
           }
           const output = [
             ...new Map(

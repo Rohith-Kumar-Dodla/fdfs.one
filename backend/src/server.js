@@ -37,10 +37,7 @@ import {
   isDatabaseConnected,
 } from './services/database.js';
 
-async function start() {
-  const config = loadConfig();
-  requireNamedDatabase(config.MONGODB_URI);
-  const authConfig = loadAuthConfig(config);
+async function start(config, authConfig) {
   const mailTransport = createMailTransport(authConfig);
   const logger = createLogger(config.LOG_LEVEL);
   let stopping = false;
@@ -174,24 +171,26 @@ async function start() {
     if (stopping) return;
     health.set('sockets', 'healthy');
     logger.info({ port: config.PORT }, 'HTTP server listening');
-    databaseStartup = connectDatabase(config.MONGODB_URI, logger).then(
-      async () => {
-        if (stopping) return;
-        await Promise.all([
-          initializeAuthIndexes(),
-          initializePhase22Indexes(),
-          initializeTalentIndexes(),
-          initializeFilmIndexes(),
-          initializePodcastIndexes(),
-          initializeLiveIndexes(),
-          initializeOperationsIndexes(),
-          initializeReviewsIndexes(),
-          Promotion.createIndexes(),
-          initializePersonalIndexes(),
-        ]);
-        indexesReady = true;
-      },
-    );
+    databaseStartup = connectDatabase(
+      config.MONGODB_URI,
+      logger,
+      config.MONGODB_MAX_POOL_SIZE,
+    ).then(async () => {
+      if (stopping) return;
+      await Promise.all([
+        initializeAuthIndexes(),
+        initializePhase22Indexes(),
+        initializeTalentIndexes(),
+        initializeFilmIndexes(),
+        initializePodcastIndexes(),
+        initializeLiveIndexes(),
+        initializeOperationsIndexes(),
+        initializeReviewsIndexes(),
+        Promotion.createIndexes(),
+        initializePersonalIndexes(),
+      ]);
+      indexesReady = true;
+    });
     databaseStartup.catch(() => {
       if (stopping) return;
       logger.error(
@@ -202,7 +201,15 @@ async function start() {
   });
 }
 
-start().catch((error) => {
+try {
+  const config = loadConfig();
+  requireNamedDatabase(config.MONGODB_URI, config.MONGODB_EXPECTED_DATABASE);
+  const authConfig = loadAuthConfig(config);
+  await start(config, authConfig).catch(() => {
+    console.error('Application startup failed. See deployment diagnostics.');
+    process.exitCode = 1;
+  });
+} catch (error) {
   console.error(error.message);
   process.exitCode = 1;
-});
+}
