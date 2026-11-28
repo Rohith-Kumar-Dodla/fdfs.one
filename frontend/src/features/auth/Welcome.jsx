@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useId } from 'react';
 import { useLocation } from 'react-router';
 import { Button, buttonClasses } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
@@ -22,6 +23,7 @@ const authPage =
   /^\/(?:login|register|forgot-password|reset-password|verify-email|verification-pending)(?:\/|$)/;
 
 export function Welcome() {
+  const description = useId();
   const { pathname } = useLocation();
   const { data: account } = useAccount();
   const pending = useAuthStore((state) => state.welcomePending);
@@ -62,13 +64,14 @@ export function Welcome() {
       open={enabled && welcome.data === true}
       onClose={acknowledge}
       title="Welcome to FDFS.ONE"
+      describedBy={description}
       className="bg-nav text-foreground [&_h2]:text-accent"
     >
       <div className="grid min-w-0 gap-4 wrap-anywhere">
         <p className="text-lg font-semibold text-accent">
           Where Passion Meets Talent
         </p>
-        <p>
+        <p id={description}>
           Discover independent cinema, exclusive originals, podcasts, live
           events, movie reviews and talented personalities — all in one place.
         </p>

@@ -6,6 +6,8 @@ import {
   legalServiceInformation,
   siteDefaults,
 } from '../../../../shared/site.js';
+import { pageTitle, publicPages } from '../../../../shared/public-pages.js';
+import { usePageMetadata } from '../../hooks/use-page-metadata.js';
 import { apiClient } from '../../api/client.js';
 import { Container, SectionHeading } from '../../components/ui/surfaces.jsx';
 
@@ -35,55 +37,32 @@ export function useHomepageHero(enabled = true) {
 }
 
 export function SiteMetadata({ path, settings }) {
+  const page = Object.hasOwn(publicPages, path) ? publicPages[path] : undefined;
+  const home = path === '/';
+  usePageMetadata(
+    page && {
+      title: home ? settings.seoTitle || settings.name : pageTitle(page[0]),
+      description: home
+        ? settings.seoDescription ||
+          (settings.description !== siteDefaults.description
+            ? settings.description
+            : page[1])
+        : page[1],
+      path,
+      image: settings.socialImage?.url,
+      structured: home
+        ? { '@type': 'WebSite', name: settings.name }
+        : undefined,
+    },
+  );
   useEffect(() => {
-    const created = [];
-    function add(tag, attributes) {
-      const el = document.createElement(tag);
-      Object.entries(attributes).forEach(([key, value]) =>
-        el.setAttribute(key, value),
-      );
-      document.head.append(el);
-      created.push(el);
-    }
-    if (settings.favicon?.url)
-      add('link', { rel: 'icon', href: settings.favicon.url });
-    if (settings.socialImage?.url)
-      add('meta', { property: 'og:image', content: settings.socialImage.url });
-    const description = document.querySelector('meta[name=description]');
-    const original = description?.getAttribute('content');
-    const title = document.title;
-    const defaultTitle =
-      settings.seoTitle ||
-      (settings.name !== siteDefaults.name && settings.name);
-    const defaultDescription =
-      settings.seoDescription ||
-      (settings.description !== siteDefaults.description &&
-        settings.description);
-    if (path === '/') {
-      if (defaultTitle) document.title = defaultTitle;
-      if (defaultDescription)
-        description?.setAttribute('content', defaultDescription);
-    }
-    return () => {
-      created.forEach((el) => el.remove());
-      if (defaultTitle && document.title === defaultTitle)
-        document.title = title;
-      if (
-        defaultDescription &&
-        original &&
-        description.getAttribute('content') === defaultDescription
-      )
-        description.setAttribute('content', original);
-    };
-  }, [
-    path,
-    settings.favicon?.url,
-    settings.socialImage?.url,
-    settings.seoTitle,
-    settings.seoDescription,
-    settings.name,
-    settings.description,
-  ]);
+    if (!settings.favicon?.url) return;
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = settings.favicon.url;
+    document.head.append(link);
+    return () => link.remove();
+  }, [settings.favicon?.url]);
   return null;
 }
 

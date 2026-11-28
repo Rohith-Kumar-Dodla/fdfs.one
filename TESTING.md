@@ -240,3 +240,28 @@ Isolated Chrome checked guest gates and source-free detail responses for Cinema,
 Isolated Chrome checked the administration shell and mobile drawer at 320, 375, 425, 640, 768, 1024, 1280, 1440 and 1920 pixels, plus 568 by 320 and 844 by 390 landscape. The run covered owner sign-in, public-route redirection, session restoration, logout, and normal account registration and homepage redirection with controlled verification mail.
 
 The browser submitted reviews for known and missing titles, followed the existing movie-association workflow, and removed a published review after entering a reason. My Reviews, the private in-app notification and public rating totals reflected the removal. Chrome used named confirmations for Cinema, Originals, Podcast, Live, Movies and Talent, and the public endpoints rejected the archived records. Destructive checks used disposable fixtures. Check the deployed shell and sign-in flows on physical devices.
+
+## Phase 7.2 performance, SEO and accessibility
+
+The baseline uses a production build, disposable MongoDB replica set, headless Chrome and cache-disabled navigations. Route JavaScript is the sum of decoded JavaScript resources reported by the browser after the page settled. API timing samples separate the first request from the warm sample. Render was already responsive during the baseline probe, so the first response is not a confirmed cold start. Staging Lighthouse uses the mobile lab profile. Field Core Web Vitals and field INP require real-user data.
+
+The local film-by-slug explain examined one index key and one document for one result. Existing indexes covered that lookup. The performance changes reduce redundant reads with the current schema and index set.
+
+| Isolated Chrome route    | Decoded JS before / after | Requests before / after |
+| ------------------------ | ------------------------: | ----------------------: |
+| Homepage                 |              564 / 559 kB |                 24 / 28 |
+| Cinema catalogue         |              736 / 555 kB |                 38 / 29 |
+| Cinema detail            |              736 / 730 kB |                 40 / 46 |
+| Originals catalogue      |              736 / 555 kB |                 38 / 29 |
+| Podcast catalogue        |              750 / 555 kB |                 41 / 29 |
+| Podcast detail           |              750 / 744 kB |                 42 / 47 |
+| Live catalogue           |              599 / 555 kB |                 33 / 30 |
+| Reviews                  |              728 / 721 kB |                 30 / 37 |
+| Talent catalogue         |              583 / 555 kB |                 29 / 29 |
+| Sign in                  |              674 / 666 kB |                 20 / 22 |
+| User dashboard           |              558 / 553 kB |                 25 / 28 |
+| Administration dashboard |              564 / 567 kB |                 22 / 29 |
+
+The main JavaScript entry fell from 322 to 272 kB. Total JavaScript output grew from 1,545 to 1,556 kB as more features moved to separate chunks. Some routes fetch more small resources on an empty cache. The homepage made four API requests in both instrumented runs. Its loopback API first response was 130 to 83 ms, and the warm median was 84 to 66 ms. Homepage assembly used 30 to 24 MongoDB operations per request. Search made one settings read instead of two, while its loopback warm median rose from 31 to 39 ms in this sample. These are small-fixture lab measurements.
+
+All 205 tests passed, with 78 frontend and 127 backend tests. Chrome checked the nine portrait widths and both landscape sizes, covering public navigation, forms, protected player overlays, moderation, notifications, the welcome modal and account deletion. Axe found zero violations in six sampled views and flagged two homepage checks for manual review. Touch cancellation restored dialog focus. Edge verified recovery from offline login, a throttled login, HttpOnly SameSite=Lax cookies, session restoration, responsive settings and protected player initialization. These were installed browsers in headless mode. Firefox, Safari, WebKit and physical devices were unavailable for this run.

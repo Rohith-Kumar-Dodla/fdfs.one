@@ -16,6 +16,7 @@ import {
   discoveryImage,
   genresForHomepage,
   featureForReference,
+  publicPodcastShow,
   resolveFeatures,
 } from './discovery.js';
 import { activePromotions } from './promotions.js';
@@ -120,20 +121,26 @@ export async function assembledHomepage({
   refined = false,
   now = new Date(),
   logger,
+  settings: providedSettings,
 } = {}) {
   const [record, settings] = await Promise.all([
     readConfig('homepage'),
-    readConfig('settings'),
+    providedSettings ?? readConfig('settings').then(({ value }) => value),
   ]);
   const stored = preview ? record.value : record.published;
   const config = { ...defaultHomepage, ...stored };
   config.sections = homepageSections(stored);
-  const hidden = settings.value.hiddenModules ?? [];
+  const hidden = settings.hiddenModules ?? [];
   const allow = (module) => allowedSource(module, hidden);
   const visible = config.sections.filter(
     (row) => row.visible && open(row, now),
   );
   const refs = referenceList(config).filter((row) => allow(row.module));
+  let show;
+  const discovery = {
+    podcastShow: () => (show ??= publicPodcastShow().exec()),
+    recordIds: refined ? new Map() : undefined,
+  };
   const safe = async (operation, fallback) => {
     try {
       return await operation();
@@ -158,6 +165,7 @@ export async function assembledHomepage({
           allowUpcoming: true,
           now,
           hiddenModules: hidden,
+          ...discovery,
         }),
       new Map(),
     ),
@@ -176,7 +184,13 @@ export async function assembledHomepage({
     if (!cache.has(key))
       cache.set(
         key,
-        rowsForSections(modules, mode, { now, ...options }, allow, logger),
+        rowsForSections(
+          modules,
+          mode,
+          { now, ...options, ...discovery },
+          allow,
+          logger,
+        ),
       );
     return cache.get(key);
   };
@@ -242,6 +256,20 @@ export async function assembledHomepage({
         .filter((item) => !slides.some((slide) => slide.id === item.id))
         .slice(0, 3),
     );
+  const refinedRows = refined
+    ? refinedSections({
+        visible,
+        picks: config.featuredPicks,
+        selected: get,
+        promotions: promotions.items,
+        hidden,
+        allow,
+        now,
+        safe,
+        campaigns,
+        ...discovery,
+      })
+    : undefined;
   if (
     !config.managedHero &&
     !slides.length &&
@@ -259,18 +287,8 @@ export async function assembledHomepage({
     ];
     slides.push(...selectedDefault.map((item) => featureSlide(item)));
   }
-  const sections = refined
-    ? await refinedSections({
-        visible,
-        picks: config.featuredPicks,
-        selected: get,
-        promotions: promotions.items,
-        hidden,
-        allow,
-        now,
-        safe,
-        campaigns,
-      })
+  const sections = refinedRows
+    ? await refinedRows
     : (
         await Promise.all(
           visible.map((section) =>

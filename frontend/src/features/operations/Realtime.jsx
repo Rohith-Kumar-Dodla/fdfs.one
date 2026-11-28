@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { io } from 'socket.io-client';
 import { apiClient } from '../../api/client.js';
 import { protectedRequest, refreshSession } from '../auth/api.js';
 import { useAuthStore } from '../auth/state.js';
@@ -123,13 +122,8 @@ export function RealtimeProvider({ children }) {
   const status = useAuthStore((state) => state.status);
   const client = useQueryClient();
   const [allowed, setAllowed] = useState(initialConsent);
-  const [socket] = useState(() =>
-    io(
-      import.meta.env.VITE_SOCKET_URL?.trim() ||
-        new URL(apiClient.defaults.baseURL, window.location.origin).origin,
-      { autoConnect: false, withCredentials: false },
-    ),
-  );
+  const [socket, setSocket] = useState(null);
+  const ready = status !== 'checking';
   const scope = routeCategory(pathname);
   const module = scope?.module;
   const content = scope?.content;
@@ -159,7 +153,33 @@ export function RealtimeProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (status === 'checking') return;
+    if (!ready) return;
+    let disposed = false;
+    void import('socket.io-client')
+      .then(({ io }) => {
+        if (!disposed)
+          setSocket(
+            io(
+              import.meta.env.VITE_SOCKET_URL?.trim() ||
+                new URL(apiClient.defaults.baseURL, window.location.origin)
+                  .origin,
+              {
+                autoConnect: false,
+                withCredentials: false,
+                reconnectionAttempts: 12,
+                reconnectionDelayMax: 12000,
+              },
+            ),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+    };
+  }, [ready]);
+
+  useEffect(() => {
+    if (!socket || status === 'checking') return;
     socket.auth = token ? { token } : {};
     const notice = () => {
       void client.invalidateQueries({ queryKey: ['notices'] });
@@ -185,16 +205,22 @@ export function RealtimeProvider({ children }) {
     socket.on('connect', connect);
     socket.on('connect_error', renew);
     socket.on('notice:changed', notice);
+    const online = () => {
+      if (!socket.connected) socket.connect();
+    };
+    window.addEventListener('online', online);
     socket.connect();
     return () => {
       socket.off('connect', connect);
       socket.off('connect_error', renew);
       socket.off('notice:changed', notice);
+      window.removeEventListener('online', online);
       socket.disconnect();
     };
   }, [client, socket, status, token]);
 
   useEffect(() => {
+    if (!socket) return;
     let timeout;
     let disposed = false;
     const publish = () => {

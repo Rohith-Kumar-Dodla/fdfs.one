@@ -7,6 +7,7 @@ export function sendSuccess(
 }
 
 export function sendError(res, { status, code, message, details }) {
+  res.locals.errorCode = code;
   return res
     .status(status)
     .json({ success: false, message, error: { code, details } });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { staffRoles } from '../../../../shared/admin.js';
 import { PersonalSettings } from '../personal/Settings.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -288,6 +288,7 @@ export function AccountSettingsPage() {
 }
 
 function DeleteAccount() {
+  const description = useId();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const navigate = useNavigate();
@@ -318,10 +319,11 @@ function DeleteAccount() {
         open={open}
         onClose={close}
         title="Permanently delete your account"
+        describedBy={description}
       >
         {open && (
           <div className="grid gap-4">
-            <p className="text-sm text-muted">
+            <p id={description} className="text-sm text-muted">
               We remove your profile details, watch activity, personal settings,
               ratings, review and comment text, ordinary support tickets and
               unpublished submissions. Published work, independent Talent

@@ -112,6 +112,9 @@ export function HeroCarousel({
         )
           jump(dx < 0 ? 1 : -1);
       }}
+      onTouchCancel={() => {
+        pointer.current = null;
+      }}
       className="relative isolate grid min-w-0 content-end overflow-hidden bg-nav"
     >
       <CinematicArtwork
@@ -286,7 +289,11 @@ export function HeroCarousel({
             )}
             <span
               className="sr-only"
-              aria-live={paused || focus || !rotationSeconds ? 'polite' : 'off'}
+              aria-live={
+                paused || focus || inactive || !rotationSeconds
+                  ? 'polite'
+                  : 'off'
+              }
             >
               Slide {current + 1} of {list.length}
             </span>

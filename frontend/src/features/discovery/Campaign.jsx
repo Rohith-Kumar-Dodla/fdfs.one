@@ -143,10 +143,14 @@ export function CinematicArtwork({
   position = 'center',
   priority = false,
 }) {
-  if (!image?.url && !fallback) return null;
+  const source = mobile?.url ?? image?.url;
+  const [failed, setFailed] = useState(null);
+  const useFallback = Boolean(source && failed === source);
+  const url = (useFallback ? undefined : image?.url) ?? fallback;
+  if (!url) return null;
   return (
     <picture>
-      {mobile?.url && (
+      {!useFallback && mobile?.url && (
         <source
           media="(max-width: 639px)"
           srcSet={set(mobile) ?? mobile.url}
@@ -154,14 +158,15 @@ export function CinematicArtwork({
         />
       )}
       <img
-        src={image?.url ?? fallback}
-        srcSet={set(image)}
+        src={url}
+        srcSet={useFallback ? undefined : set(image)}
         sizes={sizes}
-        alt={alt}
+        alt={useFallback ? '' : alt}
         width={image?.width}
         height={image?.height}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : undefined}
+        onError={source && !useFallback ? () => setFailed(source) : undefined}
         className={
           'absolute inset-0 h-full w-full object-cover ' +
           (focal[position] ?? focal.center)

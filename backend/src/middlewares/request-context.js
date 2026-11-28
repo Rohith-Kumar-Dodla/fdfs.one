@@ -17,6 +17,7 @@ export function requestContext(logger) {
           statusCode: res.headersSent ? res.statusCode : null,
           durationMs: Math.round(performance.now() - startedAt),
           completed: res.writableFinished,
+          errorCode: res.locals.errorCode,
         },
         'HTTP request',
       );

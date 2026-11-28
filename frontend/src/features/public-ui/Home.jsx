@@ -4,7 +4,7 @@ import {
   publicHeroLimit,
   publicHomeSections,
 } from '../../../../shared/public-home.js';
-import { apiClient } from '../../api/client.js';
+import { homepageQuery } from './home-query.js';
 import { Container } from '../../components/ui/surfaces.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { HeroCarousel } from '../discovery/Carousel.jsx';
@@ -14,30 +14,7 @@ import { HomeShelf } from './ContentShelves.jsx';
 
 export default function PublicHome() {
   const settings = useSiteSettings();
-  const query = useQuery({
-    queryKey: ['homepage-discovery', 'entertainment'],
-    meta: { public: true },
-    staleTime: 15000,
-    queryFn: ({ signal }) =>
-      apiClient
-        .get('/homepage', { params: { view: 'entertainment' }, signal })
-        .then(({ data }) => ({
-          ...data,
-          clockOffset: Date.parse(data?.serverNow) - Date.now() || 0,
-        })),
-    refetchInterval: ({ state }) => {
-      const next = Date.parse(state.data?.nextChangeAt);
-      return Number.isFinite(next)
-        ? Math.max(
-            250,
-            Math.min(
-              30000,
-              next - Date.now() - (state.data?.clockOffset ?? 0) + 150,
-            ),
-          )
-        : 30000;
-    },
-  });
+  const query = useQuery(homepageQuery);
   const data = query.data;
   const offset = data?.clockOffset ?? 0;
   const [, refresh] = useState(0);

@@ -1,7 +1,6 @@
 import { useId, useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { Button, buttonClasses } from '../../components/ui/Button.jsx';
-import { Dialog } from '../../components/ui/Dialog.jsx';
 import { Spinner } from '../../components/ui/states.jsx';
 import { FilmImage } from '../films/FilmImage.jsx';
 import { StarInput } from '../reviews/Rating.jsx';
@@ -150,7 +149,7 @@ function TitlePicker({ type, text, target, onSelect, onQuery }) {
     </div>
   );
 }
-function Composer({ close }) {
+export default function ReviewComposer({ close }) {
   const access = useParticipation();
   const [type, setType] = useState('movie');
   const [target, setTarget] = useState(null);
@@ -302,57 +301,5 @@ function Composer({ close }) {
         </Button>
       </div>
     </form>
-  );
-}
-export function ReviewComposer({ open, close }) {
-  return (
-    <Dialog
-      title="Write Your Review"
-      open={open}
-      onClose={close}
-      className="mt-auto mb-0 max-h-[92dvh] w-full max-w-2xl rounded-b-none sm:my-auto sm:rounded-panel"
-    >
-      {open && <Composer close={close} />}
-    </Dialog>
-  );
-}
-export function ReviewStrip({ type, heading }) {
-  const query = useRead('/reviews/feed', {
-    params: { type, sort: 'recent', limit: 4 },
-  });
-  const rows = Array.isArray(query.data?.data)
-    ? query.data.data.filter((row) => row.target?.type === type)
-    : [];
-  if (!rows.length) return null;
-  return (
-    <section className="grid gap-3" aria-label={heading}>
-      <h2 className="text-xl font-bold">{heading}</h2>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {rows.map((row) => (
-          <article
-            key={row.id}
-            className="grid min-w-0 content-start gap-2 rounded-panel bg-surface/55 p-4 wrap-anywhere"
-          >
-            <Link
-              className="font-semibold text-accent hover:underline"
-              to={'/reviews/' + row.id}
-            >
-              {row.target.title}
-            </Link>
-            <p className="text-sm text-muted">
-              {[
-                row.author?.name,
-                Number.isFinite(row.rating) && row.rating + ' / 5',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-            <p className="line-clamp-2 text-sm">
-              {row.spoiler ? 'Contains spoilers' : row.body}
-            </p>
-          </article>
-        ))}
-      </div>
-    </section>
   );
 }

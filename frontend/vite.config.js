@@ -3,6 +3,7 @@ import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { publicPageShells } from './public-pages.js';
 
 const envDir = fileURLToPath(new URL('../', import.meta.url));
 
@@ -32,7 +33,15 @@ export default defineConfig(({ command, isPreview, mode }) => {
   const env = loadEnv(mode, envDir);
   if (command === 'build') validateDeploymentUrls(env);
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      publicPageShells(
+        process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL
+          : undefined,
+      ),
+    ],
     envDir,
     server: {
       proxy: {

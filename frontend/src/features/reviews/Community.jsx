@@ -7,7 +7,10 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Dialog } from '../../components/ui/Dialog.jsx';
 import { EmptyState } from '../../components/ui/states.jsx';
 import { control } from '../admin/common.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { useValidatedForm } from '../../hooks/use-validated-form.js';
 import {
   kinds,
@@ -605,12 +608,32 @@ export function ReviewDetail() {
   });
   const row = query.data?.data;
   usePageMetadata(
-    row && {
-      title: 'Community review of ' + row.target.title + ' | FDFS.ONE',
-      description:
-        'Read a community review and discussion for ' + row.target.title + '.',
-      path: reviewLink(row.id),
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : row && {
+          title: 'Community review of ' + row.target.title + ' | FDFS.ONE',
+          description:
+            'Read a community review and discussion for ' +
+            row.target.title +
+            '.',
+          path: reviewLink(row.id),
+          type: 'article',
+          noIndex: row.spoiler === true,
+          structured: !row.spoiler && {
+            '@type': 'Review',
+            itemReviewed: { '@type': 'Movie', name: row.target.title },
+            ...(row.author?.name && {
+              author: { '@type': 'Person', name: row.author.name },
+            }),
+            ...(row.rating > 0 && {
+              reviewRating: {
+                '@type': 'Rating',
+                ratingValue: row.rating,
+                bestRating: 5,
+              },
+            }),
+          },
+        },
   );
   return (
     <ReviewShell title="Community review">

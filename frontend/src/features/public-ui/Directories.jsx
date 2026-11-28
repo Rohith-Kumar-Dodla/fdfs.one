@@ -16,7 +16,7 @@ import {
   useCatalogueParams,
   posters,
 } from './Catalogue.jsx';
-import { ReviewStrip } from './ReviewComposer.jsx';
+import { ReviewStrip } from './ReviewStrip.jsx';
 
 const search = (label, key = 'q') => ({ key, label });
 const select = (key, label, options) => ({ key, label, options });

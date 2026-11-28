@@ -17,16 +17,37 @@
         { "key": "Vercel-CDN-Cache-Control", "value": "no-store" },
         { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
       ]
+    },
+    {
+      "source": "/assets/:asset*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://fdfs-api-6tvg.onrender.com/api/v1/site/sitemap.xml"
+    },
+    {
+      "source": "/:section(cinema|originals|podcasts|live|reviews|talent)",
+      "destination": "/_pages/:section.html"
+    },
+    {
+      "source": "/reviews/:section(movies|short-films|community)",
+      "destination": "/_pages/reviews/:section.html"
+    },
     {
       "source": "/api/v1/:path*",
       "destination": "https://fdfs-api-6tvg.onrender.com/api/v1/:path*"
     },
     {
-      "source": "/((?!api(?:/|$)|socket\\.io(?:/|$)|assets(?:/|$)).*)",
-      "destination": "/index.html"
+      "source": "/((?!api(?:/|$)|socket\\.io(?:/|$)|assets(?:/|$)|_pages(?:/|$)|robots\\.txt$|sitemap\\.xml$).+)",
+      "destination": "/_pages/spa.html"
     }
   ]
 }

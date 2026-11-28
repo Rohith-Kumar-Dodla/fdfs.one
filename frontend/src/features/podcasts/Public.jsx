@@ -17,7 +17,10 @@ import {
   SectionHeading,
 } from '../../components/ui/surfaces.jsx';
 import { ErrorState, Skeleton } from '../../components/ui/states.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { useSiteSettings } from '../site/public.jsx';
 import { EpisodeComments } from './Comments.jsx';
 import { SaveAction } from '../personal/Actions.jsx';
@@ -104,11 +107,20 @@ export function EpisodeDetail() {
   });
   const episode = query.data;
   usePageMetadata(
-    episode && {
-      title: episode.title + ' | ' + episode.show.name,
-      description: episode.synopsis,
-      path: episodePath(episode.slug),
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : episode && {
+          title: episode.title + ' | ' + episode.show.name,
+          description: episode.synopsis,
+          path: episodePath(episode.slug),
+          image: episode.thumbnail?.url,
+          structured: {
+            '@type': 'PodcastEpisode',
+            name: episode.title,
+            description: episode.synopsis,
+            partOfSeries: { '@type': 'PodcastSeries', name: episode.show.name },
+          },
+        },
   );
   return (
     <Container className="grid max-w-5xl! grid-cols-1 gap-6 py-8">

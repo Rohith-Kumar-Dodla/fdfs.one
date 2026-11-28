@@ -395,3 +395,11 @@ npm run auth:bootstrap-super -w @fdfs/backend -- --email owner-staging@example.c
 ```
 
 Enter a unique password twice at the hidden prompts. The one-time bootstrap provisions a verified staging operator and records the audit event. Store credentials in your password manager. Remove temporary environment values and network access when done. Do not use `--elevate-existing` for a fresh staging database.
+
+## Phase 7.2 read paths and reliability
+
+The discovery availability check reuses its settings lookup for homepage assembly and global search. Home assembly shares the published podcast lookup and reuses MongoDB identifiers in request-local memory for rating and guest summaries. Public response projections continue to omit these identifiers and protected player sources.
+
+`GET /api/v1/site/sitemap.xml` builds URLs from the trusted frontend origin, using projected eligible catalogue records. It excludes hidden modules, private routes, spoilers and unavailable review targets. It lists at most 1,000 records per catalogue and scans at most 4,000 recent review candidates for up to 1,000 eligible reviews. The public XML permits a 60-second shared cache. API proxy defaults and all protected responses retain no-store.
+
+Request completion logs include the existing correlation ID, HTTP status, duration and an application error code when available. Free Render web services can suspend workers when idle. Reminder and support mail jobs resume from stored state when an instance wakes, so a reminder can be late or miss its useful window. The existing schedule and delivery guards still apply. [Render Free instance limitations](https://render.com/docs/free)

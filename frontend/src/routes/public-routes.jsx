@@ -10,31 +10,40 @@ const reviewsPage = (name) => async () => ({
   Component: (await import('../features/reviews/Public.jsx'))[name],
 });
 
-const talentPage = (name) => async () => ({
-  Component: (await import('../features/talent/Public.jsx'))[name],
+const directory = (name) => async () => ({
+  Component: (await import('../features/public-ui/Directories.jsx'))[name],
 });
 function modulePage(path, detail = false) {
   if (path === '/reviews')
     return reviewsPage(detail ? 'MovieDetail' : 'ReviewsLanding');
   if (path === '/live')
-    return async () => {
-      const views = await import('../features/live/Public.jsx');
-      return { Component: detail ? views.LiveDetail : views.LiveDirectory };
-    };
+    return detail
+      ? async () => ({
+          Component: (await import('../features/live/Public.jsx')).LiveDetail,
+        })
+      : directory('LiveDirectory');
   if (path === '/podcasts')
-    return async () => {
-      const views = await import('../features/podcasts/Public.jsx');
-      return { Component: detail ? views.EpisodeDetail : views.PodcastLanding };
-    };
+    return detail
+      ? async () => ({
+          Component: (await import('../features/podcasts/Public.jsx'))
+            .EpisodeDetail,
+        })
+      : directory('PodcastLanding');
   if (path === '/talent')
-    return talentPage(detail ? 'TalentProfile' : 'TalentDirectory');
+    return detail
+      ? async () => ({
+          Component: (await import('../features/talent/Public.jsx'))
+            .TalentProfile,
+        })
+      : directory('TalentDirectory');
   const classification = Object.keys(filmPaths).find(
     (key) => filmPaths[key] === path,
   );
   if (!classification) return async () => ({ Component: NotFound });
   return async () => {
-    const views = await import('../features/films/Public.jsx');
-    const Page = detail ? views.FilmDetail : views.FilmDirectory;
+    const Page = detail
+      ? (await import('../features/films/Public.jsx')).FilmDetail
+      : (await import('../features/public-ui/Directories.jsx')).FilmDirectory;
     return { Component: () => <Page classification={classification} /> };
   };
 }

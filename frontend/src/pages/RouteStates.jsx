@@ -2,6 +2,10 @@ import { Link, useRouteError, isRouteErrorResponse } from 'react-router';
 import { buttonClasses } from '../components/ui/Button.jsx';
 import { Spinner } from '../components/ui/states.jsx';
 import { Container, SectionHeading } from '../components/ui/surfaces.jsx';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../hooks/use-page-metadata.js';
 
 export function RouteLoading() {
   return (
@@ -12,6 +16,7 @@ export function RouteLoading() {
 }
 
 export function NotFound() {
+  usePageMetadata(unavailableMetadata);
   return (
     <Container className="grid justify-items-start gap-6 py-14 sm:py-20">
       <SectionHeading

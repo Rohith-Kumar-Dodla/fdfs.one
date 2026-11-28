@@ -8,7 +8,7 @@ Use the separate Vercel staging project and a single Render Web Service for owne
 2. Configure the [Vercel project](FRONTEND.md#pre-release-vercel-project) and use `https://fdfs-one-staging.vercel.app` as the canonical testing URL. Enable Vercel Authentication for all deployments in the staging project. Verify that an incognito browser cannot load the staging site without an invitation. Share the preview with named testers only.
 3. Bootstrap the separate [staging owner account](BACKEND.md#staging-administrator), then use the [deployment and device checklist](TESTING.md#pre-release-deployment-verification) before adding content. Use test content that can be exposed if a public catalogue endpoint or artwork URL is shared. Vercel protection gates the frontend and the Render API remains publicly reachable with application authentication and authorization on protected operations. The pre-release noindex headers are an additional indexing control.
 
-This environment is for testing before Phase 7 and the Web V1 release.
+This environment is for Phase 7 testing before the Web V1 release. Staging remains excluded from indexing.
 
 FDFS is an entertainment, streaming and cinema community platform. Web development comes first. A React Native app will use the same API and database.
 
@@ -102,7 +102,7 @@ The roadmap has 11 main phases and 22 subphases.
 
 Open `/admin` for the full-width administration workspace. Content contains Cinema, Originals, 404 Reality Not Found, Live, Movies & Reviews and Talent Profiles. Movie Requests in Movies & Reviews handles privately saved reviews awaiting a verified movie. Media Library organizes assets around the existing catalogue records and includes a Shared Assets area. Homepage Management edits the five hero slots, featured picks and campaign placements.
 
-Set `YOUTUBE_DATA_API_KEY` on the server to enable YouTube metadata lookups. Editors can enter the same details manually. FDFS Live chat defaults off. Authorized active YouTube Live playback, external movie metadata licensing and any unverified live provider checks carry forward. Phase 7 has not started.
+Set `YOUTUBE_DATA_API_KEY` on the server to enable YouTube metadata lookups. Editors can enter the same details manually. FDFS Live chat defaults off. Authorized active YouTube Live playback, external movie metadata licensing and any unverified live provider checks carry forward.
 
 ## Final Phase 6 onboarding corrections
 

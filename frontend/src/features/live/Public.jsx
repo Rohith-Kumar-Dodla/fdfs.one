@@ -16,7 +16,10 @@ import {
   ErrorState,
   Skeleton,
 } from '../../components/ui/states.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { DetailLink } from '../admin/common.jsx';
 import { protectedRequest } from '../auth/api.js';
 import { useAccount } from '../auth/guards.jsx';
@@ -294,11 +297,25 @@ export function LiveDetail() {
   });
   const event = query.data;
   usePageMetadata(
-    event && {
-      title: event.title + ' | FDFS Live',
-      description: event.summary,
-      path,
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : event && {
+          title: event.title + ' | FDFS Live',
+          description: event.summary,
+          path,
+          image: event.thumbnail?.url,
+          structured: event.startAt && {
+            '@type': 'Event',
+            name: event.title,
+            description: event.summary,
+            startDate: event.startAt,
+            eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+            location: {
+              '@type': 'VirtualLocation',
+              url: new URL(path, window.location.origin).href,
+            },
+          },
+        },
   );
   return (
     <Container className={wrapper}>

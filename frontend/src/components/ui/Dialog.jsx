@@ -11,6 +11,7 @@ export function Dialog({
   contentClassName = '',
   closeLabel = 'Close dialog',
   closeIcon: CloseIcon = X,
+  describedBy,
 }) {
   const ref = useRef(null);
   const titleId = useId();
@@ -28,6 +29,7 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      aria-describedby={describedBy}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
         const bounds = event.currentTarget.getBoundingClientRect();

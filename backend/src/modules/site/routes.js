@@ -5,6 +5,7 @@ import {
   homepageSections,
 } from '../../../../shared/homepage.js';
 import { assembledHomepage } from './homepage.js';
+import { publicSitemap } from './sitemap.js';
 import { globalSearch, searchInput, suggestInput } from './search.js';
 import {
   getPromotion,
@@ -69,20 +70,38 @@ export function mountPublicSite(api, available, { config, authConfig } = {}) {
         code: 'DEPENDENCY_UNAVAILABLE',
         message: 'Discovery is temporarily unavailable.',
       });
-    if ((await siteFlags()).maintenance)
+    const { value } = await readConfig('settings');
+    if (value.maintenance)
       return sendError(res, {
         status: 503,
         code: 'SITE_MAINTENANCE',
         message: 'The website is temporarily in maintenance.',
       });
+    res.locals.discoverySettings = value;
     next();
   };
+  api.get('/site/sitemap.xml', anywhere, ready, async (_req, res) => {
+    const origin = authConfig?.webOrigin ?? config?.CORS_ORIGINS?.[0];
+    if (!origin)
+      throw new AppError(
+        503,
+        'DEPENDENCY_UNAVAILABLE',
+        'Sitemap is temporarily unavailable.',
+      );
+    const xml = await publicSitemap(
+      origin,
+      res.locals.discoverySettings.hiddenModules,
+    );
+    res.set('Cache-Control', 'public, max-age=0, s-maxage=60, must-revalidate');
+    return res.type('application/xml').send(xml);
+  });
   api.get('/homepage', anywhere, ready, async (req, res) =>
     sendSuccess(
       res,
       await assembledHomepage({
         logger: req.log,
         refined: req.query.view === 'entertainment',
+        settings: res.locals.discoverySettings,
       }),
     ),
   );
@@ -97,12 +116,11 @@ export function mountPublicSite(api, available, { config, authConfig } = {}) {
       throttle,
       validate(schema),
       async (_req, res) => {
-        const { value } = await readConfig('settings');
         return sendSuccess(
           res,
           await globalSearch(
             { ...data(res).query, suggest },
-            value.hiddenModules,
+            res.locals.discoverySettings.hiddenModules,
           ),
         );
       },

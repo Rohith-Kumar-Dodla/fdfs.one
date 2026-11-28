@@ -1,5 +1,6 @@
 import { PublicFooter } from '../components/common/PublicFooter.jsx';
 import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Link,
   Navigate,
@@ -18,12 +19,14 @@ import { ErrorState, Spinner } from '../components/ui/states.jsx';
 import { useAuthStore } from '../features/auth/state.js';
 import { useAccount } from '../features/auth/guards.jsx';
 import { Welcome } from '../features/auth/Welcome.jsx';
+import { homepageQuery } from '../features/public-ui/home-query.js';
 
 export function PublicLayout() {
   const main = useRef(null);
   const { pathname, hash } = useLocation();
   const navigation = useNavigation();
   const settings = useSiteSettings();
+  const client = useQueryClient();
   const admin = /^\/admin(?:\/|$)/.test(pathname);
   const status = useAuthStore((state) => state.status);
   const account = useAccount();
@@ -33,6 +36,15 @@ export function PublicLayout() {
     );
   const maintenance = settings.maintenance && !admin && !accountAccess;
   const previousPath = useRef(pathname);
+
+  useEffect(() => {
+    if (
+      pathname === '/' &&
+      !maintenance &&
+      !account.data?.roles.includes('super_admin')
+    )
+      void client.prefetchQuery(homepageQuery);
+  }, [pathname, maintenance, client, account.data]);
 
   useEffect(() => {
     const changedPage = previousPath.current !== pathname;

@@ -19,7 +19,10 @@ import {
   SectionHeading,
 } from '../../components/ui/surfaces.jsx';
 import { ErrorState, Skeleton } from '../../components/ui/states.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { ProgressPlayer } from '../personal/Playback.jsx';
 import { SaveAction } from '../personal/Actions.jsx';
 import { Related } from '../personal/Related.jsx';
@@ -315,11 +318,19 @@ export function FilmDetail({ classification }) {
   });
   const film = query.data;
   usePageMetadata(
-    film && {
-      title: film.title + ' | ' + filmLabels[classification],
-      description: film.synopsis,
-      path: filmPath(film),
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : film && {
+          title: film.title + ' | ' + filmLabels[classification],
+          description: film.synopsis,
+          path: filmPath(film),
+          image: film.poster?.url,
+          structured: {
+            '@type': 'Movie',
+            name: film.title,
+            description: film.synopsis,
+          },
+        },
   );
   return (
     <Container className="grid max-w-5xl! grid-cols-1 gap-6 py-8 sm:py-12">

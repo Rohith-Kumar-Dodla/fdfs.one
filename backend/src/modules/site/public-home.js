@@ -1,35 +1,24 @@
 import { publicHomeSections } from '../../../../shared/public-home.js';
-import { Film } from '../films/models.js';
-import { PodcastEpisode } from '../podcasts/models.js';
 import { guestNames } from '../podcasts/read.js';
 import { RatingTotals } from '../reviews/models.js';
-import { discover } from './discovery.js';
+import { discover, refKey } from './discovery.js';
 import { trendingReviews } from '../reviews/community.js';
 import { eligibleShortFilmProfiles } from '../talent/categories.js';
 
-async function metadata(key, items) {
-  const model =
-    key === 'podcasts'
-      ? PodcastEpisode
-      : ['independent', 'original'].includes(key)
-        ? Film
-        : null;
-  if (!model || !items.length) return items;
-  const docs = await model
-    .find({ publicId: { $in: items.map((item) => item.id) } })
-    .select('publicId')
-    .lean();
-  const ids = new Map(docs.map((row) => [row.publicId, String(row._id)]));
+async function metadata(key, items, recordIds) {
+  if (!['podcasts', 'independent', 'original'].includes(key) || !items.length)
+    return items;
+  const ids = items.map((item) => recordIds.get(refKey(item))).filter(Boolean);
   if (key === 'podcasts') {
-    const guests = await guestNames(docs.map((row) => row._id));
+    const guests = await guestNames(ids);
     return items.map((item) => ({
       ...item,
-      guests: guests.get(ids.get(item.id)) ?? [],
+      guests: guests.get(String(recordIds.get(refKey(item)))) ?? [],
     }));
   }
   const totals = await RatingTotals.find({
     targetType: key === 'independent' ? 'cinema' : 'original',
-    target: { $in: docs.map((row) => row._id) },
+    target: { $in: ids },
     count: { $gt: 0 },
   })
     .select('target count sum')
@@ -39,7 +28,7 @@ async function metadata(key, items) {
   );
   return items.map((item) => ({
     ...item,
-    rating: ratings.get(ids.get(item.id)),
+    rating: ratings.get(String(recordIds.get(refKey(item)))),
   }));
 }
 export async function refinedSections({
@@ -52,6 +41,8 @@ export async function refinedSections({
   now,
   safe,
   campaigns,
+  podcastShow,
+  recordIds,
 }) {
   return Promise.all(
     publicHomeSections.map((entry) =>
@@ -129,7 +120,9 @@ export async function refinedSections({
             }));
             featured = [];
           } else {
-            items = (await discover(key, { limit, now })).items;
+            items = (
+              await discover(key, { limit, now, podcastShow, recordIds })
+            ).items;
           }
           const output = [
             ...new Map(
@@ -138,7 +131,7 @@ export async function refinedSections({
           ].slice(0, limit);
           return {
             ...entry,
-            items: await metadata(key, output),
+            items: await metadata(key, output, recordIds),
             above: campaigns(promotions, 'above', entry.placementId, 1),
             sponsored: slots.flatMap((row) =>
               campaigns(promotions, 'rail', row.id, 1),

@@ -121,9 +121,8 @@ it('opens a guest review dialog and sends sign-in back to the approved review fl
   })[0];
   await user.click(launch);
   const dialog = screen.getByRole('dialog', { name: 'Write Your Review' });
-  expect(within(dialog).getByRole('link', { name: 'Sign in' })).toHaveAttribute(
-    'href',
-    '/login',
-  );
+  expect(
+    await within(dialog).findByRole('link', { name: 'Sign in' }),
+  ).toHaveAttribute('href', '/login');
   expect(within(dialog).getByText('Sign in to write a review.')).toBeVisible();
 });

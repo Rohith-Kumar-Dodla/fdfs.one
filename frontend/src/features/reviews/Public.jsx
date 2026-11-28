@@ -15,7 +15,10 @@ import { SaveAction } from '../personal/Actions.jsx';
 import { Related } from '../personal/Related.jsx';
 import { YouTubePlayer } from '../media/YouTubePlayer.jsx';
 import { PlaybackGate } from '../media/PlaybackGate.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { kinds, useParticipation, useRead } from './client.js';
 import {
   field,
@@ -479,13 +482,21 @@ export function MovieDetail() {
   const query = useRead('/movies/' + encodeURIComponent(slug));
   const movie = query.data?.data;
   usePageMetadata(
-    movie && {
-      title: movie.title + ' | FDFS Reviews',
-      description:
-        movie.synopsis ??
-        'Movie details and community reviews for ' + movie.title + '.',
-      path: movie.path,
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : movie && {
+          title: movie.title + ' | FDFS Reviews',
+          description:
+            movie.synopsis ??
+            'Movie details and community reviews for ' + movie.title + '.',
+          path: movie.path,
+          image: movie.poster?.url,
+          structured: {
+            '@type': 'Movie',
+            name: movie.title,
+            description: movie.synopsis,
+          },
+        },
   );
   return (
     <Container className="grid min-w-0 gap-6 py-8" aria-label="Movie details">

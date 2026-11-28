@@ -294,6 +294,36 @@ describe.skipIf(!uri)('Phase 6.1 isolated discovery and promotions', () => {
       await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });
+  it('lists only canonical public pages in the sitemap and never includes protected sources', async () => {
+    const result = await api('get', '/site/sitemap.xml').expect(200);
+    expect(result.headers['cache-control']).toContain('s-maxage=60');
+    expect(result.headers['content-type']).toContain('application/xml');
+    for (const [key, path] of Object.entries({
+      independent: '/cinema/',
+      original: '/originals/',
+      podcasts: '/podcasts/',
+      live: '/live/',
+      movies: '/movies/',
+      talent: '/talent/',
+      reviews: '/reviews/',
+    }))
+      expect(result.text).toContain(
+        origin +
+          path +
+          (key === 'reviews' ? refs[key].publicId : refs[key].slug),
+      );
+    for (const excluded of [
+      hidden.slug,
+      late.slug,
+      '/account',
+      '/dashboard',
+      '/support',
+      '/admin',
+      'private-video-fixture',
+    ])
+      expect(result.text).not.toContain(excluded);
+  });
+
   it('signs in the isolated permanent owner, refreshes, logs out and restricts campaign access', async () => {
     const login = await browser(api('post', '/auth/login'))
       .send({ email, password })

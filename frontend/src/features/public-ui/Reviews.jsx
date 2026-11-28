@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router';
 import { PenLine, Search } from 'lucide-react';
 import { genres, languages } from '../../../../shared/films.js';
 import { reviewGenres } from '../../../../shared/reviews.js';
 import { Button } from '../../components/ui/Button.jsx';
+import { Dialog } from '../../components/ui/Dialog.jsx';
+import { Spinner } from '../../components/ui/states.jsx';
 import { useRead } from '../reviews/client.js';
 import {
   CatalogueCard,
@@ -13,7 +15,7 @@ import {
   PublicCatalogue,
   useCatalogueParams,
 } from './Catalogue.jsx';
-import { ReviewComposer } from './ReviewComposer.jsx';
+const ReviewComposer = lazy(() => import('./ReviewComposer.jsx'));
 
 const movieGenres = { ...genres, ...reviewGenres };
 const fields = [
@@ -152,7 +154,18 @@ export function PublicReviews({ catalogue = false }) {
           Browse movie discussions
         </Link>
       </div>
-      <ReviewComposer open={open} close={() => update({ write: '' })} />
+      <Dialog
+        title="Write Your Review"
+        open={open}
+        onClose={() => update({ write: '' })}
+        className="mt-auto mb-0 max-h-[92dvh] w-full max-w-2xl rounded-b-none sm:my-auto sm:rounded-panel"
+      >
+        {open && (
+          <Suspense fallback={<Spinner label="Loading review editor" />}>
+            <ReviewComposer close={() => update({ write: '' })} />
+          </Suspense>
+        )}
+      </Dialog>
     </PublicCatalogue>
   );
 }

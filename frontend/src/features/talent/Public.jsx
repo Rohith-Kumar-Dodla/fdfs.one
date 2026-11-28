@@ -9,7 +9,10 @@ import { professions } from '../../../../shared/talent.js';
 import { filmPath, filmLabels } from '../../../../shared/films.js';
 import { participantRoles } from '../../../../shared/podcasts.js';
 import { FilmImage } from '../films/FilmImage.jsx';
-import { usePageMetadata } from '../../hooks/use-page-metadata.js';
+import {
+  unavailableMetadata,
+  usePageMetadata,
+} from '../../hooks/use-page-metadata.js';
 import { apiClient } from '../../api/client.js';
 import { buttonClasses } from '../../components/ui/Button.jsx';
 import {
@@ -184,11 +187,22 @@ export function TalentProfile() {
   const query = usePublicTalent(slug);
   const profile = query.data;
   usePageMetadata(
-    profile && {
-      title: profile.displayName + ' | FDFS Talent Profiles',
-      description: profile.introduction,
-      path: '/talent/' + profile.slug,
-    },
+    query.error?.status === 404
+      ? unavailableMetadata
+      : profile && {
+          title: profile.displayName + ' | FDFS Talent Profiles',
+          description: profile.introduction,
+          path: '/talent/' + profile.slug,
+          image: profile.profileImage?.url,
+          structured: {
+            '@type': 'ProfilePage',
+            mainEntity: {
+              '@type': 'Person',
+              name: profile.displayName,
+              description: profile.introduction,
+            },
+          },
+        },
   );
   return (
     <Container className="grid max-w-4xl! grid-cols-1 gap-6 py-8 sm:py-12">

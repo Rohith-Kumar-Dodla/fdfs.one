@@ -1,4 +1,3 @@
-import { NotificationsPage } from '../operations/Notices.jsx';
 import { AccountGuard } from './guards.jsx';
 
 export const accountRoutes = [
@@ -28,7 +27,13 @@ export const accountRoutes = [
           Component: (await import('../personal/Dashboard.jsx')).Dashboard,
         }),
       },
-      { path: '/account/notifications', element: <NotificationsPage /> },
+      {
+        path: '/account/notifications',
+        lazy: async () => ({
+          Component: (await import('../operations/NotificationsPage.jsx'))
+            .NotificationsPage,
+        }),
+      },
       {
         path: '/account/reviews',
         lazy: async () => ({

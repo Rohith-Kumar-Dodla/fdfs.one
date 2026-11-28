@@ -1,9 +1,7 @@
 import { useOutletContext } from 'react-router';
 import { can } from '../../../../shared/admin.js';
 import { EmptyState } from '../../components/ui/states.jsx';
-import { ContentWorkspace, SystemWorkspace } from './Workspace.jsx';
 import { AccountGuard } from '../auth/guards.jsx';
-import { NotificationsPage } from '../operations/Notices.jsx';
 
 const submissionPage = (name) => async () => ({
   Component: (await import('./Submissions.jsx'))[name],
@@ -138,7 +136,12 @@ export const administrationRoutes = [
               Component: (await import('./Admin.jsx')).OverviewPage,
             }),
           },
-          { path: 'content', Component: ContentWorkspace },
+          {
+            path: 'content',
+            lazy: async () => ({
+              Component: (await import('./Workspace.jsx')).ContentWorkspace,
+            }),
+          },
           {
             path: 'community',
             lazy: async () => {
@@ -148,10 +151,19 @@ export const administrationRoutes = [
               };
             },
           },
-          { path: 'system', Component: SystemWorkspace },
+          {
+            path: 'system',
+            lazy: async () => ({
+              Component: (await import('./Workspace.jsx')).SystemWorkspace,
+            }),
+          },
           {
             path: 'notifications',
-            element: <NotificationsPage administrator />,
+            lazy: async () => {
+              const { NotificationsPage } =
+                await import('../operations/NotificationsPage.jsx');
+              return { Component: () => <NotificationsPage administrator /> };
+            },
           },
           {
             path: 'movies/requests',

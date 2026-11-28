@@ -12,7 +12,7 @@ import { publicTargetStages } from '../reviews/community.js';
 import { MediaAsset, imageView } from '../media/assets.js';
 import { normalizedName, Personality } from '../talent/models.js';
 
-const models = {
+export const models = {
   independent: Film,
   original: Film,
   podcasts: PodcastEpisode,
@@ -134,9 +134,21 @@ const reviewFeature = (row) => ({
   date: row.createdAt,
   spoiler: row.spoiler === true,
 });
+export const publicPodcastShow = (session) =>
+  findShow(true)
+    .select('_id')
+    .session(session ?? null)
+    .lean();
+
 export async function sourceFilter(
   module,
-  { now = new Date(), mode = 'released', releaseDays, session } = {},
+  {
+    now = new Date(),
+    mode = 'released',
+    releaseDays,
+    session,
+    podcastShow,
+  } = {},
 ) {
   const filter = { status: 'published' };
   if (module === 'movies') {
@@ -176,10 +188,7 @@ export async function sourceFilter(
   }
   if (['independent', 'original', 'podcasts'].includes(module)) {
     if (module === 'podcasts') {
-      const show = await findShow(true)
-        .select('_id')
-        .session(session ?? null)
-        .lean();
+      const show = await (podcastShow?.() ?? publicPodcastShow(session));
       Object.assign(filter, {
         show: show?._id ?? null,
         publicationAt: { $lte: now },
@@ -246,6 +255,8 @@ export async function discover(
     hiddenModules = [],
     exclude = [],
     match = {},
+    podcastShow,
+    recordIds,
   } = {},
 ) {
   const model = models[module];
@@ -255,6 +266,7 @@ export async function discover(
     mode,
     releaseDays,
     session,
+    podcastShow,
   });
   Object.assign(filter, match);
   if (ids || exclude.length)
@@ -340,6 +352,9 @@ export async function discover(
     query.populate({ path: field, select: mediaFields });
   // Transactional MongoDB operations share a session and run sequentially.
   const rows = await query.lean();
+  if (recordIds)
+    for (const { publicId, _id } of rows)
+      recordIds.set(refKey({ module, id: publicId }), _id);
   return {
     items: rows.map((row) => feature(row, module, now)),
     count: withCount
@@ -349,7 +364,14 @@ export async function discover(
 }
 export async function resolveFeatures(
   refs,
-  { now = new Date(), session, allowUpcoming = false, hiddenModules } = {},
+  {
+    now = new Date(),
+    session,
+    allowUpcoming = false,
+    hiddenModules,
+    podcastShow,
+    recordIds,
+  } = {},
 ) {
   const groups = [...Map.groupBy(refs, (row) => row.module)];
   const read = async ([module, list]) => {
@@ -360,6 +382,8 @@ export async function resolveFeatures(
       now,
       session,
       hiddenModules,
+      podcastShow,
+      recordIds,
     });
     return items.filter(
       (item) =>
