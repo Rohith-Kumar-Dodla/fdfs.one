@@ -31,7 +31,7 @@ export const schemas = {
   }),
   login: body({ email: normalizedEmail, password: currentPassword }),
   email: body({ email: normalizedEmail }),
-  verify: body({ token: code, password: currentPassword }),
+  verify: body({ code: z.string().regex(/^[0-9]{6}$/) }),
   reset: body({ token: code, password }),
   change: body({ currentPassword, password }),
   removeAccount: body({

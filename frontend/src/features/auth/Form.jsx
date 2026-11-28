@@ -93,31 +93,47 @@ export function AuthForm({
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-      {fields.map(({ name, label, hint, autoComplete, type = 'text' }) => (
-        <FormField
-          key={name}
-          label={label}
-          hint={hint}
-          error={errors[name]?.message}
-        >
-          {(accessibility) => {
-            const props = {
-              ...register(name),
-              ...accessibility,
-              disabled: disabled || isSubmitting,
-            };
-            if (type === 'password')
+      {fields.map(
+        ({
+          name,
+          label,
+          hint,
+          autoComplete,
+          inputMode,
+          maxLength,
+          type = 'text',
+        }) => (
+          <FormField
+            key={name}
+            label={label}
+            hint={hint}
+            error={errors[name]?.message}
+          >
+            {(accessibility) => {
+              const props = {
+                ...register(name),
+                ...accessibility,
+                disabled: disabled || isSubmitting,
+              };
+              if (type === 'password')
+                return (
+                  <PasswordInput props={props} autoComplete={autoComplete} />
+                );
+              if (type === 'textarea')
+                return <Textarea {...props} maxLength={500} />;
               return (
-                <PasswordInput props={props} autoComplete={autoComplete} />
+                <TextInput
+                  {...props}
+                  type={type}
+                  autoComplete={autoComplete}
+                  inputMode={inputMode}
+                  maxLength={maxLength}
+                />
               );
-            if (type === 'textarea')
-              return <Textarea {...props} maxLength={500} />;
-            return (
-              <TextInput {...props} type={type} autoComplete={autoComplete} />
-            );
-          }}
-        </FormField>
-      ))}
+            }}
+          </FormField>
+        ),
+      )}
       {children?.({ register, isSubmitting })}
       {feedback && (
         <p

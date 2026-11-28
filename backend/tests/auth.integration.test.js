@@ -6,7 +6,16 @@ import express from 'express';
 import mongoose from 'mongoose';
 import nodemailer from 'nodemailer';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { createApp } from '../src/app.js';
 import { createLogger } from '../src/config/logger.js';
 import { handleError } from '../src/middlewares/errors.js';
@@ -66,9 +75,11 @@ const cookieOf = (response) => response.headers['set-cookie'][0].split(';')[0];
 
 let app;
 let outbox;
+let failDelivery;
 const mailer = nodemailer.createTransport({ jsonTransport: true });
 const mailTransport = {
   async sendMail(message) {
+    if (failDelivery) return { accepted: [] };
     const result = await mailer.sendMail(message);
     outbox.push(JSON.parse(result.message.toString()));
     return { accepted: [message.to] };
@@ -84,12 +95,33 @@ async function delivered(index = 0) {
   return tokens()[index];
 }
 
-const register = () => send(app, 'register', registration).expect(202);
-const verify = async () =>
-  send(app, 'verify-email', {
-    token: await delivered(),
-    password: registration.password,
+function verificationCode(index = 0) {
+  const messages = outbox.filter(
+    ({ subject }) => subject === 'Verify your Gmail — FDFS.ONE',
+  );
+  return messages[index]?.text.match(/(?:^|\n)([0-9]{6})(?:\n|$)/)?.[1];
+}
+const startVerification = (email = registration.email) =>
+  withBrowser(
+    send(app, 'verification-session', {
+      email,
+      password: registration.password,
+    }),
+  );
+const verificationRequest = (cookie, path, body) => {
+  const operation = send(app, path, body);
+  return withBrowser(operation.set('Cookie', cookie));
+};
+const register = async () => {
+  await send(app, 'register', registration).expect(202);
+  return startVerification().expect(200);
+};
+const verify = async () => {
+  const pending = await login().expect(403);
+  return verificationRequest(cookieOf(pending), 'verify-email', {
+    code: verificationCode(),
   }).expect(200);
+};
 const registerVerified = async () => {
   await register();
   await verify();
@@ -144,6 +176,7 @@ describe.skipIf(!uri)(
     beforeEach(async () => {
       await Promise.all([User.deleteMany({}), Session.deleteMany({})]);
       outbox = [];
+      failDelivery = false;
       app = createApp({
         config,
         authConfig,
@@ -152,6 +185,7 @@ describe.skipIf(!uri)(
         authOptions: { mailTransport },
       });
     });
+    afterEach(() => vi.restoreAllMocks());
 
     afterAll(async () => {
       if (mongoose.connection.name === database)
@@ -175,10 +209,16 @@ describe.skipIf(!uri)(
       ]);
       expect(results[0].body).toEqual(results[1].body);
       expect(results[0].body.data).toEqual({});
-      const token = await delivered();
-      expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      await Promise.all([
+        startVerification('fix.ture+test@gmail.com').expect(200),
+        startVerification().expect(200),
+      ]);
+      const code = verificationCode();
+      expect(code).toMatch(/^[0-9]{6}$/);
       expect(outbox).toHaveLength(1);
-      const users = await User.find().select('+passwordHash +verification');
+      const users = await User.find().select(
+        '+passwordHash +emailVerification',
+      );
       expect(users).toHaveLength(1);
       expect(users[0]).toMatchObject({
         email: registration.email,
@@ -188,7 +228,8 @@ describe.skipIf(!uri)(
       expect(
         await bcrypt.compare(registration.password, users[0].passwordHash),
       ).toBe(true);
-      expect(users[0].verification.hash).not.toBe(token);
+      expect(users[0].emailVerification.code.digest).toMatch(/^[a-f0-9]{64}$/);
+      expect(users[0].emailVerification.code.digest).not.toBe(code);
     });
 
     it('logs in valid accounts, rejects invalid credentials and hides private auth fields', async () => {
@@ -231,6 +272,7 @@ describe.skipIf(!uri)(
         'passwordReset',
         'refreshHash',
         'verification',
+        'emailVerification',
         'authVersion',
         '_id',
       ]) {
@@ -239,46 +281,108 @@ describe.skipIf(!uri)(
       await agent(app).get('/api/v1/users/me').expect(401);
     });
 
-    it('rejects expired and replayed verification links and throttles resends', async () => {
-      await register();
-      const expired = await delivered();
+    it('persists the resend window, rejects concurrent sends and rotates the accepted code', async () => {
+      const start = Date.now();
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+      const initial = await register();
+      const cookie = cookieOf(initial);
+      const resend = () => verificationRequest(cookie, 'resend-verification');
+      const status = () =>
+        verificationRequest(cookie, 'verification-status').expect(200);
+      const verifyCode = (code) =>
+        verificationRequest(cookie, 'verify-email', { code });
+      const first = verificationCode();
+      expect(initial.body.data).toMatchObject({
+        delivery: 'accepted',
+        remainingRequests: 2,
+        expiresAt: start + 600_000,
+        retryAt: start + 60_000,
+      });
+      await refresh(cookie).expect(401);
+      const limited = await resend().expect(429);
+      expect(limited.headers['retry-after']).toBe('60');
+      expect((await status()).body.data).toEqual(initial.body.data);
+      clock.mockReturnValue(start + 60_000);
+      const concurrent = await Promise.all([resend(), resend()]);
+      expect(concurrent.map(({ status }) => status).sort()).toEqual([202, 429]);
+      expect(outbox).toHaveLength(2);
+      expect(verificationCode(1)).not.toBe(first);
+      expect((await verifyCode(first).expect(400)).body.error.code).toBe(
+        'INVALID_VERIFICATION_CODE',
+      );
+      clock.mockReturnValue(start + 120_000);
+      await resend().expect(202);
+      const max = await resend().expect(429);
+      expect(max.headers['retry-after']).toBe('1680');
+      expect(max.body.error.details.remainingRequests).toBe(0);
+      await login().expect(403);
+      await startVerification('fix.ture+again@gmail.com').expect(200);
+      expect(outbox).toHaveLength(3);
+      const code = verificationCode(2);
+      const results = await Promise.all([verifyCode(code), verifyCode(code)]);
+      expect(results.map(({ status }) => status).sort()).toEqual([200, 401]);
+      await verifyCode(code).expect(401);
+      expect(
+        outbox.filter(({ subject }) => subject === 'Welcome to FDFS.ONE'),
+      ).toHaveLength(1);
+      await login().expect(200);
+    });
+
+    it('recovers legacy and rejected sends, caps OTP guesses, and reopens a 30 minute window', async () => {
+      const start = Date.now();
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+      await send(app, 'register', registration).expect(202);
       await User.updateOne(
         {},
-        { $set: { 'verification.expiresAt': new Date(0) } },
+        {
+          $set: {
+            verification: {
+              hash: 'legacy-link-digest',
+              issuedAt: new Date(start - 60_000),
+              expiresAt: new Date(start + 86_400_000),
+            },
+          },
+        },
       );
-      await send(app, 'verify-email', {
-        token: expired,
-        password: registration.password,
-      }).expect(400);
-      await send(app, 'resend-verification', {
-        email: registration.email,
-      }).expect(202);
-      expect(outbox).toHaveLength(1);
-      await User.updateOne(
-        {},
-        { $set: { 'verification.issuedAt': new Date(0) } },
+      const pending = await login().expect(403);
+      expect(outbox).toHaveLength(0);
+      const cookie = cookieOf(pending);
+      const resend = () => verificationRequest(cookie, 'resend-verification');
+      const verifyCode = (code) =>
+        verificationRequest(cookie, 'verify-email', { code });
+      await verificationRequest('', 'verification-status').expect(401);
+      await resend().expect(202);
+      const first = verificationCode();
+      clock.mockReturnValue(start + 60_000);
+      failDelivery = true;
+      const rejected = await resend().expect(503);
+      expect(rejected.body.error.details).toMatchObject({
+        delivery: 'failed',
+        expiresAt: start + 600_000,
+        remainingRequests: 0,
+      });
+      const bad = first === '000000' ? '000001' : '000000';
+      for (let i = 0; i < 4; i++)
+        expect((await verifyCode(bad).expect(400)).body.error.code).toBe(
+          'INVALID_VERIFICATION_CODE',
+        );
+      expect((await verifyCode(bad).expect(400)).body.error.code).toBe(
+        'VERIFICATION_ATTEMPTS_EXHAUSTED',
       );
-      await send(app, 'resend-verification', {
-        email: registration.email,
-      }).expect(202);
-      const token = await delivered(1);
-      expect(token).not.toBe(expired);
-      await send(app, 'verify-email', {
-        token,
-        password: 'wrong phrase',
-      }).expect(400);
-      await send(app, 'verify-email', {
-        token,
-        password: registration.password,
-      }).expect(200);
-      await send(app, 'verify-email', {
-        token,
-        password: registration.password,
-      }).expect(400);
-      const { body } = await login().expect(200);
-      expect((await me(body.data.accessToken)).body.data.emailVerified).toBe(
-        true,
+      expect((await verifyCode(first).expect(400)).body.error.code).toBe(
+        'VERIFICATION_ATTEMPTS_EXHAUSTED',
       );
+      clock.mockReturnValue(start + 600_000);
+      expect((await verifyCode(first).expect(400)).body.error.code).toBe(
+        'VERIFICATION_CODE_EXPIRED',
+      );
+      clock.mockReturnValue(start + 1_739_000);
+      await resend().expect(429);
+      clock.mockReturnValue(start + 1_740_000);
+      failDelivery = false;
+      await resend().expect(202);
+      await verifyCode(verificationCode(1)).expect(200);
+      await login().expect(200);
     });
 
     it('expires password reset links and invalidates every prior session after reset', async () => {
@@ -291,7 +395,7 @@ describe.skipIf(!uri)(
         email: 'other@example.test',
       }).expect(202);
       expect(known.body).toEqual(unknown.body);
-      const expired = await delivered(1);
+      const expired = await delivered();
       await User.updateOne(
         {},
         {
@@ -308,7 +412,7 @@ describe.skipIf(!uri)(
       await send(app, 'forgot-password', { email: registration.email }).expect(
         202,
       );
-      const token = await delivered(2);
+      const token = await delivered(1);
       await send(app, 'reset-password', {
         token,
         password: newPassword,

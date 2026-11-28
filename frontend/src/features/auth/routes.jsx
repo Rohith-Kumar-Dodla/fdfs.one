@@ -4,7 +4,7 @@ export const accountRoutes = [
   ...[
     ['/login', 'LoginPage'],
     ['/register', 'RegisterPage'],
-    ['/verification-pending', 'VerificationPendingPage'],
+    ['/verification-pending', 'VerifyEmailPage'],
     ['/verify-email', 'VerifyEmailPage'],
     ['/forgot-password', 'ForgotPasswordPage'],
     ['/reset-password', 'ResetPasswordPage'],

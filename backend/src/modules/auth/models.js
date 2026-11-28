@@ -52,6 +52,26 @@ const userSchema = new Schema(
     welcomeAcknowledgedAt: Date,
     authVersion: { type: Number, default: 0, select: false },
     verification: { type: challenge, select: false },
+    emailVerification: {
+      type: new Schema(
+        {
+          requests: [Date],
+          requestId: String,
+          delivery: { type: String, enum: ['pending', 'accepted', 'failed'] },
+          code: new Schema(
+            {
+              id: String,
+              digest: String,
+              expiresAt: Date,
+              attempts: Number,
+            },
+            { _id: false },
+          ),
+        },
+        { _id: false },
+      ),
+      select: false,
+    },
     passwordReset: { type: challenge, select: false },
     bootstrapAdmin: { type: Boolean, select: false },
   },

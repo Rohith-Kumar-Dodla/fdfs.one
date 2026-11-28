@@ -3,6 +3,7 @@ import { queryClient } from '../../api/query-client.js';
 import { useAuthStore } from './state.js';
 
 const cookieConfig = { withCredentials: true, headers: { 'X-FDFS-CSRF': '1' } };
+const verificationConfig = { ...cookieConfig, timeout: 16000 };
 const state = () => useAuthStore.getState();
 let cookieQueue = Promise.resolve();
 let refreshFlight;
@@ -146,9 +147,21 @@ export async function protectedRequest(config, { cookieLock = false } = {}) {
 
 export const accounts = {
   register: (data) => apiClient.post('/auth/register', data),
-  resendVerification: (data) =>
-    apiClient.post('/auth/resend-verification', data),
-  verifyEmail: (data) => apiClient.post('/auth/verify-email', data),
+  beginVerification: (credentials) =>
+    apiClient.post(
+      '/auth/verification-session',
+      credentials,
+      verificationConfig,
+    ),
+  verificationStatus: ({ signal } = {}) =>
+    apiClient.post('/auth/verification-status', undefined, {
+      ...cookieConfig,
+      signal,
+    }),
+  resendVerification: () =>
+    apiClient.post('/auth/resend-verification', undefined, verificationConfig),
+  verifyEmail: (data) =>
+    apiClient.post('/auth/verify-email', data, verificationConfig),
   forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
   resetPassword: (data) => apiClient.post('/auth/reset-password', data),
   login: (data) =>

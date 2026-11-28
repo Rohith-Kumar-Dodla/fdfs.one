@@ -4,7 +4,6 @@ import { User } from './models.js';
 import { randomToken, tokenHash } from './tokens.js';
 import { canonicalGmail, isGmailAddress } from '../../../../shared/gmail.js';
 
-const verificationMs = 24 * 60 * 60 * 1000;
 const resetMs = 30 * 60 * 1000;
 const cooldownMs = 60 * 1000;
 
@@ -77,7 +76,6 @@ export function createAccountService(config, sendEmail) {
 
   return {
     async register({ email, fullName, password }) {
-      const token = randomToken();
       const passwordHash = await hashPassword(password);
       const mailbox = email.split('@')[0].split('').join('\\.?');
       if (
@@ -94,13 +92,11 @@ export function createAccountService(config, sendEmail) {
           email,
           fullName,
           passwordHash,
-          verification: challenge(token, verificationMs),
         });
       } catch (error) {
         if (error.code === 11000 && error.keyPattern?.email) return;
         throw error;
       }
-      void sendEmail('verification', email, token);
     },
 
     async validateCredentials({ email, password }) {
@@ -110,48 +106,7 @@ export function createAccountService(config, sendEmail) {
         (await (dummyHash ??= hashPassword(randomToken())));
       const valid = await bcrypt.compare(password, hash);
       if (!valid || user?.status !== 'active') throw invalidCredentials();
-      if (!user.emailVerifiedAt)
-        throw new AppError(
-          403,
-          'EMAIL_NOT_VERIFIED',
-          'Verify your email before signing in. You can request a new verification link.',
-        );
       return user;
-    },
-
-    async verifyEmail(token, password) {
-      const now = new Date();
-      const filter = {
-        status: 'active',
-        emailVerifiedAt: null,
-        'verification.hash': tokenHash(token),
-        'verification.expiresAt': { $gt: now },
-      };
-      const account = await User.findOne(filter).select('+passwordHash');
-      if (!account || !(await bcrypt.compare(password, account.passwordHash)))
-        throw invalidToken();
-      const { modifiedCount } = await User.updateOne(
-        {
-          ...filter,
-          _id: account._id,
-          passwordHash: account.passwordHash,
-          'verification.expiresAt': { $gt: new Date() },
-        },
-        { $set: { emailVerifiedAt: new Date() }, $unset: { verification: 1 } },
-      );
-      if (!modifiedCount) throw invalidToken();
-      if (!account.roles.includes('super_admin'))
-        void sendEmail('welcome', account.email);
-    },
-
-    resendVerification(email) {
-      return sendChallenge(
-        email,
-        'verification',
-        'verification',
-        verificationMs,
-        { emailVerifiedAt: null },
-      );
     },
 
     forgotPassword(email) {

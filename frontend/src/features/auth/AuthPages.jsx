@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { MailCheck } from 'lucide-react';
+import { Button } from '../../components/ui/Button.jsx';
 import { useSiteSettings } from '../site/public.jsx';
-import { accountKeys, accounts } from './api.js';
+import { accounts } from './api.js';
 import { useAuthStore } from './state.js';
 import {
   AuthForm,
@@ -40,12 +41,23 @@ export function LoginPage() {
           : 'Sign in to manage your FDFS.ONE account.'
       }
     >
+      {state?.verified && (
+        <p role="status" className="text-success">
+          Your Gmail is verified. You can sign in now.
+        </p>
+      )}
       <AuthForm
         fields={[{ ...emailField, autoComplete: 'username' }, passwordField]}
         schema={forms.login}
         action="Sign in"
         submit={async (values) => {
-          await accounts.login(values);
+          try {
+            await accounts.login(values);
+          } catch (error) {
+            if (error.code !== 'EMAIL_NOT_VERIFIED') throw error;
+            navigate('/verify-email', { replace: true });
+            return;
+          }
           const { data: account } = await accounts.me();
           if (account.emailVerified && !account.roles.includes('super_admin'))
             useAuthStore.setState({ welcomePending: true });
@@ -57,9 +69,6 @@ export function LoginPage() {
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         <Link to="/forgot-password" className={linkClass}>
           Forgot password?
-        </Link>
-        <Link to="/verification-pending" className={linkClass}>
-          Resend verification email
         </Link>
         {!administrator &&
           settings.registrationOpen &&
@@ -99,30 +108,20 @@ export function RegisterPage() {
         action="Create account"
         submit={async (values) => {
           await accounts.register(values);
-          navigate('/verification-pending', { replace: true });
+          try {
+            await accounts.beginVerification({
+              email: values.email,
+              password: values.password,
+            });
+            navigate('/verify-email', { replace: true });
+          } catch (error) {
+            if (error.status !== 401) throw error;
+            navigate('/login', { replace: true });
+          }
         }}
       />
       <Link to="/login" className={linkClass}>
         Already have an account? Sign in
-      </Link>
-    </AuthPage>
-  );
-}
-
-export function VerificationPendingPage() {
-  return (
-    <AuthPage
-      title="Check your email"
-      description="Check your inbox for a verification link. If no email arrives, you can request another link."
-    >
-      <AuthForm
-        fields={[emailField]}
-        schema={forms.email}
-        action="Resend verification email"
-        submit={accounts.resendVerification}
-      />
-      <Link to="/login" className={linkClass}>
-        Sign in
       </Link>
     </AuthPage>
   );
@@ -142,43 +141,186 @@ function useEmailToken() {
 }
 
 export function VerifyEmailPage() {
-  const token = useEmailToken();
-  const client = useQueryClient();
-  const [verified, setVerified] = useState(false);
+  const navigate = useNavigate();
+  const [snapshot, setSnapshot] = useState(null);
+  const [now, setNow] = useState(Date.now);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
+
+  function update(data) {
+    const receivedAt = Date.now();
+    setSnapshot({ data, receivedAt });
+    setNow(receivedAt);
+  }
+
+  const data = snapshot?.data;
+  const serverNow = data
+    ? data.serverTime + Math.max(0, now - snapshot.receivedAt)
+    : null;
+  const waiting =
+    Math.max(0, Math.ceil((data?.retryAt - serverNow) / 1000)) || 0;
+  const expires =
+    Math.max(0, Math.ceil((data?.expiresAt - serverNow) / 1000)) || 0;
+  const refreshState =
+    !data || data.delivery === 'pending' || (Boolean(data.retryAt) && !waiting);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!refreshState) return;
+    const controller = new AbortController();
+    let timer;
+    async function load() {
+      try {
+        const result = await accounts.verificationStatus({
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        update(result.data);
+        if (result.data.delivery === 'pending')
+          timer = window.setTimeout(load, 3000);
+      } catch (failure) {
+        if (!controller.signal.aborted) {
+          if (failure.status === 401) setSnapshot(null);
+          setError(failure.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [refreshState]);
+
+  async function resend() {
+    setError(null);
+    setSending(true);
+    try {
+      const result = await accounts.resendVerification();
+      update(result.data);
+    } catch (failure) {
+      if (failure.details?.serverTime) update(failure.details);
+      if (failure.status === 401) setSnapshot(null);
+      if (
+        failure.code !== 'VERIFICATION_SEND_LIMIT' &&
+        failure.code !== 'VERIFICATION_DELIVERY_FAILED'
+      )
+        setError(failure.message);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
-    <AuthPage title="Verify your email">
-      {token && !verified && (
-        <AuthForm
-          fields={[passwordField]}
-          schema={forms.verify}
-          action="Verify email"
-          submit={async ({ password }) => {
-            await accounts.verifyEmail({ token, password });
-            await client.invalidateQueries({ queryKey: accountKeys.all });
-            setVerified(true);
-          }}
-        />
-      )}
-      {!token && (
+    <AuthPage title="Verify your Gmail">
+      <div className="flex items-center gap-3 font-semibold text-accent">
+        <MailCheck aria-hidden="true" className="size-6" />
+        FDFS.ONE
+      </div>
+      {loading && <p role="status">Loading verification status…</p>}
+      {error && (
         <p role="alert" className="text-danger-text">
-          Open the verification link from your email or request a new one.
+          {error}
         </p>
       )}
-      {verified && (
-        <p role="status" className="text-success">
-          Your email is verified.
-        </p>
+      {data && (
+        <>
+          <div className="grid gap-2 text-sm text-muted">
+            <p className="break-all">Gmail address {data.maskedEmail}</p>
+            {data.delivery === 'accepted' && (
+              <p role="status">
+                A six-digit verification code was sent. Check your Gmail inbox.
+              </p>
+            )}
+            {data.delivery === 'pending' && (
+              <p role="status">Sending your code…</p>
+            )}
+            {data.delivery === 'failed' && (
+              <p role="alert" className="text-danger-text">
+                We could not confirm that the verification email was sent.
+                {expires > 0 && ' You can still use your previous code.'}
+              </p>
+            )}
+            {data.delivery === 'none' && (
+              <p>Request a verification code to continue.</p>
+            )}
+            <p>
+              Codes expire after 10 minutes. Check Spam and Promotions if the
+              email is missing.
+            </p>
+            {data.expiresAt && expires <= 0 && (
+              <p>Your code has expired. Request a new one.</p>
+            )}
+            {data.attemptsExhausted && (
+              <p>Too many incorrect codes. Request a new one.</p>
+            )}
+          </div>
+          <AuthForm
+            fields={[
+              {
+                name: 'code',
+                label: 'Six-digit verification code',
+                inputMode: 'numeric',
+                autoComplete: 'one-time-code',
+                maxLength: 6,
+              },
+            ]}
+            schema={forms.verify}
+            action="Verify Email"
+            disabled={!expires || data.attemptsExhausted}
+            submit={async (values) => {
+              try {
+                await accounts.verifyEmail(values);
+                navigate('/login', {
+                  replace: true,
+                  state: { verified: true },
+                });
+              } catch (failure) {
+                if (failure.details?.serverTime) update(failure.details);
+                throw failure;
+              }
+            }}
+          />
+          <div className="grid gap-2 text-sm text-muted">
+            {!data.remainingRequests && waiting > 0 && (
+              <p>
+                You have reached the maximum number of verification email
+                requests. Please try again after the displayed waiting period.
+              </p>
+            )}
+            {waiting > 0 && (
+              <p>
+                Try again in {Math.floor(waiting / 60)}m{' '}
+                {String(waiting % 60).padStart(2, '0')}s.
+              </p>
+            )}
+            <p>
+              {data.remainingRequests} verification email{' '}
+              {data.remainingRequests === 1 ? 'request' : 'requests'} remaining
+              in this window.
+            </p>
+            <Button
+              variant="outline"
+              className="w-fit"
+              disabled={Boolean(waiting) || !data.remainingRequests}
+              loading={sending}
+              onClick={resend}
+            >
+              Resend Verification Code
+            </Button>
+          </div>
+        </>
       )}
-      {verified ? (
-        <Link to="/account" className={linkClass}>
-          Go to your account
-        </Link>
-      ) : (
-        <Link to="/verification-pending" className={linkClass}>
-          Request a new link
-        </Link>
-      )}
+      <Link to="/login" className={linkClass}>
+        Back to Sign In
+      </Link>
     </AuthPage>
   );
 }

@@ -195,17 +195,11 @@ describe('authentication security', () => {
       isDatabaseConnected: () => false,
       authOptions: { available: () => true },
     });
-    for (const action of [
-      'register',
-      'resend-verification',
-      'forgot-password',
-    ]) {
-      const response = await request(app)
-        .post('/api/v1/auth/' + action)
-        .send({ email: 'reader@example.test' })
-        .expect(503);
-      expect(response.body.error.code).toBe('EMAIL_UNAVAILABLE');
-    }
+    const response = await request(app)
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'reader@example.test' })
+      .expect(503);
+    expect(response.body.error.code).toBe('EMAIL_UNAVAILABLE');
     await request(app).get('/api/v1/health').expect(200);
 
     const warn = vi.fn();
@@ -215,15 +209,23 @@ describe('authentication security', () => {
       .mockRejectedValueOnce(new Error('SMTP connection timed out'))
       .mockResolvedValueOnce({ accepted: ['reader@example.test'] });
     const send = createEmailService(authConfig, { warn }, { sendMail });
-    await expect(send('verification', 'reader@example.test')).resolves.toBe(
-      false,
-    );
-    await expect(send('verification', 'reader@example.test')).resolves.toBe(
-      false,
-    );
-    await expect(send('verification', 'reader@example.test')).resolves.toBe(
-      true,
-    );
+    await expect(
+      send('verification', 'reader@example.test', '012345'),
+    ).resolves.toBe(false);
+    await expect(
+      send('verification', 'reader@example.test', '012345'),
+    ).resolves.toBe(false);
+    await expect(
+      send('verification', 'reader@example.test', '012345'),
+    ).resolves.toBe(true);
     expect(warn).toHaveBeenCalledTimes(2);
+    expect(sendMail.mock.calls[0][0]).toMatchObject({
+      subject: 'Verify your Gmail — FDFS.ONE',
+      text: expect.stringContaining('\n012345\n'),
+      html: expect.stringContaining('012345'),
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(
+      /012345|reader@example.test|SMTP connection/,
+    );
   });
 });

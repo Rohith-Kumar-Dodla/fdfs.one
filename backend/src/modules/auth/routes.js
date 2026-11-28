@@ -15,6 +15,7 @@ import { webSessionCookies } from './cookies.js';
 import { deleteAccount } from './delete-account.js';
 import { schemas } from './schemas.js';
 import { createSessionService } from './sessions.js';
+import { createVerificationService } from './verification.js';
 
 function authLimiter(limit) {
   return rateLimit({
@@ -53,10 +54,10 @@ export function createAuthRoutes(
   const auth = Router();
   const users = Router();
   const cookie = webSessionCookies(config);
-  const accounts = createAccountService(
-    config,
-    createEmailService(config, logger, mailTransport),
-  );
+  const verificationCookie = webSessionCookies(config, 'verification');
+  const sendEmail = createEmailService(config, logger, mailTransport);
+  const accounts = createAccountService(config, sendEmail);
+  const verification = createVerificationService(config, sendEmail);
   const sessions = createSessionService(config);
   const media = createMediaService(mediaProvider, logger);
   const protectedRoute = [
@@ -92,11 +93,17 @@ export function createAuthRoutes(
   auth.post(
     '/register',
     emailLimiter,
-    emailAvailable,
     validate(schemas.register),
     async (req, res) => {
       await accounts.register(body(res));
-      return emailResponse(res);
+      return sendSuccess(
+        res,
+        {},
+        {
+          status: 202,
+          message: 'Registration request received.',
+        },
+      );
     },
   );
 
@@ -107,10 +114,20 @@ export function createAuthRoutes(
     validate(schemas.login),
     async (req, res) => {
       const user = await accounts.validateCredentials(body(res));
+      if (!user.emailVerifiedAt) {
+        if (!user.roles.includes('super_admin'))
+          verificationCookie.set(res, verification.ticket(user));
+        return sendError(res, {
+          status: 403,
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Verify your Gmail before signing in.',
+        });
+      }
       // Replace a browser's previous session only after the supplied password succeeds.
       await sessions.close(cookie.read(req));
       const credentials = await sessions.open(user, req.get('User-Agent'));
       cookie.set(res, credentials);
+      verificationCookie.clear(res);
       return sendSuccess(res, access(credentials));
     },
   );
@@ -140,6 +157,7 @@ export function createAuthRoutes(
     async (req, res) => {
       await sessions.close(cookie.read(req));
       cookie.clear(res);
+      verificationCookie.clear(res);
       return sendSuccess(res, {}, { message: 'Signed out.' });
     },
   );
@@ -223,24 +241,85 @@ export function createAuthRoutes(
   );
 
   auth.post(
+    '/verification-session',
+    verificationCookie.protect,
+    passwordLimiter,
+    validate(schemas.login),
+    async (req, res) => {
+      const user = await accounts.validateCredentials(body(res));
+      const filter = verification.identity(user);
+      verificationCookie.set(res, verification.ticket(user));
+      const { state } = await verification.issue(
+        filter,
+        res.get('X-Request-Id'),
+        true,
+      );
+      return sendSuccess(res, state);
+    },
+  );
+
+  auth.post(
+    '/verification-status',
+    verificationCookie.protect,
+    validate(schemas.empty),
+    async (req, res) => {
+      const filter = verification.fromTicket(verificationCookie.read(req));
+      return sendSuccess(res, await verification.status(filter));
+    },
+  );
+
+  auth.post(
     '/verify-email',
+    verificationCookie.protect,
     passwordLimiter,
     validate(schemas.verify),
     async (req, res) => {
-      const { token, password } = body(res);
-      await accounts.verifyEmail(token, password);
+      const filter = verification.fromTicket(verificationCookie.read(req));
+      await verification.verify(
+        filter,
+        body(res).code,
+        res.get('X-Request-Id'),
+      );
+      verificationCookie.clear(res);
       return sendSuccess(res, {}, { message: 'Email verified.' });
     },
   );
 
   auth.post(
     '/resend-verification',
+    verificationCookie.protect,
     emailLimiter,
-    emailAvailable,
-    validate(schemas.email),
+    validate(schemas.empty),
     async (req, res) => {
-      await accounts.resendVerification(body(res).email);
-      return emailResponse(res);
+      const filter = verification.fromTicket(verificationCookie.read(req));
+      const { state, limited, failed } = await verification.issue(
+        filter,
+        res.get('X-Request-Id'),
+      );
+      if (limited) {
+        res.set(
+          'Retry-After',
+          String(
+            Math.max(1, Math.ceil((state.retryAt - state.serverTime) / 1000)),
+          ),
+        );
+        return sendError(res, {
+          status: 429,
+          code: 'VERIFICATION_SEND_LIMIT',
+          message: state.remainingRequests
+            ? 'Please wait before requesting another code.'
+            : 'You have reached the maximum number of verification email requests. Please try again after the displayed waiting period.',
+          details: state,
+        });
+      }
+      if (failed)
+        return sendError(res, {
+          status: 503,
+          code: 'VERIFICATION_DELIVERY_FAILED',
+          message: 'We could not confirm that the verification email was sent.',
+          details: state,
+        });
+      return sendSuccess(res, state, { status: 202 });
     },
   );
 

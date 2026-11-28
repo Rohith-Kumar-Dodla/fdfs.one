@@ -18,10 +18,16 @@ it('uses Brevo HTTPS and retries a short throttle once with the same idempotency
     .mockResolvedValueOnce(
       new Response(null, { status: 429, headers: { 'retry-after': '0' } }),
     )
-    .mockResolvedValueOnce(new Response(null, { status: 201 }));
+    .mockResolvedValueOnce(
+      Response.json({ messageId: '<fixture@provider.test>' }, { status: 201 }),
+    );
   await expect(
     createMailTransport({ brevo: provider }, fetcher).sendMail(message),
-  ).resolves.toEqual({ accepted: [to] });
+  ).resolves.toEqual({
+    accepted: [to],
+    providerStatus: 201,
+    providerMessageFingerprint: expect.stringMatching(/^[a-f0-9]{16}$/),
+  });
   expect(fetcher).toHaveBeenCalledTimes(2);
   const [[url, request], [, retry]] = fetcher.mock.calls;
   expect(url).toBe('https://api.brevo.com/v3/smtp/email');
@@ -52,11 +58,18 @@ it('keeps transport failures sanitized and backs off after a quota or rate respo
   expect(throttled).toHaveBeenCalledTimes(1);
   const rejected = vi
     .fn()
-    .mockResolvedValue(new Response('private response', { status: 401 }));
+    .mockResolvedValue(
+      Response.json(
+        { code: 'unauthorized', message: 'private response' },
+        { status: 401 },
+      ),
+    );
   await expect(
     createMailTransport({ brevo: provider }, rejected).sendMail(message),
   ).rejects.toMatchObject({
     responseCode: 550,
+    providerCode: 'unauthorized',
+    providerStatus: 401,
     message: 'Email provider rejected the request',
   });
   const timedOut = vi

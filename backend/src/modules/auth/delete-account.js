@@ -207,6 +207,7 @@ export function deleteAccount(account, password, { accessSecret }, requestId) {
             bio: 1,
             preferences: 1,
             verification: 1,
+            emailVerification: 1,
             passwordReset: 1,
             welcomePresentedAt: 1,
             welcomeAcknowledgedAt: 1,

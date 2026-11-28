@@ -31,7 +31,9 @@ export const forms = {
     password,
   }),
   email: z.object({ email }),
-  verify: z.object({ password: currentPassword }),
+  verify: z.object({
+    code: z.string().regex(/^[0-9]{6}$/, 'Enter the six-digit code.'),
+  }),
   reset: z.object({ password }),
   change: z.object({ currentPassword, password }),
   removeAccount: z.object({

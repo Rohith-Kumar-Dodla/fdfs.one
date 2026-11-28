@@ -30,6 +30,15 @@ const user = {
   bio: '',
   preferences: { emailUpdates: false },
 };
+const verificationStatus = (overrides = {}) => ({
+  maskedEmail: 'r•••@gmail.com',
+  serverTime: Date.now(),
+  retryAt: Date.now() + 60000,
+  expiresAt: Date.now() + 600000,
+  remainingRequests: 2,
+  delivery: 'accepted',
+  ...overrides,
+});
 
 function respond(config, data, status = 200) {
   const payload =
@@ -149,9 +158,9 @@ describe('frontend authentication', () => {
     ).toMatchObject({ withCredentials: true });
   });
 
-  it('registers and navigates to the generic verification state', async () => {
+  it('registers, proves ownership and displays provider acceptance', async () => {
     const events = userEvent.setup();
-    const request = vi.fn((config) => respond(config, {}, 202));
+    const request = vi.fn((config) => respond(config, verificationStatus()));
     apiClient.defaults.adapter = request;
     renderRoute('/register');
     await screen.findByRole('heading', { name: 'Create an account' });
@@ -174,10 +183,18 @@ describe('frontend authentication', () => {
     );
     await events.click(screen.getByRole('button', { name: 'Create account' }));
     expect(
-      await screen.findByRole('heading', { name: 'Check your email' }),
+      await screen.findByRole('heading', { name: 'Verify your Gmail' }),
     ).toBeVisible();
     expect(request.mock.calls[0][0].url).toBe('/auth/register');
     expect(request.mock.calls[0][0].withCredentials).toBeUndefined();
+    expect(request.mock.calls[1][0]).toMatchObject({
+      url: '/auth/verification-session',
+      withCredentials: true,
+    });
+    expect(await screen.findByText(/code was sent/)).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Resend Verification Code' }),
+    ).toBeDisabled();
   });
 
   it('restores from an HttpOnly cookie and clears identity and account cache after logout', async () => {
@@ -220,42 +237,80 @@ describe('frontend authentication', () => {
     expect(queryClient.getQueryData(key)).toBeUndefined();
   });
 
-  it.each([
-    [
-      '/verify-email',
-      'Verify your email',
-      'Verify email',
-      'Password',
-      '/auth/verify-email',
-      'Your email is verified.',
-    ],
-    [
-      '/reset-password',
-      'Reset password',
-      'Reset password',
-      'New password',
-      '/auth/reset-password',
-      'Password reset. Sign in with your new password.',
-    ],
-  ])(
-    'submits the one-time email link form at %s',
-    async (path, heading, action, label, endpoint, feedback) => {
-      const token = 'a'.repeat(43);
-      const events = userEvent.setup();
-      const request = vi.fn((config) => respond(config, {}));
-      apiClient.defaults.adapter = request;
-      renderRoute(`${path}#token=${token}`);
-      await screen.findByRole('heading', { name: heading });
-      await events.type(screen.getByLabelText(label), password);
-      await events.click(screen.getByRole('button', { name: action }));
-      expect(await screen.findByText(feedback)).toBeVisible();
-      expect(request.mock.calls[0][0].url).toBe(endpoint);
-      expect(JSON.parse(request.mock.calls[0][0].data)).toEqual({
-        token,
-        password,
-      });
-    },
-  );
+  it('pastes a leading-zero code and goes to login after verification', async () => {
+    const events = userEvent.setup();
+    const request = vi.fn((config) => respond(config, verificationStatus()));
+    apiClient.defaults.adapter = request;
+    renderRoute('/verify-email');
+    const field = await screen.findByLabelText('Six-digit verification code');
+    expect(field).toHaveAttribute('autocomplete', 'one-time-code');
+    expect(field).toHaveAttribute('inputmode', 'numeric');
+    await events.click(field);
+    await events.paste('012345');
+    await events.click(screen.getByRole('button', { name: 'Verify Email' }));
+    expect(
+      await screen.findByText('Your Gmail is verified. You can sign in now.'),
+    ).toBeVisible();
+    expect(request.mock.calls[1][0]).toMatchObject({
+      url: '/auth/verify-email',
+      data: '{"code":"012345"}',
+    });
+  });
+
+  it('resumes an unverified login without automatically sending and displays delivery failure', async () => {
+    const events = userEvent.setup();
+    const request = vi.fn((config) =>
+      config.url === '/auth/login'
+        ? respond(config, { code: 'EMAIL_NOT_VERIFIED' }, 403)
+        : respond(
+            config,
+            verificationStatus({ delivery: 'failed', expiresAt: null }),
+          ),
+    );
+    apiClient.defaults.adapter = request;
+    renderRoute('/login');
+    await screen.findByRole('heading', { name: 'Sign in' });
+    await events.type(
+      screen.getByLabelText('Email address'),
+      'reader@gmail.com',
+    );
+    await events.type(screen.getByLabelText('Password'), password);
+    await events.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(
+      await screen.findByText(
+        'We could not confirm that the verification email was sent.',
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/^A six-digit verification code was sent/),
+    ).not.toBeInTheDocument();
+    expect(request.mock.calls.map(([config]) => config.url)).toEqual([
+      '/auth/login',
+      '/auth/verification-status',
+    ]);
+    expect(useAuthStore.getState().accessToken).toBeNull();
+  });
+
+  it('submits the one-time password reset link', async () => {
+    const token = 'a'.repeat(43);
+    const events = userEvent.setup();
+    const request = vi.fn((config) => respond(config, {}));
+    apiClient.defaults.adapter = request;
+    renderRoute(`/reset-password#token=${token}`);
+    await screen.findByRole('heading', { name: 'Reset password' });
+    await events.type(screen.getByLabelText('New password'), password);
+    await events.click(screen.getByRole('button', { name: 'Reset password' }));
+    expect(
+      await screen.findByText(
+        'Password reset. Sign in with your new password.',
+      ),
+    ).toBeVisible();
+    expect(request.mock.calls[0][0].url).toBe('/auth/reset-password');
+    expect(JSON.parse(request.mock.calls[0][0].data)).toEqual({
+      token,
+      password,
+    });
+  });
 
   it('shares one refresh for concurrent unauthorized responses and retries each request once', async () => {
     useAuthStore.setState({ ...session, status: 'authenticated' });
@@ -372,7 +427,7 @@ describe('administration routes', () => {
   it('requires a verified administrator', async () => {
     authenticate(['viewer', 'admin'], false);
     const router = renderRoute('/admin');
-    await screen.findByRole('heading', { name: 'Check your email' });
+    await screen.findByRole('heading', { name: 'Verify your Gmail' });
     expect(router.state.location.pathname).toBe('/verification-pending');
   });
 

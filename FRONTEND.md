@@ -43,7 +43,7 @@ Account settings explain what deletion removes and retains. The confirmation req
 
 Protected administrator URLs use the shared sign-in form with administration-specific guidance. Authentication returns the account to the validated internal destination. Staff scopes are checked after sign-in.
 
-Guests can open `/login`, `/register`, `/verification-pending`, `/verify-email`, `/forgot-password` and `/reset-password`. Email links carry their one-time token in the fragment, which the form removes from the visible address after reading. Account-only pages are `/account` and `/account/settings` for profile changes, preferences, password changes and session revocation.
+Guests can open `/login`, `/register`, `/verify-email`, `/forgot-password` and `/reset-password`. The signup flow and valid unverified login open the verification card. The verification-only cookie restores masked account details and cooldown after reload. Successful code entry returns to sign-in. The old `/verification-pending` URL opens the same card. Password reset links still hold the one-time token in the URL fragment and remove it after reading. Account-only pages are `/account` and `/account/settings` for profile changes, preferences, password changes and session revocation.
 
 Use the account guard for protected pages and supply verification or role requirements when the corresponding features are added. Backend authorization remains authoritative. The existing public header shows guest links or an account menu based on the restored session.
 
